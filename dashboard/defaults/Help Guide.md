@@ -393,6 +393,7 @@ Your files are organised like this:
 - `Images`: pictures used in your notes and this guide.
 - `Labels`: the settings files behind the Options page.
 - `Networking`: `Leads.md` and `Events.md`.
+- `Catalogs`: a CSV file per catalog, such as `RLS_Record_Label_Studios.csv`. Open **Catalogs** in the left menu to see them as tables. The plus button on **All catalogs** makes a new one, and the plus button on a catalog adds records one after another until you press Escape.
 - `Projects`, and any other directory in `PROJECTS`: a folder per project.
 - `Time_Management`: `Review.md`, `Plan.md` and `Commitments.md`.
 

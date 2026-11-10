@@ -729,6 +729,9 @@ function ownerChain(owners, id) {
   return null;
 }
 
+// Collapses runs of spaces, and trims the ends, as for a name typed into a form.
+const cleanName = (text) => String(text).trim().replace(/\s+/g, ' ');
+
 const csvField = (v) => (/[",\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v);
 
 // Returns Owners.csv text with one more row, following whatever column order the file has.
@@ -946,6 +949,8 @@ module.exports = {
   editLine,
   insertLine,
   parseCsv,
+  csvField,
+  cleanName,
   parseStatuses,
   parseOwners,
   parseLeaders,

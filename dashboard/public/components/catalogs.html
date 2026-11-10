@@ -1,0 +1,55 @@
+<!-- The Catalogs list and a catalog's table. The table reuses the label-head, label-row,
+     label-cell and label-actions templates from the Options page. -->
+
+<template name="catalog-heading">
+  <div class="section-row">
+    <h2 class="section-title">{{title}}</h2>
+    <span class="ms-count">{{{count}}}</span>
+    <button type="button" class="add-button" {{{action}}} title="{{label}}" aria-label="{{label}}"></button>
+  </div>
+</template>
+
+<template name="catalog-list"><section class="card"><ul class="project-list">{{{items}}}</ul></section></template>
+
+<template name="catalog-list-row">
+  <li>
+    <a class="project-link catalog-link" href="{{href}}">
+      <span class="catalog-tag">{{tag}}</span>
+      <span class="title">{{name}}</span>
+      <span class="catalog-count">{{count}}</span>
+      <span class="chev" aria-hidden="true">›</span>
+    </a>
+  </li>
+</template>
+
+<template name="catalog-tag-field">
+  <label>Tag<input name="tag" class="catalog-tag-input" maxlength="3" autocomplete="off" spellcheck="false" required></label>
+  <p class="field-note">2 or 3 letters. Each record's catalog number starts with it, such as RLS001.</p>
+</template>
+
+<template name="catalog-table">
+  <section class="card label-card catalog-card">
+    <div class="catalog-scroll">
+      <table class="label-table catalog-table">
+        <thead><tr>{{{head}}}<th><span class="visually-hidden">Actions</span></th></tr></thead>
+        <tbody>{{{rows}}}</tbody>
+      </table>
+    </div>
+  </section>
+</template>
+
+<template name="catalog-number"><strong>{{number}}</strong></template>
+
+<!-- A blank record being typed in after pressing the plus button. -->
+<template name="catalog-new-row"><tr class="catalog-new-row">{{{cells}}}<td></td></tr></template>
+
+<template name="catalog-new-cell"><td><input class="inline-field" data-new="{{{index}}}" placeholder="{{placeholder}}" aria-label="{{label}}" autocomplete="off"></td></template>
+
+<template name="catalog-new-hint">
+  <tr class="catalog-new-hint">
+    <td colspan="{{{span}}}">
+      <p class="form-error" role="alert" hidden></p>
+      <span class="quick-add-hint">Press Esc to abort</span>
+    </td>
+  </tr>
+</template>

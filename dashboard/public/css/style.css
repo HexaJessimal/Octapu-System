@@ -2198,6 +2198,64 @@ a.home-stat:hover {
   width: 1%;
   text-align: right;
 }
+
+/* ---------- catalogs ---------- */
+
+.catalog-link {
+  grid-template-columns: auto 1fr auto auto;
+}
+.catalog-tag {
+  min-width: 3.4em;
+  padding: 2px 8px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  text-align: center;
+}
+.catalog-count {
+  font-size: 0.82rem;
+  color: var(--text-soft);
+}
+.catalog-tag-input {
+  text-transform: uppercase;
+  font-family: var(--mono);
+}
+.field-note {
+  margin: -6px 0 0;
+  font-size: 0.78rem;
+  color: var(--text-soft);
+}
+/* A wide catalog scrolls sideways inside its card rather than stretching the page. */
+.catalog-scroll {
+  overflow-x: auto;
+}
+.catalog-table td {
+  vertical-align: middle;
+}
+.catalog-table td[data-cell='0'] {
+  white-space: nowrap;
+}
+.catalog-table .md-image {
+  max-width: 64px;
+  max-height: 64px;
+  margin: 0;
+  border-radius: var(--radius-sm);
+}
+.catalog-new-row td {
+  padding: 6px 6px;
+}
+.catalog-new-row .inline-field {
+  min-width: 90px;
+}
+.catalog-new-hint td {
+  padding-top: 0;
+  border-top: 0;
+}
+.catalog-new-hint .quick-add-hint {
+  margin: 0;
+}
 .row-remove {
   position: relative;
   appearance: none;

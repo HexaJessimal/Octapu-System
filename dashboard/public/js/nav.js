@@ -111,6 +111,14 @@
         { href: 'commitments.html', label: 'Commitments' },
       ], '') +
       (data.directories || []).map(directoryGroup).join('') +
+      group(
+        'catalogs',
+        'Catalogs',
+        [{ href: 'catalogs.html', label: 'All catalogs', className: 'nav-all' }].concat(
+          (data.catalogs || []).map((c) => ({ href: 'catalog.html?file=' + encodeURIComponent(c.file), label: c.name }))
+        ),
+        ''
+      ) +
       group('networking', 'Networking', [
         { href: 'networking.html?page=leads', label: 'Leads' },
         { href: 'networking.html?page=events', label: 'Events' },
