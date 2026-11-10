@@ -1,0 +1,125 @@
+<!-- The parts of a project, entity or networking page. -->
+
+<template name="edit-attrs"> data-edit="{{{kind}}}" data-line="{{{line}}}" data-from="{{value}}"</template>
+
+<template name="add-button"><button type="button" class="add-button" data-add="{{{action}}}" title="{{label}}" aria-label="{{label}}"{{#if list}} data-list="{{list}}"{{/if}}{{#if hasLine}} data-line="{{{line}}}" data-title="{{title}}"{{/if}}></button></template>
+
+<template name="scratch-block">
+  <section class="card scratch-block">
+    {{{title}}}
+    <div class="doc scratch-body"{{{attrs}}}>{{{body}}}</div>
+  </section>
+</template>
+
+<template name="scratch-title"><h2 class="scratch-title"{{{attrs}}}>{{{title}}}</h2></template>
+
+<template name="labelled-control"><strong>{{label}}</strong>: {{{control}}}</template>
+
+<template name="file-tab"><a class="org-tab" href="?{{query}}"{{#if current}} aria-current="page"{{/if}}>{{file}}</a></template>
+
+<template name="file-tabs"><nav class="org-tabs" aria-label="Files in this folder">{{{tabs}}}{{{add}}}</nav></template>
+
+<template name="raw-document">
+  <article class="card doc-card"><div class="doc" title="Double-click to edit"{{{attrs}}}>{{{body}}}</div></article>
+</template>
+
+<template name="doc-article"><article class="card doc-card"><div class="doc">{{{body}}}</div></article></template>
+
+<template name="task-list">
+  <div class="tasks-section" id="task-list-{{{index}}}">
+    <div class="section-row">
+      <h2 class="section-title">{{name}}</h2>
+      {{{add}}}
+    </div>
+    {{{body}}}
+  </div>
+</template>
+
+<template name="progress-meter">
+  <div class="overall">
+    <span>{{{percent}}}% of tasks done</span>
+    <progress class="meter" value="{{{percent}}}" max="100"></progress>
+    <span>{{{done}}} / {{{total}}}</span>
+  </div>
+</template>
+
+<template name="doc-title"><span{{{attrs}}}>{{{text}}}</span></template>
+
+<template name="summary-card">
+  <section class="card summary">
+    <h2>{{{title}}}</h2>
+    <dl class="facts">{{{facts}}}</dl>
+    {{{footer}}}
+  </section>
+</template>
+
+<template name="fact"><div{{#if className}} class="{{{className}}}"{{/if}}><dt>{{label}}</dt><dd>{{{value}}}</dd></div></template>
+
+<template name="fact-timeframe">
+  <div class="fact-wide">
+    <dt class="fact-heading">Active Timeframe{{{control}}}</dt>
+    <dd>{{{body}}}</dd>
+  </div>
+</template>
+
+<template name="timeframe-list"><ul class="timeframe-list">{{{rows}}}</ul></template>
+
+<template name="timeframe-row"><li><span>{{dates}}</span>{{{control}}}</li></template>
+
+<template name="progress-nav"><nav class="card progress" aria-label="Milestone progress">{{{segments}}}</nav></template>
+
+<template name="progress-nav-segment">
+  <a class="segment state-{{{state}}}" href="#ms-{{{index}}}" title="{{title}}">
+    <span class="seg-title">{{name}}</span>
+    <span class="seg-count">{{{count}}}</span>
+  </a>
+</template>
+
+<template name="milestone-stack"><div class="milestones milestones-spaced">{{{cards}}}</div></template>
+
+<template name="milestone-card">
+  <section class="card milestone state-{{{state}}}{{#if collapsed}} is-collapsed{{/if}}" id="ms-{{{index}}}" data-index="{{{index}}}" data-title="{{title}}">
+    <header>
+      <span class="milestone-handle" data-drag draggable="true" tabindex="0" role="button" title="Drag to reorder" aria-label="Reorder this milestone with the up and down arrow keys"></span>
+      <button type="button" class="collapse-button" data-collapse aria-expanded="{{{expanded}}}" aria-label="Show or hide this milestone"></button>
+      <h3{{{attrs}}}>{{{heading}}}</h3>
+      <div class="ms-actions">
+        <span class="ms-count">{{counts}}</span>
+        {{{add}}}
+      </div>
+    </header>
+    <div class="ms-body">{{{body}}}</div>
+  </section>
+</template>
+
+<template name="doc-body"><div class="doc">{{{body}}}</div></template>
+
+<template name="back-link"><span aria-hidden="true">‹</span> {{label}}</template>
+
+<template name="org-tab"><a class="org-tab" href="{{href}}"{{#if current}} aria-current="page"{{/if}}>{{name}}</a></template>
+
+<template name="org-tab-add"><button type="button" class="add-button org-tab-add" data-new-entity title="New tentacle" aria-label="New tentacle"></button></template>
+
+<template name="entry-field">
+  <div class="entry-field{{#if intro}} entry-intro{{/if}}">
+    {{#if intro}}{{else}}<dt>{{label}}</dt>{{/if}}
+    <dd class="doc"{{{attrs}}}{{#if missing}} data-label="{{label}}"{{/if}}>{{{body}}}</dd>
+  </div>
+</template>
+
+<template name="entry-card">
+  <section class="card scratch-block{{#if target}} is-target{{/if}}" data-entry="{{{index}}}">
+    <header class="entry-head">
+      <h2 class="scratch-title"{{{attrs}}}>{{{title}}}</h2>
+      <button type="button" class="row-remove" data-remove-entry title="Delete this {{noun}}" aria-label="Delete {{name}}"></button>
+    </header>
+    <dl class="entry-fields">{{{fields}}}</dl>
+  </section>
+</template>
+
+<template name="entry-new">
+  <div class="section-row">
+    <button type="button" class="add-button" data-add-entry title="New {{noun}}" aria-label="New {{noun}}"></button>
+    <span class="section-title">New {{noun}}</span>
+  </div>
+</template>

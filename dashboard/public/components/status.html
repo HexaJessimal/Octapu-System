@@ -1,0 +1,129 @@
+<!-- The status, priority, owner, date and timeframe controls, and the menus they open. -->
+
+<template name="control-data">data-folder="{{folder}}" data-file="{{file}}" data-line="{{{line}}}" data-status="{{status}}"{{#if hasText}} data-text="{{text}}"{{/if}}{{#if cancelled}} data-cancelled="true"{{/if}}{{#if scheduled}} data-scheduled="{{scheduled}}"{{/if}}{{#if deadline}} data-deadline="{{deadline}}"{{/if}}</template>
+
+<template name="control-checkbox">
+  <span class="status-control check-control" {{{attrs}}}>
+    <button type="button" class="check-box{{#if icon}} has-icon icon-{{{icon}}}{{/if}}" title="{{title}}" aria-label="{{title}}"{{#if disabled}} disabled{{/if}}></button>
+    {{#if caret}}<button type="button" class="status-caret check-caret" aria-haspopup="menu" aria-expanded="false" aria-label="Choose a status"></button>{{/if}}
+  </span>
+</template>
+
+<template name="control-person">
+  <span class="status-control owner-control{{#if leader}} leader-control{{/if}}" {{{attrs}}}>
+    <button type="button" class="owner-button{{#if leader}} leader-button{{/if}}" aria-haspopup="menu" aria-expanded="false" title="Change owner" aria-label="Owner: {{describe}}">{{label}}</button>
+  </span>
+</template>
+
+<template name="control-commitment-priority">
+  <span class="status-control priority-control" {{{attrs}}} data-priority="{{{value}}}">
+    <button type="button" class="priority-button prio commitment-priority-button {{{className}}}" aria-haspopup="menu" aria-expanded="false" title="Priority" aria-label="Priority: {{{describe}}}">{{{value}}}</button>
+  </span>
+</template>
+
+<template name="control-commitment-timeframe">
+  <span class="status-control timeframe-control" {{{attrs}}} data-value="{{value}}">
+    <button type="button" class="timeframe-add commitment-timeframe{{#if set}} is-set{{/if}}" aria-haspopup="dialog" aria-expanded="false" title="{{action}}" aria-label="{{action}}"></button>
+  </span>
+</template>
+
+<template name="control-commitment-dependency">
+  <span class="status-control timeframe-control" {{{attrs}}} data-value="{{value}}">
+    <button type="button" class="timeframe-add commitment-dependency{{#if set}} is-set{{/if}}" aria-haspopup="menu" aria-expanded="false" title="{{action}}" aria-label="{{action}}"></button>
+  </span>
+</template>
+
+<template name="control-project-status">
+  <span class="status-control project-status-control" {{{attrs}}}>
+    <button type="button" class="pill pill-{{{status}}} project-status-button" aria-haspopup="menu" aria-expanded="false" title="Change the status" aria-label="Status: {{label}}">{{label}}</button>
+  </span>
+</template>
+
+<template name="control-project-type">
+  <span class="project-type-label">Project type</span>
+  <span class="status-control type-control" {{{attrs}}}>
+    <button type="button" class="owner-button type-button" aria-haspopup="menu" aria-expanded="false" title="Change the project type" aria-label="Project type: {{label}}">{{label}}</button>
+  </span>
+</template>
+
+<template name="control-timeframe-add">
+  <span class="status-control timeframe-control" {{{attrs}}}>
+    <button type="button" class="timeframe-add" aria-haspopup="dialog" aria-expanded="false" title="Add a timeframe" aria-label="Add a timeframe"></button>
+  </span>
+</template>
+
+<template name="control-timeframe-entry">
+  <span class="status-control timeframe-control timeframe-entry-control" {{{attrs}}} data-index="{{{index}}}">
+    <button type="button" class="timeframe-add timeframe-edit is-set" aria-haspopup="dialog" aria-expanded="false" title="Change this timeframe" aria-label="Change the timeframe {{label}}"></button>
+    <button type="button" class="timeframe-remove" title="Delete this timeframe" aria-label="Delete the timeframe {{label}}"></button>
+  </span>
+</template>
+
+<template name="control-dependency">
+  <span class="status-control timeframe-control dependency-control" {{{attrs}}}>
+    <button type="button" class="timeframe-add dependency-edit{{#if set}} is-set{{/if}}" aria-haspopup="menu" aria-expanded="false" title="{{action}}" aria-label="{{action}}"></button>
+  </span>
+</template>
+
+<template name="control-date">
+  <span class="status-control timeframe-control date-control" {{{attrs}}} data-field="{{{field}}}" data-label="{{label}}" data-value="{{value}}" data-stored="{{stored}}">
+    <button type="button" class="timeframe-add date-edit{{#if set}} is-set{{/if}}" aria-haspopup="dialog" aria-expanded="false" title="{{action}}" aria-label="{{action}}"></button>
+  </span>
+</template>
+
+<template name="control-priority">
+  <span class="status-control priority-control" {{{attrs}}} data-priority="{{{value}}}">
+    <button type="button" class="priority-button prio {{{className}}}" aria-haspopup="menu" aria-expanded="false" title="Priority" aria-label="Priority: {{{describe}}}">{{{value}}}</button>
+  </span>
+</template>
+
+<template name="control-status">
+  <span class="status-control" {{{attrs}}}>
+    <button type="button" class="status-name {{{className}}}" {{#if advance}}title="Move to {{advance}}"{{else}}disabled title="No next status"{{/if}}>{{name}}</button>
+    <button type="button" class="status-caret {{{className}}}" aria-haspopup="menu" aria-expanded="false" aria-label="Choose a status instead of {{name}}"></button>
+  </span>
+  {{{priority}}}
+</template>
+
+<template name="status-menu-panel"><div role="menu" class="{{{className}}}">{{{items}}}</div></template>
+
+<template name="status-menu-actions">
+  <div class="status-menu-sep" role="separator"></div>
+  <button type="button" role="menuitem" data-plan="SCHEDULED">Schedule</button>
+  <button type="button" role="menuitem" data-plan="DEADLINE">Deadline</button>
+  <button type="button" role="menuitem" data-row="cancel"{{#if cancelled}} disabled{{/if}}>Cancel</button>
+  <button type="button" role="menuitem" class="is-danger" data-row="delete">Delete</button>
+</template>
+
+<template name="status-menu-type"><div class="status-menu-type">{{type}}</div></template>
+
+<template name="status-menu-item"><button type="button" role="menuitem" data-{{{attr}}}="{{value}}"{{#if current}} disabled aria-current="true"{{/if}}>{{label}}</button></template>
+
+<template name="status-menu-none"><p class="status-menu-type">No other projects to choose.</p></template>
+
+<template name="status-menu-form">
+  <form class="status-menu timeframe-form" role="dialog" aria-label="{{heading}}">
+    {{{fields}}}
+    <p class="timeframe-error" role="alert" hidden></p>
+    <button type="submit">{{button}}</button>
+  </form>
+</template>
+
+<template name="date-input">
+  <label>{{label}}
+    <span class="date-field">
+      <input name="{{{name}}}" placeholder="{{placeholder}}" autocomplete="off"{{#if required}} required{{/if}}{{#if hasValue}} value="{{value}}"{{/if}}>
+      <button type="button" class="date-pick" data-date-pick title="Pick a date" aria-label="Pick a date"></button>
+      <input type="date" class="date-native" tabindex="-1" aria-hidden="true" value="{{stored}}">
+    </span>
+  </label>
+</template>
+
+<template name="month-input">
+  <label>{{label}}
+    <span class="month-field">
+      <select name="{{{name}}}Month" aria-label="{{label}} month">{{{months}}}</select>
+      <select name="{{{name}}}Year" aria-label="{{label}} year">{{{years}}}</select>
+    </span>
+  </label>
+</template>

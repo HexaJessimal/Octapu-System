@@ -1,0 +1,15 @@
+Name,Colour,Used for
+accent,#bba5f8,"Links, focus outlines and selected buttons"
+bg,#0b0b0b,Page background
+surface,#121212,"Cards, panels and dropdowns, code blocks, and the dimmed background behind pop-ups"
+surface-raised,#432a89,"Outlines of summary boxes, Home tiles, form fields and dropdowns, Timeline bars with no milestones, hover backgrounds, raised controls, and the second colour of the logo"
+border,#2a2a2a,"Borders, text on any highlight colour, and archived labels"
+text,#ffffff,"Main text and faint divider lines"
+text-soft,#c7c7c7,"Secondary and quiet text, and UNASSIGNED status"
+shadow-colour,#000000,Drop shadows and sunken areas
+green,#00ff6a,"Complete milestones, active projects, DONE status, priority A, and Review or Plan being due"
+yellow,#ffea00,"Milestones in progress, WAITING status, priority B, the last item in a milestone on the Plan page, Review or Plan due soon, and warnings"
+orange,#ff9100,"Milestones not started, inactive projects, ASSIGNED status, and unexpected files on Compatibility"
+pink,#ff3d7f,"Milestones with no tasks, priority C, sidebar items whose project is not active, errors and delete buttons"
+purple,#7c4dff,"Sidebar items named in the latest focus, and entities to review"
+cyan,#00e5ff,"Sidebar items whose project is in the latest focus, Suggested projects on the Plan page, and projects to review"

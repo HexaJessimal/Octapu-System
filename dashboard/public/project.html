@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Project · PMS</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="api/colours.css" />
+  </head>
+  <body>
+    <div class="shell">
+    <nav class="nav-sidebar" id="main-nav" aria-label="Main menu"></nav>
+    <main class="wrap">
+      <header class="topbar">
+        <a class="back" href="projects.html" id="back"><span aria-hidden="true">‹</span> Projects</a>
+        <h1 id="page-title">Loading…</h1>
+        <div class="project-type" id="project-type"></div>
+        <div class="toggle" role="group" aria-label="View mode">
+          <button type="button" data-view="overview" aria-pressed="true">Overview</button>
+          <button type="button" data-view="scratchpad" aria-pressed="false">Scratchpad</button>
+          <button type="button" data-view="raw" aria-pressed="false">Raw</button>
+        </div>
+      </header>
+
+      <div id="content"></div>
+    </main>
+    <aside class="sidebar" id="todo-sidebar" aria-label="Todos"></aside>
+    </div>
+
+    <script src="api/components.js"></script>
+    <script src="js/projects.js"></script>
+    <script src="api/owner-tags.js"></script>
+    <script src="js/markdown.js"></script>
+    <script src="js/status.js"></script>
+    <script src="js/nav.js"></script>
+    <script src="js/edit.js"></script>
+    <script src="js/document-view.js"></script>
+    <script src="js/milestones.js"></script>
+    <script src="js/project.js"></script>
+    <script src="js/sidebar.js"></script>
+  </body>
+</html>

@@ -1,0 +1,306 @@
+<!-- Home, Timeline, Review, Plan, Compatibility and Options. -->
+
+<template name="home-stat">
+  <{{{tag}}} class="home-stat{{#if alert}} is-alert{{/if}}"{{#if href}} href="{{{href}}}"{{/if}}>
+    <span class="home-stat-label">{{label}}</span>
+    <span class="home-stat-value">{{value}}</span>
+    {{#if note}}<span class="home-stat-note">{{note}}</span>{{/if}}
+  </{{{tag}}}>
+</template>
+
+<template name="home-task">
+  <li class="todo">
+    <div class="todo-head">
+      {{{checkbox}}}
+      {{{control}}}
+      <a class="todo-project" href="{{{href}}}">{{label}}</a>
+    </div>
+    {{#if text}}<div class="todo-text">{{{text}}}</div>{{/if}}
+    <div class="todo-dates"><span class="{{{late}}}"><b>{{kind}}</b> {{date}} ({{when}})</span></div>
+  </li>
+</template>
+
+<template name="home-tasks"><ul class="home-tasks">{{{items}}}</ul></template>
+
+<template name="home-section"><div class="home-section">{{{heading}}}{{{body}}}</div></template>
+
+<template name="home-plan-link">
+  <p class="empty">{{last}}<a href="weekly-plan.html">Make a plan for this period</a></p>
+</template>
+
+<template name="home-plan"><div class="home-plan">{{{owners}}}</div></template>
+
+<template name="home-plan-owner"><h3>{{owner}}</h3>{{{projects}}}</template>
+
+<template name="home-plan-project"><h4>{{{name}}}</h4>{{#if items}}<ul>{{{items}}}</ul>{{/if}}</template>
+
+<template name="home-plan-item"><li>{{{text}}}</li></template>
+
+<template name="home-board">
+  <div class="home-board"><div class="home-columns">{{{sections}}}</div></div>
+</template>
+
+<template name="gantt-year"><div class="gantt-year" style="--span:{{{span}}}">{{{year}}}</div></template>
+
+<template name="gantt-month"><div class="gantt-month{{#if now}} is-now{{/if}}">{{name}}</div></template>
+
+<template name="gantt-head"><div class="gantt-row gantt-head"><div class="gantt-label"></div>{{{cells}}}</div></template>
+
+<template name="gantt-project">
+  <div class="gantt-row gantt-project">
+    <div class="gantt-label" style="--lanes:{{{lanes}}}">
+      <a href="{{href}}">{{title}}</a>
+      {{{pill}}}
+    </div>
+    {{{now}}}
+    {{{bars}}}
+  </div>
+</template>
+
+<template name="gantt-now"><div class="gantt-now" style="--column:{{{column}}};--lanes:{{{lanes}}}"></div></template>
+
+<template name="gantt-bar">
+  <a class="gantt-bar" href="{{href}}" title="{{detail}}" aria-label="{{detail}}"{{#if isLast}} data-end-of="{{folder}}"{{/if}}{{#if isFirst}} data-start-of="{{folder}}"{{/if}} style="--bar:{{{background}}};--from:{{{from}}};--to:{{{to}}};--lane:{{{lane}}}"><span>{{label}}</span></a>
+</template>
+
+<template name="gantt-arrow-path"><path d="{{{route}}}" marker-end="url(#gantt-arrowhead)"></path></template>
+
+<template name="gantt-arrows">
+  <svg class="gantt-arrows" width="{{{width}}}" height="{{{height}}}" aria-hidden="true">
+    <defs>
+      <marker id="gantt-arrowhead" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0 0L6 3L0 6z"></path></marker>
+    </defs>
+    {{{paths}}}
+  </svg>
+</template>
+
+<template name="gantt-warning">
+  <div class="card gantt-warning">
+    <p>These timeframes aren't written as YYYY-MM-DD in their files, so they aren't on the chart:</p>
+    <ul>{{{items}}}</ul>
+  </div>
+</template>
+
+<template name="gantt-warning-item"><li>{{title}}: {{{values}}}</li></template>
+
+<template name="gantt-warning-value"><code>{{value}}</code></template>
+
+<template name="gantt-chart">
+  {{{warnings}}}
+  <div class="card gantt-scroll" id="gantt-scroll" tabindex="0" role="region" aria-label="Project timeline">
+    <div class="gantt" style="--gantt-months:{{{months}}}">
+      {{{rows}}}
+    </div>
+  </div>
+  {{{legend}}}
+</template>
+
+<template name="gantt-empty">{{{warnings}}}<p class="card empty">No project has an Active Timeframe yet.</p></template>
+
+<template name="legend-no-milestones"><span><i class="legend-plain"></i>N/A</span></template>
+
+<template name="commitment-card">
+  <section class="card scratch-block{{#if target}} is-target{{/if}}">
+    <header class="entry-head">
+      <h2 class="scratch-title"{{{attrs}}}>{{title}}</h2>
+      <div class="commitment-tools">
+        {{{priority}}}
+        <button type="button" class="row-remove" data-remove-commitment="{{{index}}}" title="Delete this commitment" aria-label="Delete {{title}}"></button>
+      </div>
+    </header>
+    <dl class="entry-fields">
+      <div class="entry-field">
+        <dt>Active Timeframe</dt>
+        <dd>{{timeframe}}{{{timeframeControl}}}</dd>
+      </div>
+      <div class="entry-field">
+        <dt>Project Dependency</dt>
+        <dd>{{{dependency}}}{{{dependencyControl}}}</dd>
+      </div>
+    </dl>
+  </section>
+</template>
+
+<template name="legend-depends"><span><b class="legend-arrow" aria-hidden="true"></b>Depends on</span></template>
+
+<template name="review-entry">
+  <li>
+    <a href="{{href}}" data-review="{{{index}}}">{{name}}</a>
+    {{#if detail}}<div class="review-meta">{{detail}}</div>{{/if}}
+  </li>
+</template>
+
+<template name="review-queue-box">
+  <section class="card review-box review-box-{{{kind}}}">
+    <header>
+      <h2>{{heading}}</h2>
+      <span class="nav-count nav-count-{{{kind}}}">{{{count}}}</span>
+    </header>
+    {{{body}}}
+  </section>
+</template>
+
+<template name="review-overlay">
+  <dialog class="review-overlay">
+    <iframe src="{{href}}" title="{{name}}"></iframe>
+    <footer>
+      <p class="form-error" role="alert" hidden></p>
+      <button type="button" class="plain-button" data-cancel>Close</button>
+      <button type="button" class="primary-button" data-mark>Mark as reviewed and close</button>
+    </footer>
+  </dialog>
+</template>
+
+<template name="review-done-item">
+  <li>
+    <div class="todo-text">{{{text}}}</div>
+    <div class="review-meta">{{project}}{{#if closed}} · {{closed}}{{/if}}</div>
+  </li>
+</template>
+
+<template name="review-done-box">
+  <section class="card review-box" data-box="{{{index}}}">
+    <header>
+      <h2>{{status}}</h2>
+      <span class="ms-count">{{{count}}}</span>
+      <button type="button" class="primary-button" data-add-wins="{{{index}}}">Add to wins</button>
+    </header>
+    <ul class="review-items">{{{items}}}</ul>
+  </section>
+</template>
+
+<template name="review-page">
+  <div class="milestones review-queue" id="review-queue">{{{queue}}}</div>
+  <p class="review-since">{{since}}</p>
+  {{{done}}}
+  <form class="card review-form" id="review-form">
+    <label>Wins<textarea name="wins" rows="10"></textarea></label>
+    <p class="form-error" role="alert" hidden></p>
+    <div class="modal-actions"><button type="submit" class="primary-button">Submit wins and archive {{count}}</button></div>
+    <p class="review-note">Every done item moves to {{archiveTo}}, including any not listed above because they were closed before the last review.</p>
+  </form>
+</template>
+
+<template name="plan-pick">
+  <li>
+    <button type="button" class="plan-item{{#if last}} is-last-item{{/if}}" data-focus-add="{{{index}}}"{{#if last}} title="The last unfinished item in this milestone"{{/if}}>
+      {{{badge}}}<span>{{text}}</span><small>{{milestone}}</small>
+    </button>
+  </li>
+</template>
+
+<template name="plan-project">
+  <section class="card review-box{{#if suggested}} is-suggested{{/if}}{{#if collapsed}} is-collapsed{{/if}}" data-box-key="{{key}}">
+    <header>
+      <button type="button" class="collapse-button" data-collapse aria-expanded="{{{expanded}}}" aria-label="Show or hide this block"></button>
+      <h2>{{title}}</h2>
+      {{#if suggested}}<span class="plan-tag">Suggested</span>{{/if}}
+      <span class="ms-count">{{{count}}}</span>
+    </header>
+    <ul class="review-items">{{{items}}}</ul>
+  </section>
+</template>
+
+<template name="plan-badge"><span class="{{{className}}}">{{status}}</span> </template>
+
+<template name="plan-focus-row">
+  <li>
+    <div class="todo-head">
+      {{{checkbox}}}
+      {{{control}}}
+      {{#if removable}}<button type="button" class="plain-button focus-remove" data-focus-remove="{{{index}}}">Remove</button>{{/if}}
+    </div>
+    <div class="todo-text">{{{text}}}</div>
+    <div class="review-meta">{{milestone}}</div>
+  </li>
+</template>
+
+<template name="plan-page">
+  {{{picks}}}
+  <h2 class="section-title">Focus</h2>
+  {{{focus}}}
+  <form class="card review-form" id="focus-form">
+    <p class="form-error" role="alert" hidden></p>
+    <div class="modal-actions"><button type="submit" class="primary-button">Submit focus</button></div>
+  </form>
+</template>
+
+<template name="history-card">
+  <section class="card review-box">
+    <header>
+      <h2>{{date}}</h2>
+      {{#if count}}<span class="ms-count">{{count}}</span>{{/if}}
+    </header>
+    <div class="doc history-body">{{{body}}}</div>
+  </section>
+</template>
+
+<template name="compat-card">
+  <section class="card review-box">
+    <header>
+      <h2>{{{heading}}}</h2>
+      {{{pill}}}
+      <span class="ms-count">{{{count}}}</span>
+      {{{fix}}}
+    </header>
+    {{#if location}}<div class="review-meta">{{location}}</div>{{/if}}
+    <ul class="compat-problems">{{{problems}}}</ul>
+  </section>
+</template>
+
+<template name="compat-problem"><li class="compat-issue compat-{{{kind}}}">{{text}}</li></template>
+
+<template name="compat-fix"><button type="button" class="primary-button" data-fix="{{key}}" data-file="{{file}}">Fix issues</button></template>
+
+<template name="compat-page"><p class="review-since">{{{count}}} of {{{checked}}} need changes.</p>{{{body}}}</template>
+
+<template name="options-field"><label>{{key}}<input data-key="{{key}}" value="{{value}}" autocomplete="off"></label></template>
+
+<template name="options-form">
+  <form class="card options-form" id="options-form">
+    {{{fields}}}
+    <div class="options-actions">
+      <button type="submit">Save</button>
+      <span class="options-message" id="options-message" role="status"></span>
+    </div>
+  </form>
+</template>
+
+<template name="label-panel">
+  <div class="section-row">
+    <h2 class="section-title">{{title}}</h2>
+    {{#if canAdd}}<button type="button" class="add-button" data-add-row title="Add a {{noun}}" aria-label="Add a {{noun}}"></button>{{/if}}
+  </div>
+  {{{body}}}
+</template>
+
+<template name="label-table">
+  <section class="card label-card">
+    <table class="label-table">
+      <thead>
+        <tr>{{{head}}}{{#if hasActions}}<th><span class="visually-hidden">Actions</span></th>{{/if}}</tr>
+      </thead>
+      <tbody>{{{rows}}}</tbody>
+    </table>
+  </section>
+</template>
+
+<template name="label-head"><th scope="col">{{label}}</th></template>
+
+<template name="label-row"><tr data-index="{{{index}}}">{{{cells}}}{{{actions}}}</tr></template>
+
+<template name="label-cell"><td{{#if key}} data-cell="{{{key}}}"{{/if}}>{{{content}}}</td></template>
+
+<template name="label-actions"><td class="label-actions"><button type="button" class="row-remove" data-remove title="Delete this {{noun}}" aria-label="Delete {{name}}"></button></td></template>
+
+<template name="label-no-rows"><tr><td class="empty" colspan="{{{span}}}">No rows yet.</td></tr></template>
+
+<template name="label-automatic"><span class="label-default">Automatic</span></template>
+
+<template name="label-swatch"><span class="colour-swatch" style="--swatch:#{{{hex}}}"></span>{{{text}}}</template>
+
+<template name="label-select"><select{{#if inline}} class="inline-field"{{/if}} data-column="{{{column}}}">{{{options}}}</select></template>
+
+<template name="label-input"><input{{#if inline}} class="inline-field"{{/if}} data-column="{{{column}}}" autocomplete="off"{{#if hex}} maxlength="7" spellcheck="false"{{/if}}{{#if required}} required{{/if}}></template>
+
+<template name="label-modal-field"><label>{{label}}{{{field}}}</label></template>

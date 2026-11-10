@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Projects · PMS</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="api/colours.css" />
+  </head>
+  <body>
+    <div class="shell">
+    <nav class="nav-sidebar" id="main-nav" aria-label="Main menu"></nav>
+    <main class="wrap">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <h1 id="list-title">Projects</h1>
+        </div>
+        <button type="button" class="primary-button" id="new-project-button">New project</button>
+      </header>
+
+      <div class="controls">
+        <div class="chips" role="group" aria-label="Filter by status" id="filters">
+          <button type="button" class="chip" data-filter="all" aria-pressed="true">All <span class="count" data-count="all">0</span></button>
+          <button type="button" class="chip" data-filter="active" aria-pressed="false">Active <span class="count" data-count="active">0</span></button>
+          <button type="button" class="chip" data-filter="inactive" aria-pressed="false">Inactive <span class="count" data-count="inactive">0</span></button>
+          <button type="button" class="chip" data-filter="archived" aria-pressed="false">Archived <span class="count" data-count="archived">0</span></button>
+        </div>
+        <input type="search" class="search" id="search" placeholder="Search projects or owners…" aria-label="Search projects" autocomplete="off" />
+      </div>
+
+      <section class="card">
+        <ul class="project-list" id="list" aria-live="polite"></ul>
+      </section>
+    </main>
+    <aside class="sidebar" id="todo-sidebar" aria-label="Todos"></aside>
+    </div>
+
+    <dialog class="modal" id="new-project-dialog" aria-labelledby="new-project-heading">
+      <form method="dialog">
+        <h2 id="new-project-heading">New project</h2>
+        <label>Entity<select name="entity" required></select></label>
+        <label>Title<input name="title" maxlength="100" autocomplete="off" required /></label>
+        <label>Owner<select name="owner" required></select></label>
+        <label>Project Type<select name="type" required></select></label>
+        <label>Notes<textarea name="notes" rows="5"></textarea></label>
+        <p class="form-error" role="alert" hidden></p>
+        <div class="modal-actions">
+          <button type="button" class="plain-button" data-cancel>Cancel</button>
+          <button type="submit" class="primary-button">Create project</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="api/components.js"></script>
+    <script src="js/projects.js"></script>
+    <script src="api/owner-tags.js"></script>
+    <script src="js/markdown.js"></script>
+    <script src="js/status.js"></script>
+    <script src="js/nav.js"></script>
+    <script src="js/list.js"></script>
+    <script src="js/new-project.js"></script>
+    <script src="js/sidebar.js"></script>
+  </body>
+</html>

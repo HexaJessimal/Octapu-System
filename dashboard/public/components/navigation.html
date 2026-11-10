@@ -1,0 +1,51 @@
+<!-- The left-hand menu and the Todos sidebar. -->
+
+<template name="nav-count">
+  <span class="nav-count {{{className}}}" title="{{label}}: {{{value}}}">
+    <span class="visually-hidden">{{label}}: </span>{{{value}}}
+  </span>
+</template>
+
+<template name="nav-link"><a class="nav-link{{#if extra}} {{{extra}}}{{/if}}" href="{{href}}"{{#if current}} aria-current="page"{{/if}}>{{label}}{{{counts}}}{{#if note}}<span class="nav-note">{{note}}</span>{{/if}}</a></template>
+
+<template name="nav-logo"><a class="nav-logo" href="./" title="Home"><img src="{{{src}}}" alt="Logo"></a></template>
+
+<template name="nav-group">
+  <details class="nav-group" data-group="{{key}}"{{#if open}} open{{/if}}>
+    <summary class="nav-link">{{label}}</summary>
+    {{#if links}}<div class="nav-children">{{{links}}}</div>{{else}}<p class="nav-empty">{{empty}}</p>{{/if}}
+  </details>
+</template>
+
+<template name="todo-item">
+  <li class="todo{{#if ticked}} ticked{{/if}}{{#if tint}} tint tint-{{{tint}}}{{/if}}"{{#if tint}} title="{{note}}"{{/if}}>
+    <div class="todo-head">
+      {{{checkbox}}}
+      {{{control}}}
+      <a class="todo-project" href="{{{href}}}" title="{{location}}">{{label}}</a>
+    </div>
+    {{#if text}}<div class="todo-text">{{{text}}}</div>{{/if}}
+    {{#if dates}}<div class="todo-dates">{{{dates}}}</div>{{/if}}
+  </li>
+</template>
+
+<template name="todo-date"><span><b>{{kind}}</b> {{value}}</span></template>
+
+<template name="todo-divider"><li class="todo-divider" role="separator"></li></template>
+
+<template name="sidebar-shell">
+  <div class="sidebar-head">
+    <h2>Todos</h2>
+    <span class="count" id="todo-count">0</span>
+  </div>
+  <div class="sidebar-controls">
+    <label>Filter<select id="todo-filter">{{{filter}}}</select></label>
+    <label>Sort<select id="todo-sort">{{{sort}}}</select></label>
+  </div>
+  <ul class="todo-list" id="todo-list"></ul>
+</template>
+
+<template name="sidebar-message">
+  <div class="sidebar-head"><h2>Todos</h2></div>
+  <p class="empty">{{text}}</p>
+</template>

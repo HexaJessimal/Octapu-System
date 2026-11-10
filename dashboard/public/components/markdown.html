@@ -1,0 +1,45 @@
+<!-- What the markdown renderer produces. Every {{{slot}}} here has already been escaped. -->
+
+<template name="md-wikilink"><a class="wikilink" href="{{{href}}}">{{{label}}}</a></template>
+
+<template name="md-image"><img class="md-image" src="{{{src}}}" alt="{{{alt}}}" loading="lazy"></template>
+
+<template name="md-code"><code>{{{code}}}</code></template>
+
+<template name="md-link"><a href="{{{href}}}" target="_blank" rel="noopener noreferrer">{{{label}}}</a></template>
+
+<template name="md-info"><span class="info-icon" role="img" aria-label="Info"></span></template>
+
+<template name="md-priority"><span class="prio prio-{{{level}}}">{{{priority}}}</span></template>
+
+<template name="md-tag"><span class="tag">#{{{tag}}}</span></template>
+
+<template name="md-del"><del>{{{text}}}</del></template>
+
+<template name="md-strong"><strong>{{{text}}}</strong></template>
+
+<template name="md-em"><em>{{{text}}}</em></template>
+
+<template name="md-list"><{{{tag}}}{{#if tasks}} class="task-list"{{/if}}>{{{items}}}</{{{tag}}}></template>
+
+<template name="md-item"><li{{#if classes}} class="{{{classes}}}"{{/if}}>{{{body}}}</li></template>
+
+<template name="md-check"><span class="check" aria-hidden="true"></span><span class="sr-only">{{{label}}} </span></template>
+
+<template name="md-item-text"><span class="item-text"{{{attrs}}}>{{{text}}}</span></template>
+
+<template name="md-item-meta"><div class="item-meta">{{{text}}}</div></template>
+
+<template name="md-item-cont"><div class="item-cont">{{{text}}}</div></template>
+
+<template name="md-pre"><pre><code{{#if lang}} data-lang="{{{lang}}}"{{/if}}>{{{code}}}</code></pre></template>
+
+<template name="md-heading"><h{{{level}}} id="{{{id}}}">{{{inner}}}</h{{{level}}}></template>
+
+<template name="md-paragraph"><p>{{{inner}}}</p></template>
+
+<template name="md-rule"><hr></template>
+
+<template name="md-quote"><blockquote>{{{inner}}}</blockquote></template>
+
+<template name="md-break"><br></template>

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Options · PMS</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="api/colours.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <nav class="nav-sidebar" id="main-nav" aria-label="Main menu"></nav>
+      <main class="wrap">
+        <header class="topbar">
+          <h1>Options</h1>
+          <div class="toggle" role="group" aria-label="Options section">
+            <button type="button" data-tab="general" aria-pressed="true">General</button>
+            <button type="button" data-tab="statuses" aria-pressed="false">Statuses</button>
+            <button type="button" data-tab="leaders" aria-pressed="false">Leaders</button>
+            <button type="button" data-tab="colours" aria-pressed="false">Colours</button>
+          </div>
+        </header>
+        <div id="content"></div>
+        <div id="statuses-panel" hidden></div>
+        <div id="leaders-panel" hidden></div>
+        <div id="colours-panel" hidden></div>
+      </main>
+      <aside class="sidebar" id="todo-sidebar" aria-label="Todos"></aside>
+    </div>
+
+    <script src="api/components.js"></script>
+    <script src="js/projects.js"></script>
+    <script src="api/owner-tags.js"></script>
+    <script src="js/markdown.js"></script>
+    <script src="js/status.js"></script>
+    <script src="js/nav.js"></script>
+    <script src="js/label-tables.js"></script>
+    <script src="js/options.js"></script>
+    <script src="js/sidebar.js"></script>
+  </body>
+</html>

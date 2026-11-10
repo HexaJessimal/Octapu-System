@@ -1,0 +1,115 @@
+<!-- Pieces used by more than one page. -->
+
+<template name="pill"><span class="pill pill-{{{status}}}">{{label}}</span></template>
+
+<template name="progress-empty"><span class="list-progress is-empty" title="No milestones"></span></template>
+
+<template name="progress-segment"><i class="state-{{{state}}}" title="{{title}}"></i></template>
+
+<template name="progress-bar"><span class="list-progress" role="img" aria-label="{{{done}}} of {{{total}}} milestones complete">{{{segments}}}</span></template>
+
+<template name="legend"><div class="legend">{{{items}}}</div></template>
+
+<template name="legend-state"><span><i class="state-{{{state}}}"></i>{{label}}</span></template>
+
+<template name="error-card"><div class="card error">{{message}}</div></template>
+
+<template name="empty-card"><p class="card empty">{{message}}</p></template>
+
+<template name="empty-text"><p class="empty">{{message}}</p></template>
+
+<template name="empty-item"><li class="empty">{{message}}</li></template>
+
+<template name="no-tasks"><p class="no-tasks">{{message}}</p></template>
+
+<template name="section-heading">
+  <div class="section-row">
+    <h2 class="section-title">{{title}}</h2>
+    {{{after}}}
+  </div>
+</template>
+
+<template name="count"><span class="ms-count">{{{count}}}</span></template>
+
+<template name="card-section"><section class="card">{{{body}}}</section></template>
+
+<template name="card-stack"><div class="milestones">{{{items}}}</div></template>
+
+<template name="review-items"><ul class="review-items">{{{items}}}</ul></template>
+
+<template name="link"><a href="{{{href}}}">{{label}}</a></template>
+
+<template name="badge"><span class="{{{className}}}">{{{text}}}</span></template>
+
+<template name="project-row">
+  <li>
+    <a class="project-link" href="project.html?folder={{{folder}}}">
+      {{{pill}}}
+      <span>
+        <div class="title">{{title}}</div>
+        {{#if owner}}<div class="owner">{{owner}}</div>{{/if}}
+        {{#if dates}}<div class="month-dates">{{{dates}}}</div>{{/if}}
+      </span>
+      {{{progress}}}
+      <span class="chev" aria-hidden="true">›</span>
+    </a>
+  </li>
+</template>
+
+<template name="project-row-date"><span>{{date}}</span></template>
+
+<template name="project-row-spacer"><span></span></template>
+
+<template name="project-list"><ul class="project-list is-stacked">{{{items}}}</ul></template>
+
+<template name="option"><option value="{{value}}"{{#if selected}} selected{{/if}}>{{label}}</option></template>
+
+<template name="optgroup"><optgroup label="{{label}}">{{{options}}}</optgroup></template>
+
+<template name="text-field"><label>{{label}}<input name="{{{name}}}" autocomplete="off" required></label></template>
+
+<template name="select-field"><label>{{label}}<select name="{{{name}}}"{{#if required}} required{{/if}}>{{{options}}}</select></label></template>
+
+<template name="form-dialog">
+  <dialog class="modal">
+    <form>
+      <h2>{{heading}}</h2>
+      {{{fields}}}
+      <p class="form-error" role="alert" hidden></p>
+      <div class="modal-actions">
+        <button type="button" class="plain-button" data-cancel>Cancel</button>
+        <button type="submit" class="primary-button">{{submit}}</button>
+      </div>
+    </form>
+  </dialog>
+</template>
+
+<template name="confirm-dialog">
+  <dialog class="modal">
+    <form>
+      <h2>{{heading}}</h2>
+      <p class="modal-text">{{text}}</p>
+      <div class="modal-actions">
+        <button type="button" class="plain-button" data-cancel>Keep it</button>
+        <button type="submit" class="primary-button danger-button">Delete</button>
+      </div>
+    </form>
+  </dialog>
+</template>
+
+<template name="inline-editor">
+  <div class="inline-editor">
+    {{{field}}}
+    <p class="form-error" role="alert" hidden></p>
+    <div class="inline-actions">
+      <button type="button" class="primary-button" data-save>Save</button>
+      <button type="button" class="plain-button" data-cancel>Cancel</button>
+    </div>
+  </div>
+</template>
+
+<template name="inline-input"><input class="inline-field"></template>
+
+<template name="inline-textarea"><textarea class="inline-field" rows="{{{rows}}}"></textarea></template>
+
+<template name="toast"><div class="status-toast" role="alert">{{message}}</div></template>

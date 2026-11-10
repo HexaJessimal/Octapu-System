@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Plan · PMS</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="api/colours.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <nav class="nav-sidebar" id="main-nav" aria-label="Main menu"></nav>
+      <main class="wrap">
+        <header class="topbar">
+          <h1>Plan</h1>
+          <div class="toggle" role="group" aria-label="View">
+            <button type="button" data-tab="main" aria-pressed="true">Focus</button>
+            <button type="button" data-tab="history" aria-pressed="false">History</button>
+          </div>
+        </header>
+        <div id="content"></div>
+        <div id="history" data-history-page="focus" data-empty="No focus logged yet." hidden></div>
+      </main>
+      <aside class="sidebar" id="todo-sidebar" aria-label="Todos"></aside>
+    </div>
+
+    <script src="api/components.js"></script>
+    <script src="js/projects.js"></script>
+    <script src="api/owner-tags.js"></script>
+    <script src="js/markdown.js"></script>
+    <script src="js/status.js"></script>
+    <script src="js/nav.js"></script>
+    <script src="js/history.js"></script>
+    <script src="js/weekly-plan.js"></script>
+    <script src="js/sidebar.js"></script>
+  </body>
+</html>
