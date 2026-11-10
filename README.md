@@ -1,11 +1,11 @@
-# PMS Dashboard
+# Octapu System Dashboard
 
 A small, self-contained dashboard for the markdown-driven project management system in this folder. Markdown files are the source of truth, so you can keep editing them in any text editor. The dashboard only changes them when you make an edit in it.
 
 - **No build step.** There's nothing to compile or bundle.
 - **No dependencies.** It uses only Node's built-in modules, so there's no `npm install` and no `node_modules`.
 - **System agnostic.** It runs the same way on Windows, macOS and Linux.
-- **Offline.** No CDNs, web fonts or external requests.
+- **Offline.** No CDNs, external fonts or external requests. The one font it uses, Bytesized, ships in `dashboard/public/font`.
 
 ## First-time setup
 
@@ -24,7 +24,7 @@ The form comes back whenever one of `Status.csv`, `Owners.csv`, `Leaders.csv`, `
 
 Each time it starts, the dashboard creates any of these that are missing: the `Entities`, `Images`, `Labels`, `Networking`, `Projects` and `Time_Management` folders, and starter `Networking/Leads.md` and `Networking/Events.md` files. It also copies in `Help Guide.md`, the screenshots the guide uses (`Images/Screenshots`) and a logo (`Images/Logo.png`) from `dashboard/defaults`. The logo is only added if `Images` has no logo of its own. Anything already there is left alone, so a deleted screenshot comes back but an edited guide is kept. To change what a new install gets, edit the copies in `dashboard/defaults`.
 
-A picture named `logo` in `Images`, such as `Images/Logo.png`, appears at the bottom of the left menu and links to Home.
+A picture named `logo` in `Images`, such as `Images/Logo.png`, appears at the bottom of the left menu, with **OCTAPU SYSTEM** beside it in capitals in the Bytesized font, and links to Home.
 
 ## Running the dashboard
 
@@ -405,6 +405,7 @@ dashboard/
     options.html       options form
     components/        every piece of HTML the scripts render, as named templates
     css/style.css      theme
+    font/              the Bytesized font for the name beside the logo
     img/               icons
     js/projects.js     helpers shared by every page, including the component renderer
     js/markdown.js     markdown renderer + milestone/meta parsers

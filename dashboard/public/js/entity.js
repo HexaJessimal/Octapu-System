@@ -149,7 +149,7 @@
         }
         org = data;
         titleEl.textContent = data.name;
-        document.title = data.name + ' · PMS';
+        document.title = data.name + ' · Octapu System';
         drawTabs();
         draw();
         if (firstLoad) goToTarget();

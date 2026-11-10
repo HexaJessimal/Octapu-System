@@ -1,4 +1,11 @@
-/* PMS dashboard: cosy dark theme. No external fonts or assets. */
+/* Octapu System Dashboard: cosy dark theme. No external fonts or assets. */
+
+/* The name beside the menu logo. The font ships with the dashboard. */
+@font-face {
+  font-family: 'Bytesized';
+  src: url('../font/Bytesized-Regular.ttf') format('truetype');
+  font-display: swap;
+}
 
 :root {
   color-scheme: dark;
@@ -792,20 +799,36 @@ a:hover {
   position: sticky;
   bottom: 0;
   flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
   margin-top: auto;
   padding: 18px 0 14px;
   background: var(--surface);
-  text-align: center;
+  text-decoration: none;
 }
-.nav-logo img {
-  display: inline-block;
-  max-width: 96px;
-  max-height: 72px;
+/* The logo and the name are dimmed and brightened together, so they always match. */
+.nav-logo img,
+.nav-brand {
   opacity: 0.75;
   transition: opacity 0.15s;
 }
-.nav-logo:hover img {
+.nav-logo:hover img,
+.nav-logo:hover .nav-brand {
   opacity: 1;
+}
+.nav-logo img {
+  display: block;
+  max-width: 72px;
+  max-height: 56px;
+}
+.nav-brand {
+  color: var(--text);
+  font-family: 'Bytesized', var(--mono);
+  font-size: 1rem;
+  line-height: 1.1;
+  text-transform: uppercase;
 }
 .nav-link {
   display: block;

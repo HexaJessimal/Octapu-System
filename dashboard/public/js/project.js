@@ -182,7 +182,7 @@
   } else {
     const info = parseFolder(folder);
     titleEl.textContent = info.title;
-    document.title = info.title + ' · PMS';
+    document.title = info.title + ' · Octapu System';
 
     const file = params.get('file');
     const load = () =>

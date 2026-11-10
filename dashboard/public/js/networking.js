@@ -144,7 +144,7 @@
         if (data.file) status.setStatuses(data.statuses);
         doc = data;
         titleEl.textContent = data.title;
-        document.title = data.title + ' · PMS';
+        document.title = data.title + ' · Octapu System';
         const listTab = toggles.find((b) => b.dataset.view === 'list');
         if (listTab) listTab.textContent = data.tab;
         draw();

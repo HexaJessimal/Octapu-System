@@ -92,7 +92,7 @@
       window.PMS.setDateFormat(data.dateFormat);
       directory = data.directory;
       document.getElementById('list-title').textContent = directory.name;
-      document.title = directory.name + ' · PMS';
+      document.title = directory.name + ' · Octapu System';
       projects = data.projects
         .map((d) =>
           Object.assign(parseFolder(d.folder), { files: d.files, ongoing: d.ongoing, milestones: markdown.parseMilestones(d.content).milestones })

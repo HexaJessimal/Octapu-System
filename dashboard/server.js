@@ -1,4 +1,4 @@
-// PMS Dashboard server: zero dependencies, Node built-ins only.
+// Octapu System Dashboard server: zero dependencies, Node built-ins only.
 // Run from anywhere:  node dashboard/server.js   (then open the printed URL)
 'use strict';
 
@@ -170,6 +170,10 @@ const MIME = {
   '.gif': 'image/gif',
   '.webp': 'image/webp',
   '.ico': 'image/x-icon',
+  '.ttf': 'font/ttf',
+  '.otf': 'font/otf',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
 };
 
 // True if `target` is `root` itself or sits inside it.
@@ -200,9 +204,9 @@ async function listMarkdown(dir) {
 }
 
 // An error message if a name from Options.csv can't be a project directory. It has to be a
-// single folder directly inside PMS, and a name every operating system allows.
+// single folder directly inside the main folder, and a name every operating system allows.
 function projectDirError(name) {
-  if (/[\\/:*?"<>|]/.test(name) || name.startsWith('.')) return `"${name}" needs to be the name of a single folder directly inside PMS.`;
+  if (/[\\/:*?"<>|]/.test(name) || name.startsWith('.')) return `"${name}" needs to be the name of a single folder directly inside the Octapu-System folder.`;
   if (RESERVED_DIRS.has(name.toLowerCase())) return `"${name}" is already used by the dashboard, so it can't hold projects.`;
   return null;
 }
@@ -2146,7 +2150,7 @@ createMissingFolders()
   .catch((err) => console.error('Could not create the starting folders:', err.message))
   .finally(() => {
     server.listen(PORT, HOST, () => {
-      console.log(`PMS dashboard running at http://${HOST}:${PORT}`);
+      console.log(`Octapu System Dashboard running at http://${HOST}:${PORT}`);
       console.log(`Reading projects from the directories named in ${OPTIONS_FILE}`);
     });
   });

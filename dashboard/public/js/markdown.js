@@ -1,4 +1,4 @@
-// Small, dependency-free markdown renderer plus PMS-specific parsers.
+// Small, dependency-free markdown renderer plus Octapu System parsers.
 // Everything is HTML-escaped before formatting, so file content can never inject markup.
 (function (global) {
   'use strict';
@@ -355,7 +355,7 @@
       .replace(/\s+/g, '-');
   }
 
-  // ---------- PMS parsers ----------
+  // ---------- Octapu System parsers ----------
 
   // Title (first H1) and **Key**: value fields, with the line numbers they came from.
   function parseMeta(md) {

@@ -8,7 +8,7 @@
 
 <template name="nav-link"><a class="nav-link{{#if extra}} {{{extra}}}{{/if}}" href="{{href}}"{{#if current}} aria-current="page"{{/if}}>{{label}}{{{counts}}}{{#if note}}<span class="nav-note">{{note}}</span>{{/if}}</a></template>
 
-<template name="nav-logo"><a class="nav-logo" href="./" title="Home"><img src="{{{src}}}" alt="Logo"></a></template>
+<template name="nav-logo"><a class="nav-logo" href="./" title="Home"><img src="{{{src}}}" alt="Logo"><span class="nav-brand">Octapu System</span></a></template>
 
 <template name="nav-group">
   <details class="nav-group" data-group="{{key}}"{{#if open}} open{{/if}}>

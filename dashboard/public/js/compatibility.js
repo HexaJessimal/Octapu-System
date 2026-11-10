@@ -51,7 +51,7 @@
   }
 
   titleEl.textContent = title;
-  document.title = title + ' · PMS';
+  document.title = title + ' · Octapu System';
 
   function load() {
     return getJson('api/compatibility?type=' + type)
