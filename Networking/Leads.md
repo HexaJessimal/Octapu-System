@@ -1,4 +1,4 @@
-# Octapu Leads list
+# Leads list
 
 ## Contacts
 
