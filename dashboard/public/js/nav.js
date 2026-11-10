@@ -120,7 +120,7 @@
         { href: 'compatibility.html?type=projects', label: 'Projects' },
       ], '') +
       link({ href: 'options.html', label: 'Options' }) +
-      link({ href: 'help.html', label: 'Help Guide' }) +
+      link({ href: 'help.html', label: 'Help Guide', className: data.helpUnread ? 'nav-unread' : '' }) +
       (data.logo ? component('nav-logo', { src: 'images/' + encodeURIComponent(data.logo) }) : '');
   }
 

@@ -22,7 +22,7 @@ The first time you open the dashboard, a short form asks for your entity's name 
 
 The form comes back whenever one of `Status.csv`, `Owners.csv`, `Leaders.csv`, `Options.csv` or `Colours.csv` is missing, or `Owners.csv` has no owner without a `Parent`. It only asks for what's needed and only creates what's missing, so existing files are never replaced.
 
-Each time it starts, the dashboard creates any of these that are missing: the `Entities`, `Images`, `Labels`, `Networking`, `Projects` and `Time_Management` folders, and starter `Networking/Leads.md` and `Networking/Events.md` files. Anything already there is left alone.
+Each time it starts, the dashboard creates any of these that are missing: the `Entities`, `Images`, `Labels`, `Networking`, `Projects` and `Time_Management` folders, and starter `Networking/Leads.md` and `Networking/Events.md` files. It also copies in `Help Guide.md`, the screenshots the guide uses (`Images/Screenshots`) and a logo (`Images/Logo.png`) from `dashboard/defaults`. The logo is only added if `Images` has no logo of its own. Anything already there is left alone, so a deleted screenshot comes back but an edited guide is kept. To change what a new install gets, edit the copies in `dashboard/defaults`.
 
 A picture named `logo` in `Images`, such as `Images/Logo.png`, appears at the bottom of the left menu and links to Home.
 
@@ -103,7 +103,7 @@ The sidebar on the left appears on every page:
 - **Networking:** `Leads` and `Events`, described below.
 - **Compatibility:** `Entities` and `Projects`, described below.
 - **Options:** tabs for general settings (`Labels/Options.csv`), statuses, leaders and colours, described below.
-- **Help Guide:** a step by step guide to the dashboard, from `Help Guide.md` in the main folder. Edit that file and refresh to change it.
+- **Help Guide:** a step by step guide to the dashboard, from `Help Guide.md` in the main folder. Edit that file and refresh to change it. Until it's marked as read, the menu link has a green outline. The **Mark as read** checkbox below the guide is the `- [ ] Mark as read` line at the bottom of the file, which ticking it changes. If the line is missing, ticking the box adds it.
 
 ### Home
 

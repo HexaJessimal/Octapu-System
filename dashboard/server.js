@@ -515,8 +515,10 @@ async function findLogo() {
 async function collectNav() {
   const owners = await readOwners();
   const toReview = await collectToReview();
+  const help = await readIfExists(HELP_FILE);
   return {
     logo: await findLogo(),
+    helpUnread: help !== null && !splitHelp(help).read,
     entities: owners.filter((o) => !o.parent).map(({ id, name }) => ({ id, name })),
     directories: await Promise.all(
       (await readProjectDirs()).map(async (d) => ({ name: d.name, projects: (await listDirectory(d)).map((p) => p.folder) }))
@@ -717,6 +719,26 @@ async function changeStatus({ folder, file, line, from, to }) {
   const statuses = await readStatuses();
   if (!statuses.some((s) => s.name === to)) return { code: 400, body: { error: `"${to}" is not in Status.csv.` } };
   return updateProjectFile(folder, file, (content) => moveToStatus(content, line, from, to, statuses, new Date()));
+}
+
+// The "Mark as read" checkbox at the bottom of the Help Guide. The page shows it below the
+// guide rather than in it, so it's taken out of the text.
+const HELP_READ_LINE = /^[ \t]*- \[([ xX])\][ \t]+Mark as read[ \t]*(?=\r?$)/m;
+
+function splitHelp(content) {
+  const found = content.match(HELP_READ_LINE);
+  if (!found) return { read: false, body: content };
+  return { read: found[1] !== ' ', body: content.slice(0, found.index) + content.slice(found.index + found[0].length) };
+}
+
+// Ticks or unticks the checkbox, adding it to the end of the guide if it isn't there yet.
+async function setHelpRead({ read }) {
+  const content = await readIfExists(HELP_FILE);
+  if (content === null) return { code: 404, body: { error: "Help Guide.md doesn't exist." } };
+  const line = `- [${read ? 'x' : ' '}] Mark as read`;
+  const updated = HELP_READ_LINE.test(content) ? content.replace(HELP_READ_LINE, line) : content.trimEnd() + '\n\n' + line + '\n';
+  if (updated !== content) await writeFileSafely(HELP_FILE, updated);
+  return { code: 200, body: { ok: true } };
 }
 
 async function readIfExists(file) {
@@ -1892,6 +1914,7 @@ const isPlanningEdit = (body) =>
   hasLine(body) && (typeof body.status === 'string' || body.status === null) && typeof body.text === 'string' && ['SCHEDULED', 'DEADLINE'].includes(body.kind) && typeof body.date === 'string';
 const isTypeChange = (body) => inFile(body) && typeof body.type === 'string';
 const isCompatibilityFix = ({ type, key, file }) => ['projects', 'entities'].includes(type) && typeof key === 'string' && (file === undefined || typeof file === 'string');
+const isHelpRead = ({ read }) => typeof read === 'boolean';
 const isFocusSubmit = ({ items }) =>
   Array.isArray(items) && items.every((i) => i && typeof i.folder === 'string' && typeof i.text === 'string');
 const isNamedInFile = (body) => inFile(body) && typeof body.name === 'string';
@@ -1971,6 +1994,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/planning' && req.method === 'POST') return handleEdit(req, res, isPlanningEdit, savePlanningDate);
     if (url.pathname === '/api/project-type' && req.method === 'POST') return handleEdit(req, res, isTypeChange, changeProjectType);
     if (url.pathname === '/api/compatibility-fix' && req.method === 'POST') return handleEdit(req, res, isCompatibilityFix, fixCompatibility);
+    if (url.pathname === '/api/help-read' && req.method === 'POST') return handleEdit(req, res, isHelpRead, setHelpRead);
     if (url.pathname === '/api/weekly-focus' && req.method === 'POST') return handleEdit(req, res, isFocusSubmit, submitWeeklyFocus);
     if (url.pathname === '/api/weekly-review' && req.method === 'POST') return handleEdit(req, res, isReviewSubmit, submitWeeklyReview);
     if (url.pathname === '/api/dependency' && req.method === 'POST') return handleEdit(req, res, isNamedInFile, saveDependency);
@@ -2035,7 +2059,8 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/home') return sendJson(res, 200, await collectHome());
     if (url.pathname === '/api/help') {
       const content = await readIfExists(HELP_FILE);
-      return sendJson(res, 200, { exists: content !== null, content: content || '', dateFormat: await readDateFormat() });
+      const { read, body } = splitHelp(content || '');
+      return sendJson(res, 200, { exists: content !== null, content: body, read, dateFormat: await readDateFormat() });
     }
     if (url.pathname === '/api/commitments') return sendJson(res, 200, await readCommitmentList());
     if (url.pathname === '/api/weekly-plan') return sendJson(res, 200, await collectWeeklyPlan());
@@ -2087,13 +2112,34 @@ const STARTER_FILES = [
   ['Networking/Events.md', '# Events\n\n## Upcoming\n'],
 ];
 
+// The Help Guide, its screenshots and the logo ship in dashboard/defaults.
+const DEFAULTS_DIR = path.join(__dirname, 'defaults');
+
+const unlessExists = (err) => {
+  if (err.code !== 'EEXIST') throw err;
+};
+const copyIfMissing = (from, to) => fs.promises.copyFile(from, to, fs.constants.COPYFILE_EXCL).catch(unlessExists);
+
+async function copyFolderIfMissing(from, to) {
+  await fs.promises.mkdir(to, { recursive: true });
+  for (const entry of await fs.promises.readdir(from, { withFileTypes: true })) {
+    const source = path.join(from, entry.name);
+    const target = path.join(to, entry.name);
+    if (entry.isDirectory()) await copyFolderIfMissing(source, target);
+    else await copyIfMissing(source, target);
+  }
+}
+
+// Adds anything missing and never replaces a file that's there, so edits and the guide's
+// "Mark as read" tick are kept. Any logo of the user's own counts as the logo.
 async function createMissingFolders() {
   for (const dir of REQUIRED_DIRS) await fs.promises.mkdir(path.join(ROOT_DIR, dir), { recursive: true });
   for (const [file, content] of STARTER_FILES) {
-    await fs.promises.writeFile(path.join(ROOT_DIR, file), content, { encoding: 'utf8', flag: 'wx' }).catch((err) => {
-      if (err.code !== 'EEXIST') throw err;
-    });
+    await fs.promises.writeFile(path.join(ROOT_DIR, file), content, { encoding: 'utf8', flag: 'wx' }).catch(unlessExists);
   }
+  await copyIfMissing(path.join(DEFAULTS_DIR, 'Help Guide.md'), HELP_FILE);
+  await copyFolderIfMissing(path.join(DEFAULTS_DIR, 'Screenshots'), path.join(IMAGES_DIR, 'Screenshots'));
+  if (!(await findLogo())) await copyIfMissing(path.join(DEFAULTS_DIR, 'Logo.png'), path.join(IMAGES_DIR, 'Logo.png'));
 }
 
 createMissingFolders()

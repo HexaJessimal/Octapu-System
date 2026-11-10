@@ -225,6 +225,13 @@
   </form>
 </template>
 
+<template name="help-read">
+  <label class="card help-read">
+    <button type="button" class="check-box{{#if read}} has-icon icon-done{{/if}}" role="checkbox" aria-checked="{{{checked}}}" data-help-read></button>
+    Mark as read
+  </label>
+</template>
+
 <template name="history-card">
   <section class="card review-box">
     <header>

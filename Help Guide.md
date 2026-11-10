@@ -417,3 +417,7 @@ Each file then gets its own tab. On a project, the tabs are on the Raw tab. On a
 [[IMAGE#Screenshots/54-NewMarkdownView.png]]
 
 If Compatibility lists a file you've added as **Unknown markdown**, it's only a reminder that the file doesn't use any of the dashboard's fields or headings. It still works.
+
+When you've finished the guide, tick **Mark as read** below it. The green outline around **Help Guide** in the left menu then goes away.
+
+- [ ] Mark as read

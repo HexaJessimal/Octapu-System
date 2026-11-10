@@ -567,6 +567,13 @@ a:hover {
 .doc-card {
   padding: 8px 28px 24px;
 }
+.help-read {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 28px;
+  cursor: pointer;
+}
 .doc {
   overflow-wrap: anywhere;
 }
@@ -875,6 +882,9 @@ summary.nav-link {
 }
 .nav-link.nav-due[aria-current='page'] {
   color: color-mix(in srgb, var(--green), white 55%);
+}
+.nav-link.nav-unread {
+  box-shadow: inset 0 0 0 1px var(--green);
 }
 .nav-link.nav-soon {
   box-shadow: inset 0 0 0 1px var(--yellow);
