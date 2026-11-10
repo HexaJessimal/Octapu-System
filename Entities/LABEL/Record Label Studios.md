@@ -15,13 +15,14 @@ Well. Mostly sure.
   CLOSED: [2026-11-10 Tue 11:45]
 - [x] DONE [#C] Review the new organisation entity and project
   CLOSED: [2026-11-10 Tue 12:53]
+  DEADLINE: <2026-11-11 Wed>
 - [x] DONE [#C] Plan my first sprint
   CLOSED: [2026-11-10 Tue 12:53]
 - [x] DONE [#A] Add an artist entity
   CLOSED: [2026-11-10 Tue 13:01]
 - [x] DONE [#B] Schedule a non-project commitment in the timeline
   CLOSED: [2026-11-10 Tue 13:01]
-- [x] DONE [#B] Add a new Lead Contact
+  - [x] DONE [#B] Add a new Lead Contact
   CLOSED: [2026-11-10 Tue 13:19]
 - [x] DONE [#B] Create a new event
   CLOSED: [2026-11-10 Tue 13:19]

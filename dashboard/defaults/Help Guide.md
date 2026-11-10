@@ -4,7 +4,7 @@ This guide walks through the dashboard from installing it to everyday use. It fo
 
 Everything you see in the dashboard is stored in plain markdown and CSV files in this folder, so you can also open and edit them in any text editor.
 
-Some screenshots show older wording. Entities used to be called organisations, tentacles were suborganisations, Networking was Networking, and Unplanned was No tasks.
+Some screenshots show older wording. The dashboard used to be called PMS, the Dashboard was Home, entities were organisations, tentacles were suborganisations, Networking was Bookings, and Unplanned was No tasks. Those screenshots also show an older left menu, without Dashboard or Catalogs, and an older Todos filter.
 
 ## Step 1: Install Node and run the server
 
@@ -36,11 +36,11 @@ Select **Get started**. The dashboard creates the settings files it needs in the
 
 ## Step 3: View your homepage
 
-**Dashboard**, at the top of the left menu, opens on its **Overview** tab, which shows what matters today. The **Report** tab is described in Step 20.
+**Dashboard**, at the top of the left menu, opens on its **Overview** tab, which shows what matters today. The **Report** tab is described in Step 38.
 
 [[IMAGE#Screenshots/04-Homepage.png]]
 
-- **The tiles** along the top count your projects, tasks and how soon the next Review and Plan are due.
+- **The tiles** along the top show your **Scheduled Projects** (those in a timeframe today), your open and inactive projects, how soon the next Review and Plan are due, and how many tasks are overdue.
 - **Timeline** charts your projects and commitments by month.
 - **Current plan, Due in the next 7 days, Priorities this month and Overdue tasks** sit below it.
 - **The left menu** takes you everywhere else. Review and Plan get a coloured outline when they're due.
@@ -62,7 +62,7 @@ Every entity and project page has three tabs at the top right:
 
 ## Step 5: Create a new task for your entity
 
-On the Overview, select the plus button beside **Tasks**, type the task and select **Add task**.
+On the Overview, select the plus button beside **Tasks**. A blank task opens at the bottom of the list, ready to type into. Press Return to save it, and another blank task opens so you can keep going. Press Escape when you're done. A blank task that's left empty is removed without saving.
 
 [[IMAGE#Screenshots/06-New Task.png]]
 
@@ -122,7 +122,7 @@ Select the **Raw** tab at the top right.
 
 [[IMAGE#Screenshots/16-RawButton.png]]
 
-This shows the whole file at once, nicely laid out. Archived items are left out of this view.
+This shows the whole file at once, nicely laid out. Archived items are left out of this view unless `SHOWARCHIVED` is ticked in Options, as described in Step 31.
 
 [[IMAGE#Screenshots/17-RawView.png]]
 
@@ -160,6 +160,8 @@ Choose the entity it belongs to, give it a title, and choose who owns it. There 
 [[IMAGE#Screenshots/22-ProjectFill.png]]
 
 Select **Create project** and the new project opens. The tag beside the title shows whether it's active or inactive, and you can change that with its caret. The project type at the top of the page can also be changed there.
+
+The summary on a Milestone project is a grid. Owner and Project Dependency share the first row, Created and Reviewed the second, and Milestones and Closed the third, with Active Timeframe down the right-hand side.
 
 [[IMAGE#Screenshots/23-MyNewProject.png]]
 
@@ -221,7 +223,7 @@ Further down the Review page, finished tasks since your last review are grouped 
 
 Your wins are saved in `Time_Management/Review.md`. Every finished task, not only those listed, moves to the archived status and disappears from view. Past reviews are on the **History** tab.
 
-Each review also logs figures to `Entities/Reports.md`: the tasks you completed and those still open, overdue tasks, active projects with nothing finished, how much of your Plan got done, and the wins you logged. Open **Dashboard** in the left menu and choose the **Report** tab to see them as charts over time. **Generate report** saves the Overview and Report as one file you can keep, send or print.
+Each review also logs figures to `Entities/Reports.md`: the tasks you completed and those still open, overdue tasks, active projects with nothing finished, how much of your Plan got done, and the wins you logged. Step 38 shows how to read them.
 
 There's no screenshot of this step, but the Wins box can be seen at the bottom of the Review page in Step 19.
 
@@ -368,6 +370,8 @@ Tasks are assigned using statuses, so if you'd like to assign tasks to the new p
 
 The **Colours** tab lists every colour the dashboard uses and what it's for. Double-click a colour and enter a 6 character hex value, such as `#00ff6a`. The change shows straight away. One colour often has several uses, and changing it changes them all.
 
+The colours starting `print-` are only used when you print a generated report, described in Step 38, so it comes out as dark text on white paper.
+
 [[IMAGE#Screenshots/49-CustomColours.png]]
 
 ## Step 35: Review project compatibility
@@ -393,7 +397,7 @@ Your files are organised like this:
 - `Images`: pictures used in your notes and this guide.
 - `Labels`: the settings files behind the Options page.
 - `Networking`: `Leads.md` and `Events.md`.
-- `Catalogs`: a CSV file per catalog, such as `RLS_Record_Label_Studios.csv`. Open **Catalogs** in the left menu to see them as tables. The plus button on **All catalogs** makes a new one, and the plus button on a catalog adds records one after another until you press Escape.
+- `Catalogs`: a CSV file per catalog, named with its tag and name, such as `RLS_Record_Label_Studios.csv`. Step 39 shows how to use them.
 - `Projects`, and any other directory in `PROJECTS`: a folder per project.
 - `Time_Management`: `Review.md`, `Plan.md` and `Commitments.md`.
 
@@ -421,6 +425,61 @@ Each file then gets its own tab. On a project, the tabs are on the Raw tab. On a
 [[IMAGE#Screenshots/54-NewMarkdownView.png]]
 
 If Compatibility lists a file you've added as **Unknown markdown**, it's only a reminder that the file doesn't use any of the dashboard's fields or headings. It still works.
+
+## Step 38: Read your report and save it
+
+Each time you submit a Review, a few figures are added to `Entities/Reports.md`. Open **Dashboard** in the left menu and choose the **Report** tab to see them over time.
+
+[[IMAGE#Screenshots/55-DashboardReport.png]]
+
+The tiles along the top show the latest figures, with an arrow for how each moved since the review before. Green means the change is good, and pink means it isn't.
+
+- **Tasks completed:** finished since the review before.
+- **Reviews to clear open tasks:** how many reviews it would take to finish every open task at your recent pace.
+- **Plan follow-through:** how many of your Plan's focuses got done, such as `3 of 4`.
+- **Stalled projects:** active projects where nothing was finished.
+- **Overdue tasks:** open tasks past their deadline or scheduled date.
+- **Review streak:** how many reviews in a row you've done on time.
+
+**Task flow** shows each review as a column. The tasks you finished are green at the bottom, and the tasks still open sit above them, split into assigned, waiting and unassigned. The pink line is how many were overdue. Point at a column to see its numbers.
+
+Below it, **Plan follow-through** shows how much of each Plan got done, and **Wins logged** how many wins you wrote down. The **Every report** box at the bottom opens a table of every figure.
+
+[[IMAGE#Screenshots/56-ReportCharts.png]]
+
+Select **Generate report** to save the Overview and Report as a single file, named with today's date. Your browser saves it like any download.
+
+[[IMAGE#Screenshots/57-GenerateReport.png]]
+
+The file opens in any web browser, even with the dashboard closed, so you can keep it or send it to someone. Printing it, including to PDF, gives dark text on white paper.
+
+[[IMAGE#Screenshots/58-ReportDocument.png]]
+
+## Step 39: Keep a catalog of your releases
+
+A catalog is a table of things you put out, such as releases or products. Under **Catalogs** in the left menu, select **All catalogs**. Each catalog is listed with its tag and how many records it holds, and also appears in the left menu.
+
+[[IMAGE#Screenshots/59-Catalogs.png]]
+
+Select the plus button beside **All catalogs**, type a name and check the tag. The tag is 2 or 3 letters, suggested from the name, and starts every catalog number. Select **Create catalog** and the new catalog opens.
+
+[[IMAGE#Screenshots/60-NewCatalog.png]]
+
+A catalog starts with the columns **Catalog #**, **Image**, **Owner**, **Title**, **Medium** and **Release date**. Double-click any value to change it, and use the minus button at the end of a row to delete a record.
+
+[[IMAGE#Screenshots/61-CatalogTable.png]]
+
+To add records, select the plus button beside the table. A blank record opens with the next catalog number filled in, such as `RLS003`.
+
+1. Type into the first box, and press Tab to move to the next.
+2. Press Return to save the record. Another blank record opens, so you can keep adding.
+3. Press Escape when you're done.
+
+[[IMAGE#Screenshots/62-CatalogAdd.png]]
+
+To show a picture, put it in the `Images` folder and write its name in double square brackets, such as `[[IMAGE#Logo.png]]` for your logo. Type dates the same way as everywhere else.
+
+Each catalog is saved as a spreadsheet file in the `Catalogs` folder, so you can also open it in any spreadsheet program. Columns you add there appear in the dashboard too.
 
 When you've finished the guide, tick **Mark as read** below it. The green outline around **Help Guide** in the left menu then goes away.
 
