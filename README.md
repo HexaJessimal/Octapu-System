@@ -22,7 +22,7 @@ The first time you open the dashboard, a short form asks for your entity's name 
 
 The form comes back whenever one of `Status.csv`, `Owners.csv`, `Leaders.csv`, `Options.csv` or `Colours.csv` is missing, or `Owners.csv` has no owner without a `Parent`. It only asks for what's needed and only creates what's missing, so existing files are never replaced.
 
-Each time it starts, the dashboard creates any of these that are missing: the `Entities`, `Images`, `Labels`, `Networking`, `Projects` and `Time_Management` folders, starter `Networking/Leads.md` and `Networking/Events.md` files, and a blank `Entities/Reports.md` that each Review adds to. It also copies in `Help Guide.md`, the screenshots the guide uses (`Images/Screenshots`) and a logo (`Images/Logo.png`) from `dashboard/defaults`. The logo is only added if `Images` has no logo of its own. Anything already there is left alone, so a deleted screenshot comes back but an edited guide is kept. To change what a new install gets, edit the copies in `dashboard/defaults`.
+Each time it starts, the dashboard creates any of these that are missing: the `Catalogs`, `Entities`, `Images`, `Labels`, `Networking`, `Projects` and `Time_Management` folders, starter `Networking/Leads.md` and `Networking/Events.md` files, and a blank `Entities/Reports.md` that each Review adds to. It also copies in `Help Guide.md`, the screenshots the guide uses (`Images/Screenshots`) and a logo (`Images/Logo.png`) from `dashboard/defaults`. The logo is only added if `Images` has no logo of its own. Anything already there is left alone, so a deleted screenshot comes back but an edited guide is kept. To change what a new install gets, edit the copies in `dashboard/defaults`.
 
 A picture named `logo` in `Images`, such as `Images/Logo.png`, appears at the bottom of the left menu, with **OCTAPU SYSTEM** beside it in capitals in the Bytesized font, and links to the Dashboard.
 
@@ -100,6 +100,7 @@ The sidebar on the left appears on every page:
 - **Entities:** the top-level owners from `Labels/Owners.csv`, meaning those with no `Parent`.
 - **Time Management:** `Review`, `Plan` and `Commitments` are described below. `Review` and `Plan` each turn green in the menu once the number of days set by `ROUNDUP` in `Labels/Options.csv` has passed since the last entry, or if there's never been one. On the day it's due it says "Due today", and after that it says how overdue it is, such as "Due 2 days ago". For the two days before that it turns yellow and counts down, such as "Due in 2 days".
 - **One section per project directory** (`Projects`, for example), in the order `PROJECTS` lists them: `All projects` opens that directory's list, followed by a link to each of its projects with a `+` folder.
+- **Catalogs:** **All catalogs**, then each catalog by name, described below.
 - **Networking:** `Leads` and `Events`, described below.
 - **Compatibility:** `Entities` and `Projects`, described below.
 - **Options:** tabs for general settings (`Labels/Options.csv`), statuses, leaders and colours, described below.
@@ -211,6 +212,19 @@ An entity needs a `#` title, `**Date Created**:`, `**Date Reviewed**:` and a `##
 A project needs a folder and page title starting with an `id` from `Labels/Owners.csv`, an `**Owner**` whose value is a `Tag` from `Labels/Leaders.csv`, the fields `**Date Created**:`, `**Date Reviewed**:`, `**Date Closed**:`, `**Project Dependency**:` and `**Active Timeframe**:`, and `## Milestones` and `## Notes` sections. The colon can sit inside or outside the bold, and `**Created:**` counts as Date Created.
 
 Every markdown file directly inside a project or entity folder is checked, each in its own box with its name shown. A file beyond the main one is held to the same rules if it uses any of the dashboard's fields, a `## Milestones` section or a `TASKLISTS` heading. Otherwise it's flagged in orange as **Unknown markdown**, as is any markdown loose in a directory named in `PROJECTS` or in `Entities/`, apart from `Entities/Reports.md`. Markdown in subfolders of a project isn't looked at, so a project can keep things like code libraries and their documentation.
+
+### Catalogs
+
+Each catalog is a CSV file in the `Catalogs` folder, named after its tag and name with underscores for spaces, such as `Catalogs/RLS_Record_Label_Studios.csv`. Other files in the folder are ignored.
+
+- **All catalogs** lists every catalog with its tag and how many records it holds. The plus button asks for a name and a tag of 2 or 3 letters, suggested from the name's initials, then creates the file and opens it. A tag can only be used by one catalog, and a name can't contain `\ / : * ? " < > |` or `_`.
+- **A catalog** is a table of its records. A new catalog has the columns **Catalog #**, **Image**, **Owner**, **Title**, **Medium** and **Release date**, and any column added to the file by hand appears too.
+  - Double-click a value to change it. Enter saves and Escape cancels.
+  - The plus button opens a blank record at the bottom of the table, with the next catalog number filled in: the tag and one more than the highest number so far, such as `RLS003`. Tab moves between the fields. Return saves it and opens another, until Escape stops. A record with nothing typed is removed without saving.
+  - The minus button at the end of a row deletes the record after asking.
+  - A catalog number can't be used twice in one catalog.
+  - Values show as inline markdown, so `[[IMAGE#Octapu/cover1.png]]` shows that picture from `Images` and links work.
+  - A column with "date" in its name, such as **Release date**, is shown and typed in your `DATEFORMAT`, and stored as `YYYY-MM-DD`.
 
 ### Networking
 
@@ -441,11 +455,13 @@ Images/                pictures for [[IMAGE#...]] links, and the logo
 Time_Management/       Plan.md, Review.md and Commitments.md
 Entities/              a folder for each entity, with tentacles inside, and Reports.md
 Networking/            Leads.md and Events.md
+Catalogs/              a TAG_Name.csv per catalog
 Labels/                the CSV files behind the Options page
 dashboard/
   server.js            tiny HTTP server (Node built-ins only)
   todos.js             finds status-prefixed items in markdown
   document-edits.js    blocks, milestones and single-line text edits
+  catalogs.js          catalog files: names, rows and catalog numbers
   defaults/Colours.csv the colours a new install starts with
   public/
     setup.html         first-time setup form
@@ -457,6 +473,8 @@ dashboard/
     compatibility.html Compatibility pages
     help.html          Help Guide
     projects.html      projects list
+    catalogs.html      All catalogs
+    catalog.html       one catalog's table
     project.html       project page
     entity.html        owner page
     options.html       options form
@@ -473,6 +491,8 @@ dashboard/
     js/commitments.js  Commitments page
     js/help.js         Help Guide page
     js/list.js         projects list logic
+    js/catalog-list.js All catalogs, and New catalog
+    js/catalog.js      a catalog's table: editing, adding and deleting records
     js/new-project.js  New project form
     js/project.js      project page logic
     js/weekly-review.js Review page

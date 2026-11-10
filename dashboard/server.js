@@ -51,6 +51,7 @@ const {
   parseTimeframes,
   ownerChain,
   updateOptionsCsv,
+  cleanName,
 } = require('./todos');
 
 const {
@@ -96,6 +97,8 @@ const {
   editText,
 } = require('./document-edits');
 
+const { isDateColumn, catalogFileName, parseCatalogFileName, catalogError, newCatalogCsv, parseCatalog, nextCatalogNumber, editCatalogCsv } = require('./catalogs');
+
 const HOST = process.env.PMS_HOST || '127.0.0.1';
 const PORT = Number(process.env.PMS_PORT) || 4173;
 
@@ -114,6 +117,7 @@ const IMAGE_TYPES = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp']);
 // Edits name their document by folder. An entity's is this prefix plus its id.
 const ENTITY_PREFIX = 'entity:';
 const NETWORKING_DIR = path.resolve(__dirname, '..', 'Networking');
+const CATALOGS_DIR = path.resolve(__dirname, '..', 'Catalogs'); // a CSV per catalog
 const NETWORKING_PREFIX = 'networking:';
 const field = (label, match) => ({ label, match: match || new RegExp(`^${label.replace(/[/&]/g, '\\$&')}$`, 'i') });
 // Which file each Networking page reads, how deep its entries' headings are, which of its
@@ -157,7 +161,7 @@ const FALLBACK_DATE_FORMAT = 'YYYY-MM-DD'; // only used if Options.csv doesn't s
 const FALLBACK_PROJECT_DIRS = 'Projects'; // only used if Options.csv has no PROJECTS row
 const FALLBACK_TASK_LISTS = 'Tasks'; // only used if Options.csv has no TASKLISTS row
 // Folders the dashboard uses for something else, so they can't also hold projects.
-const RESERVED_DIRS = new Set([__dirname, ENTITY_DIR, NETWORKING_DIR, LABELS_DIR].map((dir) => path.basename(dir).toLowerCase()));
+const RESERVED_DIRS = new Set([__dirname, ENTITY_DIR, NETWORKING_DIR, LABELS_DIR, CATALOGS_DIR].map((dir) => path.basename(dir).toLowerCase()));
 const ARCHIVED_FOLDER = /^\d{4}[.\-_]\d{2}[.\-_]\d{2}/;
 const STATUS_PREFIX = /^(\+|-|\d{4}[.\-_]\d{2}[.\-_]\d{2}_?)/;
 const MAX_BODY_BYTES = 256 * 1024;
@@ -544,6 +548,7 @@ async function collectNav() {
     logo: await findLogo(),
     helpUnread: help !== null && !splitHelp(help).read,
     entities: owners.filter((o) => !o.parent).map(({ id, name }) => ({ id, name })),
+    catalogs: await listCatalogs(),
     directories: await Promise.all(
       (await readProjectDirs()).map(async (d) => ({ name: d.name, projects: (await listDirectory(d)).map((p) => p.folder) }))
     ),
@@ -643,7 +648,6 @@ async function readEntity(id, tab, requestedFile) {
   });
 }
 
-const cleanName = (text) => text.trim().replace(/\s+/g, ' ');
 
 // An error message if these can't be an entity's name and ID, or null.
 function entityError(name, id) {
@@ -2012,6 +2016,81 @@ function readBody(req) {
 }
 
 // Shared handling for edit requests. `isValid` checks the fields specific to each edit.
+// ---------- catalogs ----------
+
+// Every TAG_Name.csv in the Catalogs folder, by name. Other files there are left alone.
+async function listCatalogs() {
+  let names;
+  try {
+    names = await fs.promises.readdir(CATALOGS_DIR);
+  } catch (err) {
+    if (err.code === 'ENOENT') return [];
+    throw err;
+  }
+  return names.map(parseCatalogFileName).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+const readCatalogFile = (catalog) => fs.promises.readFile(path.join(CATALOGS_DIR, catalog.file), 'utf8');
+
+async function collectCatalogs() {
+  const catalogs = await listCatalogs();
+  return { catalogs: await Promise.all(catalogs.map(async (c) => Object.assign({ count: parseCatalog(await readCatalogFile(c)).rows.length }, c))) };
+}
+
+// A catalog by its exact file name among those listed, so no other file can be reached.
+const findCatalog = async (file) => (await listCatalogs()).find((c) => c.file === file) || null;
+
+async function readCatalog(file) {
+  const catalog = await findCatalog(file);
+  if (!catalog) return null;
+  const { columns, rows } = parseCatalog(await readCatalogFile(catalog));
+  return Object.assign({ columns, rows, dateColumns: columns.filter(isDateColumn), next: nextCatalogNumber(catalog.tag, rows), dateFormat: await readDateFormat() }, catalog);
+}
+
+// A new catalog file with the default columns. The tag is written in capitals.
+async function createCatalog({ tag, name }) {
+  const upper = tag.trim().toUpperCase();
+  const error = catalogError(upper, name);
+  if (error) return { code: 400, body: { error } };
+  if ((await listCatalogs()).some((c) => c.tag === upper)) return { code: 409, body: { error: `A catalog already uses the tag ${upper}.` } };
+  const file = catalogFileName(upper, name);
+  await fs.promises.mkdir(CATALOGS_DIR, { recursive: true });
+  try {
+    await fs.promises.writeFile(path.join(CATALOGS_DIR, file), newCatalogCsv(), { encoding: 'utf8', flag: 'wx' });
+  } catch (err) {
+    if (err.code === 'EEXIST') return { code: 409, body: { error: 'That catalog already exists.' } };
+    throw err;
+  }
+  return { code: 200, body: { ok: true, file } };
+}
+
+// Adds, changes or deletes a catalog row. A date column's value is typed in DATEFORMAT and
+// stored as YYYY-MM-DD.
+async function saveCatalogRow(body) {
+  const catalog = await findCatalog(body.file);
+  if (!catalog) return NOT_FOUND;
+  const text = await readCatalogFile(catalog);
+  const { columns } = parseCatalog(text);
+  const format = await readDateFormat();
+  const stored = (heading, value) => (isDateColumn(heading) && value.trim() ? toStoredDate(value.trim(), format) || null : value);
+  const badDate = (heading) => ({ code: 400, body: { error: `${heading} needs a date written as ${format}.` } });
+  let edit = body;
+  if (body.action === 'add') {
+    const values = columns.map((heading, i) => stored(heading, String(body.values[i] || '')));
+    const bad = values.indexOf(null);
+    if (bad !== -1) return badDate(columns[bad]);
+    edit = Object.assign({}, body, { values });
+  } else if (body.action === 'update') {
+    const to = stored(body.column, body.to);
+    if (to === null) return badDate(body.column);
+    edit = Object.assign({}, body, { to });
+  }
+  const result = editCatalogCsv(text, catalog.tag, edit);
+  if (result.error) return { code: result.code || 400, body: { error: result.error } };
+  await writeFileSafely(path.join(CATALOGS_DIR, catalog.file), result.text);
+  return { code: 200, body: { ok: true } };
+}
+
 async function handleEdit(req, res, isValid, apply) {
   if (!isTrustedRequest(req)) return sendJson(res, 403, { error: 'Forbidden' });
   if (!/^application\/json\b/i.test(req.headers['content-type'] || '')) {
@@ -2039,6 +2118,16 @@ const isRawEdit = (body) => inFile(body) && typeof body.from === 'string' && typ
 const isFieldEdit = (body) =>
   hasLine(body) && typeof body.from === 'string' && typeof body.to === 'string' && (body.label === null || typeof body.label === 'string');
 const isNewEntry = (body) => inFile(body) && typeof body.title === 'string' && typeof body.section === 'string';
+const isNewCatalog = (body) => typeof body.tag === 'string' && typeof body.name === 'string';
+// A catalog row: `values` to add one, or the row's position and catalog number to change or delete it.
+const isCatalogRow = (body) =>
+  typeof body.file === 'string' &&
+  ((body.action === 'add' && Array.isArray(body.values) && body.values.every((v) => typeof v === 'string')) ||
+    (['update', 'delete'].includes(body.action) &&
+      Number.isInteger(body.index) &&
+      body.index >= 0 &&
+      typeof body.number === 'string' &&
+      (body.action === 'delete' || (typeof body.column === 'string' && typeof body.to === 'string'))));
 // Deleting an entry or a milestone: the line its heading is on, and the heading's text.
 const isHeadingRemoval = (body) => hasLine(body) && typeof body.title === 'string';
 const isTextEdit = (body) => hasLine(body) && EDITABLE_TEXT.includes(body.kind) && typeof body.from === 'string' && typeof body.to === 'string';
@@ -2158,6 +2247,8 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/block-body' && req.method === 'POST') return handleEdit(req, res, isBodyEdit, saveBlockBody);
     if (url.pathname === '/api/block' && req.method === 'POST') return handleEdit(req, res, isNewTitled, saveNewBlock);
     if (url.pathname === '/api/milestone' && req.method === 'POST') return handleEdit(req, res, isNewTitled, saveNewMilestone);
+    if (url.pathname === '/api/catalogs' && req.method === 'POST') return handleEdit(req, res, isNewCatalog, createCatalog);
+    if (url.pathname === '/api/catalog-row' && req.method === 'POST') return handleEdit(req, res, isCatalogRow, saveCatalogRow);
     if (url.pathname === '/api/milestone-remove' && req.method === 'POST') return handleEdit(req, res, isHeadingRemoval, deleteMilestone);
     if (url.pathname === '/api/milestone-item' && req.method === 'POST') return handleEdit(req, res, isNewItem, saveNewItem);
     if (url.pathname === '/api/status-table' && req.method === 'POST') return handleEdit(req, res, isStatusRow, saveStatusRow);
@@ -2181,6 +2272,11 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, Object.entries(options).map(([key, value]) => ({ key, value, toggle: key in SWITCH_OPTIONS })));
     }
     if (url.pathname === '/api/reports') return sendJson(res, 200, await collectReports());
+    if (url.pathname === '/api/catalogs') return sendJson(res, 200, await collectCatalogs());
+    if (url.pathname === '/api/catalog') {
+      const catalog = await readCatalog(url.searchParams.get('file') || '');
+      return catalog ? sendJson(res, 200, catalog) : sendJson(res, 404, { error: 'Catalog not found.' });
+    }
     if (url.pathname === '/api/timeline') {
       return sendJson(res, 200, { rows: await collectTimeline(), dateFormat: await readDateFormat() });
     }
@@ -2263,7 +2359,7 @@ const server = http.createServer(async (req, res) => {
 
 // Every folder the dashboard expects, and the Networking files its pages open. Anything
 // already there is left alone.
-const REQUIRED_DIRS = ['Networking', 'Images', 'Labels', 'Entities', 'Projects', 'Time_Management'];
+const REQUIRED_DIRS = ['Networking', 'Images', 'Labels', 'Entities', 'Projects', 'Time_Management', 'Catalogs'];
 const STARTER_FILES = [
   ['Networking/Leads.md', '# Leads\n\n## Contacts\n'],
   ['Networking/Events.md', '# Events\n\n## Upcoming\n'],

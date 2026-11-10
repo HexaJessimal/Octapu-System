@@ -2,7 +2,7 @@ Name,Colour,Used for
 accent,#bba5f8,"Links, focus outlines and selected buttons"
 bg,#0b0b0b,Page background
 surface,#121212,"Cards, panels and dropdowns, code blocks, and the dimmed background behind pop-ups"
-surface-raised,#432a89,"Outlines of summary boxes, Home tiles, form fields and dropdowns, Timeline bars with no milestones, hover backgrounds, raised controls, and the second colour of the logo"
+surface-raised,#432a89,"Outlines of summary boxes, Dashboard tiles, form fields and dropdowns, Timeline bars with no milestones, hover backgrounds, raised controls, and the second colour of the logo"
 border,#2a2a2a,"Borders, text on any highlight colour, and archived labels"
 text,#ffffff,"Main text and faint divider lines"
 text-soft,#c7c7c7,"Secondary and quiet text, and UNASSIGNED status"
