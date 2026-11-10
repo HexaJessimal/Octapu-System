@@ -574,6 +574,18 @@ function addMilestoneItem(markdown, line, title, text) {
   return insertLine(markdown, lastContentLine(rawLines(markdown), line, end), `- [ ] ${text}`);
 }
 
+// Removes a milestone's heading and everything under it. The blank lines before the next
+// milestone go with it, but those before a following section stay.
+function removeMilestone(markdown, line, title) {
+  const visible = stripComments(markdown);
+  const found = milestoneAt(visible, line, title);
+  if (!found) return null;
+  for (let i = found.idx + 1; i < found.section.end; i++) {
+    if (/^###\s/.test(visible[i])) return removeLines(markdown, line, i);
+  }
+  return removeLines(markdown, line, lastContentLine(rawLines(markdown), line, found.section.end));
+}
+
 // Moves the milestone at position `from` to position `to`. `titles` is the order the page
 // was showing. The blank lines between milestones stay where they are.
 function moveMilestone(markdown, titles, from, to) {
@@ -677,6 +689,67 @@ function addReview(markdown, date, wins) {
   return last ? insertLine(markdown, last, ['', heading, ...lines]) : insertLine(markdown, null, [heading, ...lines]);
 }
 
+// ----- reports: a "## YYYY-MM-DD" entry per review, with a "- Label: value" line per figure -----
+
+// The figures each report holds, in the order they're written. A value is a number, or "-"
+// when there was nothing to measure, such as no project closed in the period.
+const REPORT_FIELDS = [
+  { key: 'completed', label: 'Tasks completed' },
+  { key: 'assigned', label: 'Assigned tasks' },
+  { key: 'waiting', label: 'Waiting tasks' },
+  { key: 'unassigned', label: 'Unassigned tasks' },
+  { key: 'overdue', label: 'Overdue tasks' },
+  { key: 'active', label: 'Active projects' },
+  { key: 'stalled', label: 'Stalled projects' },
+  { key: 'scheduled', label: 'Scheduled projects' },
+  { key: 'planItems', label: 'Plan focuses' },
+  { key: 'planDone', label: 'Plan focuses done' },
+  { key: 'wins', label: 'Wins logged' },
+];
+const REPORT_LINE = /^\s*[-*]\s+([^:]+):\s*(.*?)\s*$/;
+
+// Logs a report under a `## date` heading, newest first. A second review on the same day
+// replaces that day's report. An empty file gets a `# Reports` title first.
+function addReport(markdown, date, values) {
+  const lines = [`## ${date}`, ...REPORT_FIELDS.map(({ key, label }) => `- ${label}: ${values[key] === null ? '-' : values[key]}`)];
+  const base = markdown.trim() ? markdown : '# Reports\n';
+  const raw = rawLines(base);
+  const visible = stripComments(base);
+  const sections = [];
+  visible.forEach((l, i) => {
+    if (/^##\s/.test(l)) sections.push(i);
+  });
+  const same = sections.find((i) => visible[i].trim() === lines[0]);
+  if (same !== undefined) {
+    const next = sections.find((i) => i > same);
+    return replaceLines(base, same + 1, lastContentLine(raw, same + 1, next === undefined ? raw.length : next), lines);
+  }
+  if (sections.length) return insertLine(base, sections[0] || null, [...lines, '']);
+  return insertLine(base, lastContentLine(raw, 1, raw.length), ['', ...lines]);
+}
+
+// Every dated report, oldest first, with each figure as a number or null. Lines it doesn't
+// recognise are skipped, so notes can be added by hand.
+function parseReports(markdown) {
+  const reports = new Map();
+  let current = null;
+  for (const line of stripComments(markdown)) {
+    const heading = line.match(/^##\s+(\d{4}-\d{2}-\d{2})\s*$/);
+    if (heading) {
+      current = {};
+      reports.set(heading[1], current);
+      continue;
+    }
+    if (SECTION_HEADING.test(line)) current = null;
+    const row = current && line.match(REPORT_LINE);
+    const field = row && REPORT_FIELDS.find((f) => normalTitle(f.label) === normalTitle(row[1]));
+    if (field) current[field.key] = /^\d+(\.\d+)?$/.test(row[2]) ? Number(row[2]) : null;
+  }
+  return [...reports]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, found]) => ({ date, values: Object.fromEntries(REPORT_FIELDS.map(({ key }) => [key, key in found ? found[key] : null])) }));
+}
+
 // Swaps `from`, starting at offset `at`, for `to`.
 function swapText(markdown, line, at, from, to) {
   return editLine(markdown, line, (text) => {
@@ -722,6 +795,7 @@ module.exports = {
   addBlock,
   addMilestone,
   addMilestoneItem,
+  removeMilestone,
   moveMilestone,
   milestoneRows,
   lastReviewDate,
@@ -750,6 +824,9 @@ module.exports = {
   addTask,
   isTaskList,
   addReview,
+  REPORT_FIELDS,
+  addReport,
+  parseReports,
   cancelRow,
   deleteRow,
   editText,

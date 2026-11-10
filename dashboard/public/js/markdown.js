@@ -208,13 +208,15 @@
     return { html: root.children.map((l) => renderList(l, ctx)).join(''), next: i };
   }
 
-  // True if the scanner found an ARCHIVED type status on this line.
+  // True if the scanner found an ARCHIVED type status on this line, and SHOWARCHIVED in
+  // Labels/Options.csv isn't on (that comes from the api/owner-tags.js script too).
   const isArchivedRow = (no, ctx) => {
+    if (global.PMS_SHOW_ARCHIVED) return false;
     const item = ctx.todos.get(no);
     return Boolean(item) && item.type === 'ARCHIVED';
   };
 
-  // An archived item isn't shown, and takes anything nested under it along.
+  // An archived item isn't shown, and takes anything nested under it along, unless SHOWARCHIVED is on.
   function renderItem(it, ctx) {
     if (isArchivedRow(it.no, ctx)) return '';
     const cls = [];

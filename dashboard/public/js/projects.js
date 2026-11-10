@@ -202,6 +202,12 @@
 
   const entityHref = (root, id) => 'entity.html?id=' + encodeURIComponent(root) + (id === root ? '' : '&tab=' + encodeURIComponent(id));
 
+  // A YYYY-MM-DD date as a whole number of days, so two can be subtracted.
+  const dayNumber = (date) => {
+    const [y, m, d] = date.split('-').map(Number);
+    return Date.UTC(y, m - 1, d) / 86400000;
+  };
+
   const byFolderTitle = (a, b) => parseFolder(a.folder).title.localeCompare(parseFolder(b.folder).title);
 
   // Fills in an ID from the name, until the ID has been typed into by hand.
@@ -387,6 +393,7 @@
     clearSelection,
     entityHref,
     byFolderTitle,
+    dayNumber,
     suggestIdFrom,
     openDialog,
     formDialog,

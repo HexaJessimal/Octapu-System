@@ -1,13 +1,15 @@
 // Right-hand sidebar: status-prefixed todo items from every project.
 (function () {
   'use strict';
-  const { presentTypes, markdown, status, component, getJson } = window.PMS;
+  const { presentTypes, parseFolder, markdown, status, component, getJson } = window.PMS;
 
   const root = document.getElementById('todo-sidebar');
   if (!root) return;
 
   const STORAGE_KEY = 'pms.sidebar';
   const FILE_ORDER = 'file';
+  const ANY = ''; // a dropdown left on "All"
+  const NO_PRIORITY = 'none';
   const HIGHLIGHT_NOTES = {
     milestone: 'Named in the latest focus',
     project: 'Its project is in the latest focus',
@@ -16,8 +18,12 @@
 
   let statuses = [];
   let types = [];
+  let priorities = [];
   let items = [];
-  let filter = 'all';
+  // The filter. `shown` holds the ticked status types, or null until the first load ticks
+  // every type but ARCHIVED.
+  let shown = null;
+  let picked = { status: ANY, priority: ANY, entity: ANY, project: ANY };
   let sort = FILE_ORDER;
   let shellReady = false;
 
@@ -27,7 +33,12 @@
   function loadPrefs() {
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
-      if (typeof saved.filter === 'string') filter = saved.filter;
+      if (Array.isArray(saved.shown)) shown = new Set(saved.shown.filter((t) => typeof t === 'string'));
+      if (saved.picked && typeof saved.picked === 'object') {
+        Object.keys(picked).forEach((key) => {
+          if (typeof saved.picked[key] === 'string') picked[key] = saved.picked[key];
+        });
+      }
       if (typeof saved.sort === 'string') sort = saved.sort;
     } catch (_) {
       /* storage unavailable: use defaults */
@@ -36,13 +47,13 @@
 
   function savePrefs() {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ filter, sort }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ shown: [...shown], picked, sort }));
     } catch (_) {
       /* storage unavailable: choices just won't persist */
     }
   }
 
-  // "status:JESSIE" -> { kind: 'status', name: 'JESSIE' }
+  // "first-status:JESSIE" -> { kind: 'first-status', name: 'JESSIE' }
   function split(value) {
     const at = value.indexOf(':');
     return { kind: value.slice(0, at), name: value.slice(at + 1) };
@@ -52,12 +63,20 @@
     return kind === 'status' ? item.status === name : item.type === name;
   }
 
-  // Archived items only appear when the filter itself selects an archived status or type.
-  function visibleItems() {
-    if (filter === 'all') return items.filter((i) => !isArchived(i.type));
-    const { kind, name } = split(filter);
-    return items.filter((i) => matches(i, kind, name));
-  }
+  // Items from an entity's own files belong to no project.
+  const projectOf = (item) => (item.entity ? null : item.folder);
+
+  // Each dropdown's test. Leaving one on All lets everything through.
+  const TESTS = {
+    status: (item, value) => item.status === value,
+    priority: (item, value) => (value === NO_PRIORITY ? !item.priority : item.priority === value),
+    entity: (item, value) => item.entityName === value,
+    project: (item, value) => projectOf(item) === value,
+  };
+
+  const passes = (item, except) => shown.has(item.type) && Object.keys(TESTS).every((key) => key === except || picked[key] === ANY || TESTS[key](item, picked[key]));
+
+  const visibleItems = () => items.filter((item) => passes(item));
 
   function sorted(list) {
     if (sort === FILE_ORDER) return list;
@@ -83,14 +102,34 @@
     return options.length ? component('optgroup', { label, options: options.join('') }) : '';
   }
 
-  function filterOptions() {
-    const count = (kind, name) => items.filter((i) => matches(i, kind, name)).length;
-    return (
-      option('all', 'Live (' + items.filter((i) => !isArchived(i.type)).length + ')', filter) +
-      group('Status types', types.map((t) => option('type:' + t, t + ' (' + count('type', t) + ')', filter))) +
-      group('Statuses', statuses.map((s) => option('status:' + s.name, s.name + ' (' + count('status', s.name) + ')', filter)))
-    );
+  // A dropdown's choices, each with how many items it would show alongside the other filters.
+  function choices(key, list) {
+    const count = (value) => items.filter((item) => passes(item, key) && TESTS[key](item, value)).length;
+    const all = items.filter((item) => passes(item, key)).length;
+    return option(ANY, 'All (' + all + ')', picked[key]) + list.map(([value, label]) => option(value, label + ' (' + count(value) + ')', picked[key])).join('');
   }
+
+  const byLabel = (a, b) => a[1].localeCompare(b[1]);
+
+  function entityList() {
+    const names = [...new Set(items.map((i) => i.entityName).filter(Boolean))];
+    return names.map((name) => [name, name]).sort(byLabel);
+  }
+
+  // Projects with items of a ticked type, and only those of the chosen entity if there is one.
+  function projectList() {
+    const folders = new Set(items.filter((i) => projectOf(i) && shown.has(i.type) && (picked.entity === ANY || i.entityName === picked.entity)).map(projectOf));
+    return [...folders].map((folder) => [folder, parseFolder(folder).title]).sort(byLabel);
+  }
+
+  const selects = () => ({
+    status: choices('status', statuses.map((s) => [s.name, s.name])),
+    priority: choices('priority', [...priorities.map((p) => [p, p]), [NO_PRIORITY, 'None']]),
+    entity: choices('entity', entityList()),
+    project: choices('project', projectList()),
+  });
+
+  const typeBoxes = () => types.map((type) => component('todo-type', { on: shown.has(type), checked: String(shown.has(type)), type })).join('');
 
   function sortOptions() {
     // Archived items are never mixed with others and done items always go last,
@@ -104,17 +143,24 @@
     );
   }
 
+  // Drops any choice that no longer exists, such as a renamed status or a closed project.
   function validateChoices() {
-    const known = (kind, name) => (kind === 'status' ? statuses.some((s) => s.name === name) : types.includes(name));
-    if (filter !== 'all') {
-      const { kind, name } = split(filter);
-      if (!known(kind, name)) filter = 'all';
-    }
+    if (!shown) shown = new Set(types.filter((t) => !isArchived(t)));
+    const known = {
+      status: statuses.map((s) => s.name),
+      priority: [...priorities, NO_PRIORITY],
+      entity: entityList().map(([value]) => value),
+      project: projectList().map(([value]) => value),
+    };
+    Object.keys(picked).forEach((key) => {
+      if (picked[key] !== ANY && !known[key].includes(picked[key])) picked[key] = ANY;
+    });
     if (![FILE_ORDER, 'by-status', 'by-type'].includes(sort)) {
       const { kind, name } = split(sort);
       const key = kind.replace('first-', '');
       const type = key === 'status' ? (statuses.find((s) => s.name === name) || {}).type : name;
-      if (!known(key, name) || !type || isArchived(type) || isDone(type)) sort = FILE_ORDER;
+      const exists = key === 'status' ? known.status.includes(name) : types.includes(name);
+      if (!exists || !type || isArchived(type) || isDone(type)) sort = FILE_ORDER;
     }
   }
 
@@ -134,7 +180,13 @@
     });
   }
 
+  // Redraws the filter's choices, whose counts depend on each other, and then the list.
   function renderList() {
+    const options = selects();
+    Object.keys(options).forEach((key) => {
+      root.querySelector('#todo-' + key).innerHTML = options[key];
+    });
+    root.querySelector('#todo-types').innerHTML = typeBoxes();
     const list = sorted(visibleItems());
     const open = list.filter((i) => !isDone(i.type));
     const done = list.filter((i) => isDone(i.type));
@@ -144,17 +196,35 @@
       : component('empty-item', { message: 'Nothing here.' });
   }
 
-  function renderShell() {
-    root.innerHTML = component('sidebar-shell', { filter: filterOptions(), sort: sortOptions() });
+  const changed = () => {
+    validateChoices(); // a new entity can rule out the chosen project
+    savePrefs();
+    renderList();
+  };
 
-    const bind = (id, apply) =>
-      root.querySelector(id).addEventListener('change', (e) => {
-        apply(e.target.value);
-        savePrefs();
-        renderList();
-      });
-    bind('#todo-filter', (v) => (filter = v));
-    bind('#todo-sort', (v) => (sort = v));
+  function renderShell() {
+    const s = selects();
+    root.innerHTML = component('sidebar-shell', { types: typeBoxes(), status: s.status, priority: s.priority, entity: s.entity, project: s.project, sort: sortOptions() });
+    Object.keys(picked).forEach((key) =>
+      root.querySelector('#todo-' + key).addEventListener('change', (e) => {
+        picked[key] = e.target.value;
+        changed();
+      })
+    );
+    root.querySelector('#todo-sort').addEventListener('change', (e) => {
+      sort = e.target.value;
+      changed();
+    });
+    root.querySelector('#todo-types').addEventListener('click', (e) => {
+      const box = e.target.closest('[data-type]');
+      if (!box) return;
+      e.preventDefault(); // a click on the label would otherwise click the box a second time
+      const type = box.dataset.type;
+      if (shown.has(type)) shown.delete(type);
+      else shown.add(type);
+      changed();
+      root.querySelector('[data-type="' + CSS.escape(type) + '"]').focus(); // the boxes were redrawn
+    });
   }
 
   function showMessage(text) {
@@ -168,12 +238,12 @@
         window.PMS.setDateFormat(data.dateFormat);
         statuses = data.statuses;
         types = presentTypes(statuses);
+        priorities = data.priorities || [];
         items = data.items;
         status.setStatuses(statuses);
         validateChoices();
         if (shellReady) {
           // Refresh in place so the list keeps its scroll position.
-          root.querySelector('#todo-filter').innerHTML = filterOptions();
           root.querySelector('#todo-sort').innerHTML = sortOptions();
         } else {
           renderShell();

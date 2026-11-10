@@ -263,6 +263,14 @@
 
 <template name="options-field"><label>{{key}}<input data-key="{{key}}" value="{{value}}" autocomplete="off"></label></template>
 
+<!-- An on/off option, saved as TRUE or FALSE. -->
+<template name="options-toggle">
+  <label class="options-toggle">
+    <button type="button" class="check-box{{#if on}} has-icon icon-done{{/if}}" role="checkbox" aria-checked="{{{checked}}}" data-key="{{key}}" data-value="{{{value}}}"></button>
+    <span>{{key}}<small>{{note}}</small></span>
+  </label>
+</template>
+
 <template name="options-form">
   <form class="card options-form" id="options-form">
     {{{fields}}}

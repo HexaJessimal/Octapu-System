@@ -103,7 +103,7 @@
           ];
 
     root.innerHTML =
-      link({ href: './', label: 'Home' }) +
+      link({ href: './', label: 'Dashboard' }) +
       group('entity', 'Entities', data.entities.map(entityLink), 'No entities found.') +
       group('roundup', 'Time Management', [
         Object.assign(roundupLink('weekly-review.html', 'Review', roundup.review, roundup.interval), { counts: reviewCounts }),

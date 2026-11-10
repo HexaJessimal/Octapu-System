@@ -4,6 +4,17 @@
 
 <template name="add-button"><button type="button" class="add-button" data-add="{{{action}}}" title="{{label}}" aria-label="{{label}}"{{#if list}} data-list="{{list}}"{{/if}}{{#if hasLine}} data-line="{{{line}}}" data-title="{{title}}"{{/if}}></button></template>
 
+<!-- A blank milestone, checkbox or task being typed in after pressing a plus button. -->
+<template name="quick-add">
+  <div class="quick-add {{{className}}}">
+    {{#if box}}<span class="check-box" aria-hidden="true"></span>{{/if}}
+    <div class="quick-add-body">
+      <div class="quick-add-field"></div>
+      <p class="quick-add-hint">Press Esc to abort</p>
+    </div>
+  </div>
+</template>
+
 <template name="scratch-block">
   <section class="card scratch-block">
     {{{title}}}
@@ -48,7 +59,7 @@
 <template name="summary-card">
   <section class="card summary">
     <h2>{{{title}}}</h2>
-    <dl class="facts">{{{facts}}}</dl>
+    <dl class="facts{{#if grid}} facts-grid{{/if}}">{{{facts}}}</dl>
     {{{footer}}}
   </section>
 </template>
@@ -56,7 +67,7 @@
 <template name="fact"><div{{#if className}} class="{{{className}}}"{{/if}}><dt>{{label}}</dt><dd>{{{value}}}</dd></div></template>
 
 <template name="fact-timeframe">
-  <div class="fact-wide">
+  <div class="fact-wide fact-timeframe">
     <dt class="fact-heading">Active Timeframe{{{control}}}</dt>
     <dd>{{{body}}}</dd>
   </div>
@@ -86,6 +97,7 @@
       <div class="ms-actions">
         <span class="ms-count">{{counts}}</span>
         {{{add}}}
+        <button type="button" class="row-remove" data-remove-milestone title="Delete this milestone" aria-label="Delete the milestone {{title}}"></button>
       </div>
     </header>
     <div class="ms-body">{{{body}}}</div>

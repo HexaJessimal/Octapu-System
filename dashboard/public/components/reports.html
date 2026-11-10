@@ -1,0 +1,116 @@
+<!-- The Dashboard's Report tab: headline tiles, charts drawn as SVG, and a table of every
+     report, plus the standalone document Generate report saves. -->
+
+<!-- The link is clicked by the script once the document is ready, to save it. -->
+<template name="report-actions">
+  <div class="report-actions">
+    <button type="button" class="primary-button" data-generate-report>Generate report</button>
+    <span class="report-actions-note" role="status" data-report-message>A single HTML file of the Overview and Report, to keep, send or print.</span>
+    <a class="visually-hidden" data-report-download tabindex="-1" aria-hidden="true">Save the report</a>
+  </div>
+</template>
+
+<!-- The saved report: a complete page whose stylesheet link carries the dashboard's styles as
+     a data address, so it opens anywhere without the dashboard running. -->
+<template name="report-document"><!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{title}}</title>
+    <link rel="stylesheet" href="{{{stylesheet}}}">
+  </head>
+  <body class="report-document">
+    <main class="wrap">
+      <header class="report-document-head">
+        <h1>{{title}}</h1>
+        <p>Generated {{generated}}</p>
+      </header>
+      <section class="report-document-part">
+        <h2 class="report-document-title">Overview</h2>
+        {{{overview}}}
+      </section>
+      <section class="report-document-part">
+        <h2 class="report-document-title">Report</h2>
+        {{{report}}}
+      </section>
+    </main>
+  </body>
+</html></template>
+
+<!-- A headline figure. `tone` is good or bad, and the arrow in `delta` says which way it moved. -->
+<template name="report-tile">
+  <div class="home-stat report-tile">
+    <span class="home-stat-label">{{label}}</span>
+    <span class="home-stat-value">{{value}}</span>
+    {{#if delta}}<span class="report-delta{{#if tone}} is-{{{tone}}}{{/if}}">{{delta}}</span>{{/if}}
+    {{#if note}}<span class="home-stat-note">{{note}}</span>{{/if}}
+  </div>
+</template>
+
+<template name="report-tiles"><div class="home-stats report-tiles">{{{tiles}}}</div></template>
+
+<template name="report-charts"><div class="report-charts">{{{charts}}}</div></template>
+
+<template name="report-chart">
+  <section class="card report-chart" data-chart="{{{key}}}">
+    <header class="report-chart-head">
+      <h2>{{title}}</h2>
+      <p>{{subtitle}}</p>
+      {{#if legend}}<div class="chart-legend">{{{legend}}}</div>{{/if}}
+    </header>
+    <div class="chart">
+      {{{svg}}}
+      <div class="chart-tip" role="status" hidden></div>
+    </div>
+  </section>
+</template>
+
+<!-- A legend entry: a box for a column, a line for a line, matching the mark. -->
+<template name="chart-key"><span class="chart-key"><span class="{{#if bar}}chart-key-box{{else}}chart-key-line{{/if}} series-{{{series}}}"></span>{{label}}</span></template>
+
+<template name="chart-svg"><svg class="chart-svg" viewBox="0 0 {{{width}}} {{{height}}}" role="img" aria-label="{{label}}">{{{body}}}</svg></template>
+
+<template name="chart-gridline"><line class="chart-grid" x1="{{{x1}}}" x2="{{{x2}}}" y1="{{{y}}}" y2="{{{y}}}"></line></template>
+
+<template name="chart-tick"><text class="chart-tick" x="{{{x}}}" y="{{{y}}}" text-anchor="{{{anchor}}}">{{text}}</text></template>
+
+<template name="chart-line"><path class="chart-line series-{{{series}}}" d="{{{d}}}"></path></template>
+
+<!-- A wider stroke in the card's colour under a line drawn over columns, so it stays readable. -->
+<template name="chart-halo"><path class="chart-halo" d="{{{d}}}"></path></template>
+
+
+<template name="chart-bar"><path class="chart-bar series-{{{series}}}" d="{{{d}}}" data-index="{{{index}}}"></path></template>
+
+<template name="chart-dot"><circle class="chart-dot series-{{{series}}}" cx="{{{x}}}" cy="{{{y}}}" r="4" data-index="{{{index}}}"></circle></template>
+
+<!-- The value at a line's last point, beside it. -->
+<template name="chart-end-label"><text class="chart-end-label" x="{{{x}}}" y="{{{y}}}">{{text}}</text></template>
+
+<template name="chart-crosshair"><line class="chart-crosshair" x1="0" x2="0" y1="{{{top}}}" y2="{{{bottom}}}" visibility="hidden"></line></template>
+
+<!-- An invisible band over each report, wider than its marks, for hover and keyboard focus. -->
+<template name="chart-hit"><rect class="chart-hit" x="{{{x}}}" y="{{{y}}}" width="{{{width}}}" height="{{{height}}}" data-index="{{{index}}}" tabindex="0" aria-label="{{label}}"></rect></template>
+
+<template name="chart-tip-head"><div class="chart-tip-date">{{date}}</div></template>
+
+<template name="chart-tip-row"><div class="chart-tip-row"><span class="chart-key-line series-{{{series}}}"></span><b>{{value}}</b> {{label}}</div></template>
+
+<template name="report-table">
+  <details class="card report-table">
+    <summary>Every report ({{{count}}})</summary>
+    <div class="report-table-scroll">
+      <table>
+        <thead><tr><th scope="col">Review</th>{{{heads}}}</tr></thead>
+        <tbody>{{{rows}}}</tbody>
+      </table>
+    </div>
+  </details>
+</template>
+
+<template name="report-table-head"><th scope="col">{{label}}</th></template>
+
+<template name="report-table-row"><tr><th scope="row">{{date}}</th>{{{cells}}}</tr></template>
+
+<template name="report-table-cell"><td>{{value}}</td></template>

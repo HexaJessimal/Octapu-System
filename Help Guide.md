@@ -36,7 +36,7 @@ Select **Get started**. The dashboard creates the settings files it needs in the
 
 ## Step 3: View your homepage
 
-Home shows what matters today.
+**Dashboard**, at the top of the left menu, opens on its **Overview** tab, which shows what matters today. The **Report** tab is described in Step 20.
 
 [[IMAGE#Screenshots/04-Homepage.png]]
 
@@ -82,13 +82,13 @@ Once a task has a status, a second small dropdown appears beside it. Use that to
 
 [[IMAGE#Screenshots/09-AssignPriority.png]]
 
-The same status menu has **Schedule** and **Deadline** options. Each asks for a date, which you can type or choose with the calendar button, and shows it under the task. A task with a date appears in **Due in the next 7 days** and **Overdue tasks** on your Home page. To remove a date, choose the option again and clear the box.
+The same status menu has **Schedule** and **Deadline** options. Each asks for a date, which you can type or choose with the calendar button, and shows it under the task. A task with a date appears in **Due in the next 7 days** and **Overdue tasks** on the Dashboard's Overview. To remove a date, choose the option again and clear the box.
 
 ## Step 8: View your entity-wide todo list
 
 The **Todos** list on the right shows every line, in every entity and non-archived project, that has a status. A task with no status stays in its own list and doesn't appear here.
 
-Use **Filter** to narrow the list, and **Sort** to change the order. Choosing an archived status in Filter is the only place archived items appear in the dashboard.
+Use **Filter** to narrow the list, and **Sort** to change the order. The tick boxes across the top choose which status types show, and the **Status**, **Priority**, **Entity** and **Project** dropdowns narrow it further. Archived items only appear here when you tick **ARCHIVED**, and on other pages only when `SHOWARCHIVED` is ticked in Options.
 
 [[IMAGE#Screenshots/10-TodoList.png]]
 
@@ -165,11 +165,11 @@ Select **Create project** and the new project opens. The tag beside the title sh
 
 ## Step 16: Add milestones and milestone tasks to a project
 
-Select the plus button beside **Milestones** and name the milestone.
+Select the plus button beside **Milestones**. A blank milestone opens, ready to type into. Press Return to save it and start another, or Escape to stop.
 
 [[IMAGE#Screenshots/24-NewMilestone.png]]
 
-Each milestone appears as a coloured block in the progress bar and as its own card below. Use the plus button on a card to add tasks to it. The drag handle reorders cards, and the small arrow collapses them.
+Each milestone appears as a coloured block in the progress bar and as its own card below. Use the plus button on a card to add tasks to it, the same way. The minus button deletes the milestone and its tasks after asking. The drag handle reorders cards, and the small arrow collapses them.
 
 The colours show progress: green is complete, yellow is in progress, orange is not started and pink is unplanned, meaning it has no tasks yet.
 
@@ -221,6 +221,8 @@ Further down the Review page, finished tasks since your last review are grouped 
 
 Your wins are saved in `Time_Management/Review.md`. Every finished task, not only those listed, moves to the archived status and disappears from view. Past reviews are on the **History** tab.
 
+Each review also logs figures to `Entities/Reports.md`: the tasks you completed and those still open, overdue tasks, active projects with nothing finished, how much of your Plan got done, and the wins you logged. Open **Dashboard** in the left menu and choose the **Report** tab to see them as charts over time. **Generate report** saves the Overview and Report as one file you can keep, send or print.
+
 There's no screenshot of this step, but the Wins box can be seen at the bottom of the Review page in Step 19.
 
 ## Step 21: Plan the next work period and submit your focuses
@@ -264,7 +266,7 @@ Double-click a name to change it. The minus button deletes a commitment after as
 
 ## Step 24: View the timeline
 
-The Timeline is on your Home page. Projects are graded through the colours of their milestones, and commitments are one solid colour. A project with no milestones is shown as `N/A` in the key. Where one item depends on another, it sits underneath with an arrow joining them. Select any bar to open it.
+The Timeline is on the Dashboard's Overview tab. Projects are graded through the colours of their milestones, and commitments are one solid colour. A project with no milestones is shown as `N/A` in the key. Where one item depends on another, it sits underneath with an arrow joining them. Select any bar to open it.
 
 [[IMAGE#Screenshots/38-TimelineView.png]]
 
@@ -338,6 +340,7 @@ Open **Options** at the bottom of the left menu. The **General** tab holds:
 - `ROUNDUP`: how many days between each Review and Plan.
 - `PROJECTS`: the folders that hold projects, separated by commas.
 - `TASKLISTS`: the task list headings on entities and Ongoing projects, separated by commas.
+- `SHOWARCHIVED`: tick it to keep archived tasks visible on project and entity pages.
 
 [[IMAGE#Screenshots/45-Options.png]]
 
@@ -386,7 +389,7 @@ Your files are organised like this:
 [[IMAGE#Screenshots/51-DirectoryStructure.png]]
 
 - `dashboard`: the dashboard's own code.
-- `Entities`: a folder per entity, named after its ID, with tentacles inside their parent.
+- `Entities`: a folder per entity, named after its ID, with tentacles inside their parent, and `Reports.md`.
 - `Images`: pictures used in your notes and this guide.
 - `Labels`: the settings files behind the Options page.
 - `Networking`: `Leads.md` and `Events.md`.

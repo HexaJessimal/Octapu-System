@@ -1,7 +1,7 @@
 // Project page: Overview (summary + milestones), Scratchpad (blocks) and Raw (the whole file).
 (function () {
   'use strict';
-  const { parseFolder, STATE_LABELS, progressLegend, escapeHtml, markdown: md, status, editing, milestoneControls, documentView, component, readJson, setViewInAddress } = window.PMS;
+  const { parseFolder, STATE_LABELS, progressLegend, escapeHtml, markdown: md, status, editing, milestoneControls, documentView, component, readJson, setViewInAddress, UNREACHABLE } = window.PMS;
   const { addButton, progressMeter, fact, titleSpan } = documentView;
 
   const DEFAULT_VIEW = 'overview';
@@ -80,22 +80,21 @@
     return value;
   }
 
-  // How wide a box is: Owner and Milestones share a row above three, and on an ongoing
-  // project Owner has the row to itself.
-  function factWidth(kind) {
-    if (project.ongoing && kind === 'owner') return 'fact-full';
-    return kind === 'dependency' || (!project.ongoing && (kind === 'owner' || kind === 'milestones')) ? 'fact-wide' : '';
-  }
+  // On an ongoing project Owner has the row to itself. A milestone project's boxes sit in a
+  // three by three grid instead, laid out by the facts-grid style.
+  const factWidth = (kind) => (project.ongoing && kind === 'owner' ? 'fact-full' : '');
 
-  // The title with its status tag, and key details, at the top of the Overview.
+  // The title with its status tag, and key details, at the top of the Overview. In the grid,
+  // every box is kept, even when empty, so that each one stays in its place.
   function summaryCard(facts, info, meta, footer) {
+    const grid = !project.ongoing;
     const rows = facts
-      .filter(([, v, kind]) => v || (kind === 'owner' && project.leader) || ['timeframe', 'created', 'reviewed', 'closed', 'dependency'].includes(kind))
+      .filter(([, v, kind]) => v || (kind === 'owner' && (project.leader || grid)) || ['timeframe', 'created', 'reviewed', 'closed', 'dependency'].includes(kind))
       .map(([k, v, kind]) => {
         if (kind === 'timeframe') return timeframeFact();
         return fact(k, factValue(v, kind), factWidth(kind));
       });
-    return component('summary-card', { title: (project.title ? titleHtml() : md.inline(meta.title || info.title)) + status.projectStatusControl(project), facts: rows.join(''), footer });
+    return component('summary-card', { title: (project.title ? titleHtml() : md.inline(meta.title || info.title)) + status.projectStatusControl(project), facts: rows.join(''), grid, footer });
   }
 
   function renderOverview() {
@@ -106,13 +105,15 @@
     // ----- key details -----
     const owner = meta.fields.owner || info.owner;
     const milestonesDone = ms.milestones.filter((m) => m.state === 'done').length;
+    // In grid order: Owner and Project Dependency, Created and Reviewed, Milestones and
+    // Closed, with Active Timeframe down the right of all three rows.
     const facts = [
       ['Owner', owner, 'owner'],
-      ['Milestones', milestonesDone + ' / ' + ms.milestones.length + ' complete', 'milestones'],
+      ['Project Dependency', project.dependency.value, 'dependency'],
       ['Created', meta.fields['date created'] || meta.fields.created, 'created'],
       ['Reviewed', project.dates.reviewed.value, 'reviewed'],
+      ['Milestones', milestonesDone + ' / ' + ms.milestones.length + ' complete', 'milestones'],
       ['Closed', project.dates.closed.value, 'closed'],
-      ['Project Dependency', project.dependency.value, 'dependency'],
       ['Active Timeframe', '', 'timeframe'],
     ];
     // Any other **Key**: value fields in the file also appear here.
@@ -171,6 +172,24 @@
       body: body.trim() ? component('doc-body', { body }) : component('no-tasks', { message: m.total ? 'Milestone complete' : 'No tasks yet.' }),
     });
   }
+
+  // The minus button on a milestone deletes it, and everything under it, after asking.
+  async function removeMilestone(card) {
+    const title = card.dataset.title;
+    if (!(await status.confirmDelete(title, 'Delete this milestone and everything in it?'))) return;
+    try {
+      const result = await editing.post('api/milestone-remove', { line: Number(card.querySelector('h3').dataset.line), title });
+      if (!result.ok) status.toast(result.error || 'Could not delete that.');
+      await status.refresh();
+    } catch (_) {
+      status.toast(UNREACHABLE);
+    }
+  }
+
+  document.addEventListener('click', (e) => {
+    const remove = e.target.closest('[data-remove-milestone]');
+    if (remove) removeMilestone(remove.closest('.milestone'));
+  });
 
   function showError(msg) {
     titleEl.textContent = 'Project not found';

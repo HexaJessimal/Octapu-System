@@ -13,3 +13,8 @@ orange,#ff9100,"Milestones not started, inactive projects, ASSIGNED status, and 
 pink,#ff3d7f,"Milestones with no tasks, priority C, sidebar items whose project is not active, errors and delete buttons"
 purple,#7c4dff,"Sidebar items named in the latest focus, and entities to review"
 cyan,#00e5ff,"Sidebar items whose project is in the latest focus, Suggested projects on the Plan page, and projects to review"
+print-paper,#ffffff,"The page colour of a printed report"
+print-ink,#111111,"Main text on a printed report"
+print-ink-soft,#4a4a4a,"Secondary text on a printed report"
+print-line,#d4d4d4,"Lines and borders on a printed report"
+print-raised,#cfc4f2,"Outlines of boxes and tiles on a printed report"

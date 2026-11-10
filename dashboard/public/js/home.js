@@ -1,7 +1,7 @@
 // Home: the numbers and lists that matter today.
 (function () {
   'use strict';
-  const { parseFolder, STATUS_LABELS, progressBar, projectRow, byFolderTitle, escapeHtml, displayDate, setDateFormat, markdown, status, component, getJson, loadError } = window.PMS;
+  const { parseFolder, STATUS_LABELS, progressBar, projectRow, byFolderTitle, dayNumber, escapeHtml, displayDate, setDateFormat, markdown, status, component, getJson, loadError } = window.PMS;
 
   const statsEl = document.getElementById('home-stats');
   const contentEl = document.getElementById('content');
@@ -19,11 +19,6 @@
     if (days === 0) return stat(label, 'Today', '', { href, alert: true });
     return stat(label, plural(days, 'day'), 'until it is due', { href });
   }
-
-  const dayNumber = (date) => {
-    const [y, m, d] = date.split('-').map(Number);
-    return Date.UTC(y, m - 1, d) / 86400000;
-  };
 
   function whenText(date, today) {
     const days = dayNumber(date) - dayNumber(today);
@@ -85,9 +80,9 @@
   function render(data) {
     const inTimeframe = data.inTimeframe.slice().sort(byFolderTitle);
     statsEl.innerHTML =
-      stat('Active projects', String(data.active)) +
+      stat('Scheduled Projects', String(data.inTimeframe.length), 'running today') +
+      stat('Open projects', String(data.active)) +
       stat('Inactive projects', String(data.inactive)) +
-      stat('In a timeframe', String(data.inTimeframe.length), 'running today') +
       dueStat('Next review', data.reviewDue, 'weekly-review.html') +
       dueStat('Next plan', data.planDue, 'weekly-plan.html') +
       stat('Overdue tasks', String(data.overdue.length), '', { alert: data.overdue.length > 0 });

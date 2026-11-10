@@ -34,20 +34,39 @@
   const requested = new URLSearchParams(location.search).get('tab');
   show(tables[requested] ? requested : 'general');
 
+  // What each on/off option does, shown under its name.
+  const TOGGLE_NOTES = { SHOWARCHIVED: 'Show archived tasks on project, entity, Leads and Events pages' };
+
+  function field(o) {
+    if (!o.toggle) return component('options-field', { key: o.key, value: o.value });
+    const on = o.value.toUpperCase() === 'TRUE';
+    return component('options-toggle', { on, checked: String(on), key: o.key, value: on ? 'TRUE' : 'FALSE', note: TOGGLE_NOTES[o.key] || '' });
+  }
+
   function render(options) {
     if (!options.length) {
       contentEl.innerHTML = component('empty-card', { message: 'No options found in Labels/Options.csv.' });
       return;
     }
-    contentEl.innerHTML = component('options-form', { fields: options.map((o) => component('options-field', { key: o.key, value: o.value })).join('') });
+    contentEl.innerHTML = component('options-form', { fields: options.map(field).join('') });
 
     const form = document.getElementById('options-form');
     const message = document.getElementById('options-message');
+    form.addEventListener('click', (e) => {
+      const box = e.target.closest('[role="checkbox"][data-key]');
+      if (!box) return;
+      e.preventDefault(); // a click on the label would otherwise click the box a second time
+      const on = box.dataset.value !== 'TRUE';
+      box.dataset.value = on ? 'TRUE' : 'FALSE';
+      box.setAttribute('aria-checked', String(on));
+      box.classList.toggle('has-icon', on);
+      box.classList.toggle('icon-done', on);
+    });
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const values = {};
       form.querySelectorAll('[data-key]').forEach((input) => {
-        values[input.dataset.key] = input.value.trim();
+        values[input.dataset.key] = input.dataset.value !== undefined ? input.dataset.value : input.value.trim();
       });
       message.className = 'options-message';
       message.textContent = 'Saving…';

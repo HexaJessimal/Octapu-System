@@ -14,8 +14,11 @@ The most important first step to any creative project is the logo!
 ## Milestones
 ### First Draft
 - [/] HEXAJESSIMAL [#A] Collate inspiration
+  DEADLINE: <2026-11-09 Mon>
 - [/] HEXAJESSIMAL [#B] Draw up some potential logo ideas for comparison
+  SCHEDULED: <2026-11-11 Wed>
 - [/] HEXAJESSIMAL [#C] choose one to move forward with
+  DEADLINE: <2026-11-12 Thu>
 ### Final Proof
 - [ ] digitisation
 - [ ] final designs
@@ -24,3 +27,4 @@ The most important first step to any creative project is the logo!
     - [ ] Monochrome
   - [ ] Vector 
 ### Complimentary Branding Scheme
+

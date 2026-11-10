@@ -743,7 +743,7 @@ function appendOwnerCsv(csvText, owner) {
 
 // The Options.csv a new install starts with.
 function newOptionsCsv({ dateFormat, roundup, projects, taskLists }) {
-  return ['Option,Value', `DATEFORMAT,"${dateFormat}"`, `ROUNDUP,${roundup}`, `PROJECTS,"${projects}"`, `TASKLISTS,"${taskLists}"`].join('\r\n') + '\r\n';
+  return ['Option,Value', `DATEFORMAT,"${dateFormat}"`, `ROUNDUP,${roundup}`, `PROJECTS,"${projects}"`, `TASKLISTS,"${taskLists}"`, 'SHOWARCHIVED,"FALSE"'].join('\r\n') + '\r\n';
 }
 
 // The Status.csv a new install starts with: one status per type, with the ASSIGNED one named
@@ -773,13 +773,23 @@ function updateOptionsCsv(csvText, values) {
   const keyCol = header.indexOf('option');
   const valueCol = header.indexOf('value');
   const quoted = (v) => '"' + v.replace(/"/g, '""') + '"';
+  const present = new Set();
   const lines = rows.map((row, i) => {
     if (i === 0) return row.map(csvField).join(',');
     const key = (row[keyCol] || '').trim();
+    present.add(key);
     const next = row.slice();
     if (Object.prototype.hasOwnProperty.call(values, key)) next[valueCol] = values[key];
     return next.map((v, col) => (col === valueCol ? quoted(v) : csvField(v))).join(',');
   });
+  // An option the file doesn't have yet, such as SHOWARCHIVED in an older file, is added.
+  for (const [key, value] of Object.entries(values)) {
+    if (present.has(key)) continue;
+    const row = header.map(() => '');
+    row[keyCol] = key;
+    row[valueCol] = value;
+    lines.push(row.map((v, col) => (col === valueCol ? quoted(v) : csvField(v))).join(','));
+  }
   return bom + lines.join(eol) + (/[\r\n]$/.test(body) ? eol : '');
 }
 

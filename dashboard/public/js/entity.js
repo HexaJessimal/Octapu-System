@@ -53,6 +53,7 @@
         fact('Reviewed', reviewed ? md.inline(reviewed) : 'Not yet') +
         fact('Incomplete tasks', String(tasks.length - done)) +
         meta.order.filter((key) => !known.includes(key.toLowerCase())).map((key) => fact(key, md.inline(meta.fields[key.toLowerCase()]))).join(''),
+      grid: false,
       footer: progressMeter(done, tasks.length),
     });
   }

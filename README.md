@@ -22,9 +22,9 @@ The first time you open the dashboard, a short form asks for your entity's name 
 
 The form comes back whenever one of `Status.csv`, `Owners.csv`, `Leaders.csv`, `Options.csv` or `Colours.csv` is missing, or `Owners.csv` has no owner without a `Parent`. It only asks for what's needed and only creates what's missing, so existing files are never replaced.
 
-Each time it starts, the dashboard creates any of these that are missing: the `Entities`, `Images`, `Labels`, `Networking`, `Projects` and `Time_Management` folders, and starter `Networking/Leads.md` and `Networking/Events.md` files. It also copies in `Help Guide.md`, the screenshots the guide uses (`Images/Screenshots`) and a logo (`Images/Logo.png`) from `dashboard/defaults`. The logo is only added if `Images` has no logo of its own. Anything already there is left alone, so a deleted screenshot comes back but an edited guide is kept. To change what a new install gets, edit the copies in `dashboard/defaults`.
+Each time it starts, the dashboard creates any of these that are missing: the `Entities`, `Images`, `Labels`, `Networking`, `Projects` and `Time_Management` folders, starter `Networking/Leads.md` and `Networking/Events.md` files, and a blank `Entities/Reports.md` that each Review adds to. It also copies in `Help Guide.md`, the screenshots the guide uses (`Images/Screenshots`) and a logo (`Images/Logo.png`) from `dashboard/defaults`. The logo is only added if `Images` has no logo of its own. Anything already there is left alone, so a deleted screenshot comes back but an edited guide is kept. To change what a new install gets, edit the copies in `dashboard/defaults`.
 
-A picture named `logo` in `Images`, such as `Images/Logo.png`, appears at the bottom of the left menu, with **OCTAPU SYSTEM** beside it in capitals in the Bytesized font, and links to Home.
+A picture named `logo` in `Images`, such as `Images/Logo.png`, appears at the bottom of the left menu, with **OCTAPU SYSTEM** beside it in capitals in the Bytesized font, and links to the Dashboard.
 
 ## Running the dashboard
 
@@ -96,7 +96,7 @@ A folder with no markdown file directly inside it, such as one holding only imag
 
 The sidebar on the left appears on every page:
 
-- **Home:** a dashboard of what matters today, described below.
+- **Dashboard:** two tabs, described below. **Overview** shows what matters today, and **Report** charts the figures logged with each Review. The address `?tab=report` opens the Report tab.
 - **Entities:** the top-level owners from `Labels/Owners.csv`, meaning those with no `Parent`.
 - **Time Management:** `Review`, `Plan` and `Commitments` are described below. `Review` and `Plan` each turn green in the menu once the number of days set by `ROUNDUP` in `Labels/Options.csv` has passed since the last entry, or if there's never been one. On the day it's due it says "Due today", and after that it says how overdue it is, such as "Due 2 days ago". For the two days before that it turns yellow and counts down, such as "Due in 2 days".
 - **One section per project directory** (`Projects`, for example), in the order `PROJECTS` lists them: `All projects` opens that directory's list, followed by a link to each of its projects with a `+` folder.
@@ -105,9 +105,9 @@ The sidebar on the left appears on every page:
 - **Options:** tabs for general settings (`Labels/Options.csv`), statuses, leaders and colours, described below.
 - **Help Guide:** a step by step guide to the dashboard, from `Help Guide.md` in the main folder. Edit that file and refresh to change it. Until it's marked as read, the menu link has a green outline. The **Mark as read** checkbox below the guide is the `- [ ] Mark as read` line at the bottom of the file, which ticking it changes. If the line is missing, ticking the box adds it.
 
-### Home
+### Overview tab
 
-- **Tiles:** the number of active and inactive projects across every project directory, the number of projects in a timeframe today, how many days until the next Review and Plan are due, and the number of overdue tasks. Review and Plan use the `ROUNDUP` number of days from `Labels/Options.csv`.
+- **Tiles:** **Scheduled Projects**, the number of projects in a timeframe today, comes first. Then **Open projects** and **Inactive projects**, the number of active and inactive projects across every project directory, how many days until the next Review and Plan are due, and the number of overdue tasks. Review and Plan use the `ROUNDUP` number of days from `Labels/Options.csv`.
 - **Timeline:** a Gantt chart that scrolls sideways, with one bar per timeframe in each project's `Active Timeframe`, accurate to the month. Each bar is graded through the project's milestones from left to right, using the same colours as the milestone progress bar. A project with no milestones is `N/A` in the key, and commitments appear as solid bars. Timeframes that aren't written as `YYYY-MM-DD` are listed above the chart. A chart taller than 12 rows scrolls up and down, with the year and month headings staying in view.
 - **Current plan** shows the newest entry in `Time_Management/Plan.md`, while it's less than `ROUNDUP` days old. After that it links to the Plan page instead.
 - **Due in the next 7 days** and **Overdue tasks** list open tasks with a `DEADLINE` or `SCHEDULED` date, from every non-archived project and every entity, soonest first. If a task has both, the deadline counts. Finished, archived and cancelled tasks are left out, and today counts as due, not overdue. Its status can be changed right there.
@@ -120,7 +120,7 @@ The sidebar on the left appears on every page:
 Lists every `DONE` type item in non-archived projects, Ongoing ones included, in entities and tentacles, and under a Leads contact or an Events entry, that was closed since the last review, with one box per status. Reviews are logged in `Time_Management/Review.md`, newest first, under a `## YYYY-MM-DD` heading, and the latest heading sets the date of the last review.
 
 - **Add to wins** adds that box's items to the wins text as bullet points, and removes the box.
-- **Submit** logs the wins under today's date and moves every `DONE` type item in all of those to the first `ARCHIVED` status, including any closed before the last review. The text can't be empty.
+- **Submit** logs the wins under today's date and moves every `DONE` type item in all of those to the first `ARCHIVED` status, including any closed before the last review. The text can't be empty. It also adds a report to `Entities/Reports.md`, described under **Report tab**. If any file can't be written, the ones already changed are put back.
 
 Both Review and Plan have a **History** tab, showing their log file as one card per date.
 
@@ -133,6 +133,52 @@ Offers everything that hasn't been assigned yet, with one box for each source: a
 - Click an item to move it to the **Focus** list below, where its status and priority can be set as on a project page. The items you pick are remembered in your browser until you submit them.
 - Every item on this page with an `ASSIGNED` type status is in the **Focus** list automatically, after anything you've picked. It has no Remove button, and leaves the list when its status changes.
 - **Submit focus** logs the list in `Time_Management/Plan.md`, newest first, under today's date, as an outline of owner (by `Name` from `Labels/Owners.csv`), then project, then items, with no status tags. Entities and tentacles are listed under their top-level entity, and Leads and Events under `Networking`.
+
+### Report tab
+
+Each Review adds a report to `Entities/Reports.md`, newest first, under a `## YYYY-MM-DD` heading. A second review on the same day replaces that day's report. The figures are measured just before the review archives anything. The review period runs from the last review to today, or covers the last `ROUNDUP` days for a first review.
+
+```
+## 2026-11-10
+- Tasks completed: 9
+- Assigned tasks: 3
+- Waiting tasks: 0
+- Unassigned tasks: 0
+- Overdue tasks: 1
+- Active projects: 2
+- Stalled projects: 1
+- Scheduled projects: 1
+- Plan focuses: 3
+- Plan focuses done: 0
+- Wins logged: 3
+```
+
+- **Tasks completed:** the `DONE` type items the Review page lists, closed since the last review.
+- **Assigned, Waiting and Unassigned tasks:** rows with a status of that type, in non-archived projects, entities and tentacles, that aren't cancelled or ticked. Checkboxes with no status aren't counted, so a to-do list in a note doesn't swell the numbers until its items are given a status.
+- **Overdue tasks:** open tasks whose `DEADLINE`, or else `SCHEDULED` date, is before today, as on the Overview.
+- **Active projects:** non-archived projects whose folder starts with `+`.
+- **Stalled projects:** active projects with nothing finished in the period.
+- **Scheduled projects:** Milestone projects of any status, as on the Timeline, with an Active Timeframe that overlaps the period.
+- **Plan focuses** and **Plan focuses done:** the items in the latest Plan, and how many are done: a task with that text finished, or a milestone of that name with nothing left in it. Both are `-` when no Plan was made since the last review.
+- **Wins logged:** the lines in the wins text submitted with the review.
+
+The file can be edited by hand. Lines it doesn't recognise are skipped, and a figure written as `-` is left out of the charts. The file is never flagged on Compatibility.
+
+The **Report** tab draws the file:
+
+- **Tiles:** the latest figures and how each moved since the review before. The arrow shows the direction, and green or pink shows whether that's good.
+  - **Tasks completed**, **Stalled projects** and **Overdue tasks** as logged.
+  - **Reviews to clear open tasks:** the open tasks divided by the average completed over the last four reviews.
+  - **Plan follow-through:** how many of the latest Plan's focuses are done, such as `3 of 4`.
+  - **Review streak:** reviews in a row, each within `ROUNDUP` days of the one before.
+- **Task flow:** across the full width, a column per review with the tasks completed in that period at the bottom, and the assigned, waiting and unassigned tasks still open at the review stacked above them. A line shows how many are overdue.
+- **Plan follow-through:** the share of the Plan's focuses done, as a column per review.
+- **Wins logged:** a column per review.
+- **Every report:** a table of every figure, newest first, including Active and Scheduled projects, which have no chart of their own.
+
+Point at or tab to a chart to show a line across it at that review, with every value it shows. The charts take their colours from `Labels/Colours.csv`, matching what each colour means elsewhere: green for done, orange for assigned, yellow for waiting, grey for unassigned and pink for overdue.
+
+**Generate report** saves a single HTML file, named with today's date, holding the Overview and Report tabs as they look at that moment. The table of every report stays on the tab and isn't included. The styles and icons are inside it, so it opens in any browser with the dashboard closed, and can be emailed or kept. Links, menus, hover readouts and the add, drag and collapse buttons are left out, as they only work inside the dashboard. Printing it, including to PDF, uses dark text on white, from the `print-` colours in `Labels/Colours.csv`, and shows the whole Timeline.
 
 ### Commitments
 
@@ -164,7 +210,7 @@ An entity needs a `#` title, `**Date Created**:`, `**Date Reviewed**:` and a `##
 
 A project needs a folder and page title starting with an `id` from `Labels/Owners.csv`, an `**Owner**` whose value is a `Tag` from `Labels/Leaders.csv`, the fields `**Date Created**:`, `**Date Reviewed**:`, `**Date Closed**:`, `**Project Dependency**:` and `**Active Timeframe**:`, and `## Milestones` and `## Notes` sections. The colon can sit inside or outside the bold, and `**Created:**` counts as Date Created.
 
-Every markdown file directly inside a project or entity folder is checked, each in its own box with its name shown. A file beyond the main one is held to the same rules if it uses any of the dashboard's fields, a `## Milestones` section or a `TASKLISTS` heading. Otherwise it's flagged in orange as **Unknown markdown**, as is any markdown loose in a directory named in `PROJECTS` or in `Entities/`. Markdown in subfolders of a project isn't looked at, so a project can keep things like code libraries and their documentation.
+Every markdown file directly inside a project or entity folder is checked, each in its own box with its name shown. A file beyond the main one is held to the same rules if it uses any of the dashboard's fields, a `## Milestones` section or a `TASKLISTS` heading. Otherwise it's flagged in orange as **Unknown markdown**, as is any markdown loose in a directory named in `PROJECTS` or in `Entities/`, apart from `Entities/Reports.md`. Markdown in subfolders of a project isn't looked at, so a project can keep things like code libraries and their documentation.
 
 ### Networking
 
@@ -190,7 +236,7 @@ Dates are read day-first, as `25.07.26`, `31.10.2026`, `11-13.09.26` or `14.05.2
 
 ### Options
 
-**General** edits the values in `Labels/Options.csv`, including the `PROJECTS` directory list.
+**General** edits the values in `Labels/Options.csv`, including the `PROJECTS` directory list. `SHOWARCHIVED` is a tick box, and is always listed even if the file doesn't have it yet.
 
 **Statuses** and **Leaders** list `Labels/Status.csv` and `Labels/Leaders.csv`. Double-click a value to change it, use the plus button to add a row, and the minus button at the end of a row to delete it after confirming. If a file doesn't exist, adding the first row creates it. Any other rows or columns in the files are kept.
 
@@ -198,7 +244,7 @@ Dates are read day-first, as `25.07.26`, `31.10.2026`, `11-13.09.26` or `14.05.2
 - **Next status** offers every status, including defaults for any type with no row of its own. `Automatic` leaves it blank, which moves to the first status of the next type. Renaming a status updates any `Next` pointing to it, and deleting one clears them.
 - **Leader tags** can't be edited. A tag is `#` followed by the name with any punctuation removed, and it changes with the name.
 
-**Colours** lists every colour on the dashboard, from `Labels/Colours.csv`, with what each is used for. The list is kept short, so one colour often has several uses, and changing it changes all of them. Double-click a colour to change it. It takes a 6 character hex value, with or without the `#`, and the new colour shows straight away. Paler tints of a colour, such as the current month on the Timeline, are worked out from it. Status and priority tags use the same colours everywhere, including on highlighted items in the Todos sidebar.
+**Colours** lists every colour on the dashboard, from `Labels/Colours.csv`, with what each is used for. The list is kept short, so one colour often has several uses, and changing it changes all of them. Double-click a colour to change it. It takes a 6 character hex value, with or without the `#`, and the new colour shows straight away. Paler tints of a colour, such as the current month on the Timeline, are worked out from it. Status and priority tags use the same colours everywhere, including on highlighted items in the Todos sidebar. The `print-` colours are only used when a generated report is printed.
 
 You can also edit the file by hand and refresh the page. The `Name` of each row is how the stylesheet finds it, so it needs to stay as it is. A row that's missing, or whose value isn't a 6 character hex value, uses the built-in colour from `public/css/style.css`. Pale page backgrounds may leave parts the browser draws itself, such as scrollbars and dropdown lists, dark, because the dashboard declares a dark colour scheme.
 
@@ -237,7 +283,7 @@ Projects with `**Project Type:** Ongoing` use the same folder names, status pref
 - **Status** is the tag beside the title on the Overview. On an active or inactive project, its caret offers the other one, which changes the `+` or `-` at the start of the project's folder name. Nothing else about the folder changes. If another program is using the folder, nothing is changed and you're told. Archived projects can't be changed this way.
 - **Project type** is shown at the top of every tab, and the dropdown changes it. Changing it rewrites `**Project Type:**` in the project's main file and renames its heading to match: `## Milestones` becomes the first heading listed in `TASKLISTS`, and that heading becomes `## Milestones` going the other way. Nothing else in the file changes. A file with both headings is left alone until one is renamed. Items under a `## Milestones` heading only appear on the Overview if they're under a `###` milestone heading.
 - **Overview** is the default tab, and shows:
-  - a summary card: the title with its status tag, then owner and milestones, then created, reviewed and closed, then the project dependency and the list of active timeframes side by side, and finally overall task progress
+  - a summary card: the title with its status tag, then a three by three grid. Owner and Project Dependency share the first row, Created and Reviewed the second, and Milestones and Closed the third, with the list of active timeframes down the right of all three. Any other `**Key**:` fields in the file follow below, then overall task progress. On a narrow screen the grid drops to two columns, with the timeframes below.
   - a milestone progress bar with one segment per `###` heading under `## Milestones`:
 
     | Colour | Meaning                                    |
@@ -248,10 +294,13 @@ Projects with `**Project Type:** Ongoing` use the same folder names, status pref
     | Pink   | Unplanned: there are no tasks yet          |
 
   - a card for each milestone.
-  - plus buttons to add a milestone, or a checkbox to a milestone.
+  - plus buttons to add a milestone, or a checkbox to a milestone. See **Adding with a plus button** below.
+  - a minus button on each milestone, which deletes it after asking. Its heading and everything under it go, up to the next milestone. Nothing else in the file changes.
   - an arrow to collapse each milestone, remembered in your browser, and a dotted handle to reorder them. Green milestones start collapsed each time the page loads. Drag the handle, or focus it and press the up and down arrow keys. Reordering moves the milestone in the file.
 - **Scratchpad** shows everything in the file except the header fields and the Milestones section, as one block per `#` or `##` heading. The plus button adds a block at the end of the file. A block can't be called `Notes` or `Milestones`.
 - **Raw** shows the whole markdown file, nicely rendered, on project, entity, Leads and Events pages. Double-click it to edit the file's markdown in one text box. Ctrl+Enter saves and Escape cancels. If the file has changed since the page loaded, nothing is saved. A project folder with more than one markdown file gets a tab for each file above the text. The plus button at the end of that row adds a new file, with the fields and headings a project file needs, and opens it.
+
+**Adding with a plus button:** the plus buttons for milestones, a milestone's checkboxes and task list boxes don't open a popup. A blank row appears where the new one will go, already in edit mode, with **Press Esc to abort** under it. Type and press Return to save it, and another blank row opens below so you can keep adding. Press Escape to stop and remove the blank row. A blank row that is left empty, by pressing Return or clicking elsewhere, is removed without saving anything. A collapsed milestone opens while you add to it. The plus buttons for scratchpad blocks, files and entries still use a popup.
 
 **Double-click to edit:** page titles, milestone titles, the text of a milestone's checkboxes, scratchpad block titles (except `Notes`) and scratchpad block text all turn into a text box. Save or press Enter (Ctrl + Enter in a block's text) to keep the change, or Cancel or press Escape to discard it. Editing a page title never renames its folder or file.
 
@@ -278,7 +327,13 @@ When a row enters a `DONE` type status through the dashboard, it gets a `CLOSED`
 - Markdown line openers are skipped before looking for the status: indents, `>` quotes, `#` headings, `-` `*` `+` bullets, numbered lists, `[ ]` / `[x]` checkboxes, and bold or italic markers. So `- [ ] **JESSIE** book the venue` counts as `JESSIE`.
 - Statuses are case-sensitive whole words: `JESSIE` matches, `Jessie` doesn't.
 - Ignored: `<!-- HTML comments -->`, `%% Obsidian comments %%`, `#+BEGIN_COMMENT` blocks, fenced code, and struck-through lines.
-- **Filter** by any status or status type. `ARCHIVED` type statuses are hidden unless you filter by one, and then only they are shown.
+- **Filter**: a tick box for each status type across the top, then four dropdowns. Every type is ticked except `ARCHIVED`, so archived items only show when you tick it.
+  - **Status:** one status from `Labels/Status.csv`.
+  - **Priority:** `A`, `B`, `C`, or **None** for rows without one.
+  - **Entity:** the top-level entity in `Labels/Owners.csv` a row belongs to. A project counts under the owner in its title or folder name, and a tentacle's rows count under its top-level entity. A project whose folder isn't named `OWNER_Title` and whose owner isn't known doesn't appear under any entity.
+  - **Project:** one project. It lists only projects with items of a ticked type, and only the chosen entity's projects when one is chosen.
+
+  Each choice shows how many rows it would leave, alongside the other filters. Leave a dropdown on **All** to skip it.
 - **Sort** by project order, status, status type, or bring any one status or type to the top. Status order follows the CSV.
 - `DONE` type statuses always sit at the bottom, below a dividing line, however the list is sorted.
 
@@ -297,7 +352,9 @@ The focus is read as an outline of owner, then project, then items, so hand edit
 
 ### Archived items
 
-A row with an `ARCHIVED` type status, and anything nested under it, is hidden everywhere. On a milestone it still counts as a finished task, and a milestone with only archived checkboxes shows as complete and says **Milestone complete**. Task lists on entities and Ongoing projects leave archived rows out of their progress. It only appears in the Todos sidebar when an archived status or type is chosen in Filter, and in the text box when you double-click a file's **Raw** tab to edit it.
+A row with an `ARCHIVED` type status, and anything nested under it, is hidden everywhere, unless `SHOWARCHIVED` is on (see below). On a milestone it still counts as a finished task, and a milestone with only archived checkboxes shows as complete and says **Milestone complete**. Task lists on entities and Ongoing projects leave archived rows out of their progress. It only appears in the Todos sidebar when the `ARCHIVED` box is ticked in Filter, and in the text box when you double-click a file's **Raw** tab to edit it.
+
+`SHOWARCHIVED` in `Labels/Options.csv` keeps archived rows visible on project, entity, Leads and Events pages, with their archived icon. It's `TRUE` or `FALSE`, shown as a tick box on the Options page, and is off if the file doesn't have it. Ticking it and saving adds the row to an older file. Progress counts don't change, and the Todos sidebar still uses its own Filter.
 
 ### Changing a status
 
@@ -382,7 +439,7 @@ Changes you make to the markdown files or the CSV appear when you refresh the br
 Help Guide.md          the step by step guide shown in the dashboard
 Images/                pictures for [[IMAGE#...]] links, and the logo
 Time_Management/       Plan.md, Review.md and Commitments.md
-Entities/              a folder for each entity, with tentacles inside
+Entities/              a folder for each entity, with tentacles inside, and Reports.md
 Networking/            Leads.md and Events.md
 Labels/                the CSV files behind the Options page
 dashboard/
@@ -392,7 +449,7 @@ dashboard/
   defaults/Colours.csv the colours a new install starts with
   public/
     setup.html         first-time setup form
-    home.html          Home, including the Timeline
+    home.html          the Dashboard: Overview, with the Timeline, and Report
     weekly-review.html Review page
     weekly-plan.html   Plan page
     commitments.html   Commitments page
@@ -411,18 +468,20 @@ dashboard/
     js/markdown.js     markdown renderer + milestone/meta parsers
     js/nav.js          left-hand menu
     js/setup.js        first-time setup form
-    js/home.js         Home page
+    js/home.js         Overview tab
+    js/dashboard.js    Dashboard tabs and Generate report
     js/commitments.js  Commitments page
     js/help.js         Help Guide page
     js/list.js         projects list logic
     js/new-project.js  New project form
     js/project.js      project page logic
     js/weekly-review.js Review page
+    js/reports.js      Report tab and its charts
     js/weekly-plan.js  Plan page
     js/history.js      History tab on the Review and Plan pages
     js/edit.js         double-click editing and plus buttons
     js/milestones.js   collapsing and reordering milestones
-    js/timeline.js     Gantt chart on the Home page
+    js/timeline.js     Gantt chart on the Overview tab
     js/entity.js       owner page logic
     js/document-view.js parts shared by project and owner pages
     js/networking.js   Leads and Events pages

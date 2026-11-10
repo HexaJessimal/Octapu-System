@@ -552,10 +552,11 @@
       return;
     }
     if (menu && !target.closest('.status-menu')) closeMenu(false);
+    // Only a task's own box. Tick boxes elsewhere, such as the Todos filter's, share the look.
     const box = target.closest('.check-box');
-    if (box) {
-      const ctrl = box.closest('.status-control');
-      change(ctrl, checkboxTarget(ctrl.dataset.status));
+    const boxCtrl = box && box.closest('.status-control');
+    if (boxCtrl) {
+      change(boxCtrl, checkboxTarget(boxCtrl.dataset.status));
       return;
     }
     const name = target.closest('.status-name');

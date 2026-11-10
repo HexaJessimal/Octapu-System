@@ -60,6 +60,7 @@ const {
   addBlock,
   addMilestone,
   addMilestoneItem,
+  removeMilestone,
   moveMilestone,
   milestoneRows,
   lastReviewDate,
@@ -87,6 +88,9 @@ const {
   addTask,
   isTaskList,
   addReview,
+  REPORT_FIELDS,
+  addReport,
+  parseReports,
   cancelRow,
   deleteRow,
   editText,
@@ -100,6 +104,7 @@ const ROOT_DIR = path.resolve(__dirname, '..');
 const ENTITY_DIR = path.resolve(__dirname, '..', 'Entities');
 const TIME_MANAGEMENT_DIR = path.resolve(__dirname, '..', 'Time_Management');
 const REVIEW_FILE = path.join(TIME_MANAGEMENT_DIR, 'Review.md');
+const REPORTS_FILE = path.join(ENTITY_DIR, 'Reports.md'); // a report is added with each review
 const FOCUS_FILE = path.join(TIME_MANAGEMENT_DIR, 'Plan.md');
 const COMMITMENTS_FILE = path.join(TIME_MANAGEMENT_DIR, 'Commitments.md');
 const COMMITMENT_PREFIX = 'commitment:';
@@ -407,6 +412,20 @@ const readStatuses = async () => withAdvance(withDefaultStatuses(await readLabel
 const readOwners = () => readLabelFile(OWNERS_FILE, parseOwners, []);
 const readLeaders = () => readLabelFile(LEADERS_FILE, parseLeaders, []);
 
+// On/off options and their values when Options.csv doesn't have them. The Options page always
+// lists them, and saving one adds it to the file.
+const SWITCH_OPTIONS = { SHOWARCHIVED: 'FALSE' };
+const SWITCH_VALUES = ['TRUE', 'FALSE'];
+
+// The file's options in its order, then any switch it doesn't have yet, where saving adds it.
+async function readOptionsWithSwitches() {
+  const options = await readOptions();
+  return Object.assign({}, options, ...Object.entries(SWITCH_OPTIONS).filter(([key]) => !(key in options)).map(([key, value]) => ({ [key]: value })));
+}
+
+// SHOWARCHIVED: archived rows stay visible on project, entity, Leads and Events pages.
+const readShowArchived = async () => ((await readOptions()).SHOWARCHIVED || '').toUpperCase() === 'TRUE';
+
 async function readRoundupDays() {
   const options = await readOptions();
   return /^[1-9]\d*$/.test(options.ROUNDUP || '') ? Number(options.ROUNDUP) : DEFAULT_ROUNDUP_DAYS;
@@ -430,13 +449,14 @@ async function collectTodos(find = findTodos) {
     const active = project.name.startsWith('+');
     // The focus only ever lists projects with milestones.
     const focused = active && !project.ongoing ? await focusNames(project, focus, owners) : null;
+    const entityName = topEntityName(owners, await projectOwnerId(project, owners));
     for (const file of project.files) {
       const content = await readProjectFile(project, file);
       const milestones = new Map(milestoneRows(content, statuses).map((row) => [row.line, row.milestone]));
       for (const item of find(content, match)) {
         const named = focused && [item.editText, milestones.get(item.line)].some((name) => name && focused.has(focusKey(name)));
         const highlight = !active ? 'inactive' : named ? 'milestone' : focused ? 'project' : null;
-        items.push(Object.assign(item, { folder: project.folder, file, highlight }));
+        items.push(Object.assign(item, { folder: project.folder, file, highlight, entityName }));
       }
     }
   }
@@ -449,11 +469,11 @@ async function collectTodos(find = findTodos) {
       const content = await fs.promises.readFile(path.join(place.dir, file), 'utf8');
       for (const item of find(content, match)) {
         const named = focused && focused.has(focusKey(item.editText || ''));
-        items.push(Object.assign(item, { folder: ENTITY_PREFIX + owner.id, file, highlight: focused ? (named ? 'milestone' : 'project') : null, entity }));
+        items.push(Object.assign(item, { folder: ENTITY_PREFIX + owner.id, file, highlight: focused ? (named ? 'milestone' : 'project') : null, entity, entityName: topEntityName(owners, owner.id) }));
       }
     }
   }
-  return { statuses, items, dateFormat: await readDateFormat() };
+  return { statuses, items, priorities: PRIORITIES, dateFormat: await readDateFormat() };
 }
 
 const focusKey = (text) => text.trim().toLowerCase();
@@ -541,11 +561,17 @@ async function collectNav() {
 async function daysSinceLastEntry(file) {
   const text = await readIfExists(file);
   const last = text === null ? null : lastReviewDate(text);
-  if (!last) return null;
-  const [year, month, day] = last.split('-').map(Number);
-  const now = new Date();
-  return Math.round((Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) - Date.UTC(year, month - 1, day)) / 86400000);
+  return last ? dayNumber(formatDate(new Date(), STORAGE_FORMAT)) - dayNumber(last) : null;
 }
+
+// A YYYY-MM-DD date as a whole number of days, so two can be subtracted.
+const dayNumber = (date) => {
+  const [year, month, day] = date.split('-').map(Number);
+  return Math.round(Date.UTC(year, month - 1, day) / 86400000);
+};
+
+// `date` moved by a number of days, as YYYY-MM-DD.
+const shiftDate = (date, days) => new Date((dayNumber(date) + days) * 86400000).toISOString().slice(0, 10);
 
 // A log file as dated entries, in file order, for the History tabs.
 async function readHistory(file) {
@@ -908,12 +934,25 @@ async function collectWeeklyPlan() {
   return { statuses, projects, dateFormat: await readDateFormat() };
 }
 
-// A project's current owner's friendly name: from its page title, or else its folder name.
-async function projectOwnerName(project, owners) {
+// A project's current owner's ID: from its page title, or else its folder name.
+async function projectOwnerId(project, owners) {
   const { title } = parseHeader(await readProjectFile(project, primaryFile(project)), owners);
-  const id = (title && title.owner) || project.name.replace(STATUS_PREFIX, '').split('_')[0];
+  return (title && title.owner) || project.name.replace(STATUS_PREFIX, '').split('_')[0];
+}
+
+const ownerName = (owners, id) => {
   const owner = owners.find((o) => o.id === id);
   return owner ? owner.name : id;
+};
+
+// A project's current owner's friendly name.
+const projectOwnerName = async (project, owners) => ownerName(owners, await projectOwnerId(project, owners));
+
+// The name of the top-level entity an owner sits under, or is, for the Todos filter. Null
+// when the owner isn't in Owners.csv, such as a folder not named OWNER_Title.
+function topEntityName(owners, id) {
+  const place = entityPlace(owners, id);
+  return place ? ownerName(owners, place.chain[0]) : null;
 }
 
 // Where an item goes in the logged focus: the name above, and the name it's listed under.
@@ -1157,7 +1196,7 @@ async function incompatibleEntities() {
       if (found.length) rows.push({ id: owner.id, name: owner.name, file: extra, additional: true, problems: found });
     }
   }
-  const loose = await entityFiles(ENTITY_DIR);
+  const loose = (await entityFiles(ENTITY_DIR)).filter((file) => file !== path.basename(REPORTS_FILE));
   for (const file of loose) rows.push({ name: `Entities/${file}`, problems: [unknownMarkdown()] });
   const folders = await unknownEntityFolders(owners);
   for (const folder of folders) rows.push({ name: folder, problems: [{ text: "This folder isn't in Owners.csv", kind: 'unexpected' }] });
@@ -1468,29 +1507,41 @@ async function reviewableFiles() {
 
 const doneRows = (content, match, sourceOf) => findTodos(content, match).filter((item) => item.type === 'DONE' && (!sourceOf || sourceOf(item.line) !== null));
 
+// Every DONE type item a review would archive, with the date from its CLOSED line, if any.
+async function doneItems(statuses) {
+  const match = createMatcher(statuses);
+  const found = [];
+  for (const { folder, file, content, sourceOf } of await reviewableFiles()) {
+    for (const item of doneRows(content, match, sourceOf)) {
+      const stamp = item.dates.find((d) => d.kind === 'CLOSED');
+      found.push({ item, folder, file, closed: stamp ? stamp.value.slice(0, 10) : null, source: sourceOf ? sourceOf(item.line) : undefined });
+    }
+  }
+  return found;
+}
+
+// Closed since the last review. Without a review, or a CLOSED date, it can't be shown to be older.
+const closedSince = (closed, lastReview) => !lastReview || !closed || closed >= lastReview;
+
+const readLastReview = async () => {
+  const review = await readIfExists(REVIEW_FILE);
+  return review === null ? null : lastReviewDate(review);
+};
+
 // DONE type items closed since the last review, grouped by status in CSV order.
 async function collectWeeklyReview() {
   const statuses = await readStatuses();
-  const match = createMatcher(statuses);
-  const review = await readIfExists(REVIEW_FILE);
-  const lastReview = review === null ? null : lastReviewDate(review);
+  const lastReview = await readLastReview();
   const doneStatuses = statuses.filter((s) => s.type === 'DONE');
 
   const groups = new Map(doneStatuses.map((s) => [s.name, []]));
-  let totalDone = 0;
-  for (const { folder, file, content, sourceOf } of await reviewableFiles()) {
-    for (const item of doneRows(content, match, sourceOf)) {
-      totalDone++;
-      const stamp = item.dates.find((d) => d.kind === 'CLOSED');
-      const closed = stamp ? stamp.value.slice(0, 10) : null;
-      if (!lastReview || !closed || closed >= lastReview) {
-        groups.get(item.status).push({ text: item.text, folder, file, closed, source: sourceOf ? sourceOf(item.line) : undefined });
-      }
-    }
+  const done = await doneItems(statuses);
+  for (const { item, folder, file, closed, source } of done) {
+    if (closedSince(closed, lastReview)) groups.get(item.status).push({ text: item.text, folder, file, closed, source });
   }
   return {
     lastReview,
-    totalDone,
+    totalDone: done.length,
     archiveTo: statuses.find((s) => s.type === 'ARCHIVED').name,
     groups: doneStatuses.filter((s) => groups.get(s.name).length).map((s) => ({ status: s.name, items: groups.get(s.name) })),
     toReview: await collectToReview(),
@@ -1498,8 +1549,92 @@ async function collectWeeklyReview() {
   };
 }
 
-// Logs the wins and moves every DONE type item to the first ARCHIVED status. Everything
-// is worked out first, and if any write fails the files already changed are put back.
+// ---------- reports ----------
+
+// True if any of a file's Active Timeframe entries overlaps `from` to `to`.
+const scheduledBetween = (content, from, to) =>
+  parseTimeframes(parseHeader(content, []).timeframe.value, STORAGE_FORMAT).ranges.some((r) => {
+    const [start, end] = r.raw.split(/\s+to\s+/i);
+    return start <= to && end >= from;
+  });
+
+const countOf = (items, test) => items.filter(test).length;
+
+// The names of milestones with at least one row, all of them finished, archived or cancelled.
+function finishedMilestones(content, statuses) {
+  const rows = new Map();
+  for (const row of milestoneRows(content, statuses)) {
+    if (!rows.has(row.milestone)) rows.set(row.milestone, []);
+    rows.get(row.milestone).push(row);
+  }
+  return [...rows].filter(([, list]) => !list.some(isIncomplete)).map(([name]) => name);
+}
+
+// How many of the latest Plan's focus items are done: a task finished since, or a milestone
+// with nothing left in it. Both null when there's no Plan made since the last review.
+async function planFollowThrough(statuses, done, lastReview, projectContents) {
+  const text = await readIfExists(FOCUS_FILE);
+  const planned = text === null ? null : lastReviewDate(text);
+  if (!planned || (lastReview && planned < lastReview)) return { planItems: null, planDone: null };
+  const finished = new Set(done.map((d) => focusKey(d.item.editText || '')));
+  for (const content of projectContents) finishedMilestones(content, statuses).forEach((name) => finished.add(focusKey(name)));
+  const items = (await readLatestFocus()).flatMap((entry) => entry.items.map(focusKey));
+  return { planItems: items.length, planDone: countOf(items, (item) => finished.has(item)) };
+}
+
+// Non-empty lines in the wins text, so each bullet counts once.
+const winCount = (wins) => wins.split('\n').filter((line) => line.trim()).length;
+
+// The figures logged to Reports.md with each review. The review period runs from the last
+// review to today, or covers the last ROUNDUP days for a first review.
+async function measureReport(statuses, lastReview, today, wins) {
+  const [projects, todos, checkboxes, interval, done] = await Promise.all([listProjects(), collectTodos(), collectTodos(scanLines), readRoundupDays(), doneItems(statuses)]);
+  const from = lastReview || shiftDate(today, -interval);
+  const recent = done.filter((d) => closedSince(d.closed, lastReview));
+  const moved = new Set(recent.map((d) => d.folder));
+  let scheduled = 0;
+  const liveContents = [];
+  for (const project of projects) {
+    const content = await readProjectFile(project, primaryFile(project));
+    // As on the Timeline: every Milestone project, whatever its status.
+    if (!project.ongoing && scheduledBetween(content, from, today)) scheduled++;
+    if (!ARCHIVED_FOLDER.test(project.name)) liveContents.push(content);
+  }
+  const active = projects.filter((p) => !ARCHIVED_FOLDER.test(p.name) && p.name.startsWith('+'));
+  // Only rows with a status: an untagged checkbox in a note isn't a task until it's given one.
+  const open = todos.items.filter(isIncomplete);
+  const ofType = (type) => countOf(open, (item) => item.type === type);
+  return Object.assign(
+    {
+      completed: recent.length,
+      assigned: ofType('ASSIGNED'),
+      waiting: ofType('WAITING'),
+      unassigned: ofType('UNASSIGNED'),
+      overdue: countOf(checkboxes.items, (item) => isOpenTask(item) && taskDue(item) && taskDue(item).date < today),
+      active: active.length,
+      // Active, but nothing in them finished this period.
+      stalled: countOf(active, (p) => !moved.has(p.folder)),
+      scheduled,
+      wins: winCount(wins),
+    },
+    await planFollowThrough(statuses, done, lastReview, liveContents)
+  );
+}
+
+async function collectReports() {
+  const text = await readIfExists(REPORTS_FILE);
+  return {
+    fields: REPORT_FIELDS,
+    reports: text === null ? [] : parseReports(text),
+    exists: text !== null,
+    interval: await readRoundupDays(), // a review within this many days of the last is on time
+    dateFormat: await readDateFormat(),
+  };
+}
+
+// Logs the wins and moves every DONE type item to the first ARCHIVED status, and adds the
+// period's figures to Reports.md. Everything is worked out first, and if any write fails the
+// files already changed are put back.
 async function submitWeeklyReview({ wins }) {
   const text = wins.replace(/\r\n?/g, '\n').trim();
   if (!text) return { code: 400, body: { error: 'Add at least one win first.' } };
@@ -1507,6 +1642,8 @@ async function submitWeeklyReview({ wins }) {
   const statuses = await readStatuses();
   const match = createMatcher(statuses);
   const target = statuses.find((s) => s.type === 'ARCHIVED').name;
+  const today = formatDate(new Date(), STORAGE_FORMAT);
+  const figures = await measureReport(statuses, await readLastReview(), today, text);
 
   const changes = [];
   let archived = 0;
@@ -1519,9 +1656,10 @@ async function submitWeeklyReview({ wins }) {
     if (after !== content) changes.push({ full, before: content, after });
   }
 
-  const today = formatDate(new Date(), STORAGE_FORMAT);
   const review = await readIfExists(REVIEW_FILE);
   const updatedReview = addReview(review === null ? `# Review\n**Created:** ${today}\n` : review, today, text);
+  const reports = await readIfExists(REPORTS_FILE);
+  const updatedReports = addReport(reports || '', today, figures);
 
   const written = [];
   try {
@@ -1529,6 +1667,13 @@ async function submitWeeklyReview({ wins }) {
       await writeFileSafely(change.full, change.after);
       written.push(change);
     }
+    if (reports === null) {
+      await fs.promises.mkdir(ENTITY_DIR, { recursive: true });
+      await fs.promises.writeFile(REPORTS_FILE, updatedReports, { encoding: 'utf8', flag: 'wx' });
+    } else {
+      await writeFileSafely(REPORTS_FILE, updatedReports);
+    }
+    written.push({ full: REPORTS_FILE, before: reports });
     if (review === null) {
       await fs.promises.mkdir(TIME_MANAGEMENT_DIR, { recursive: true });
       await fs.promises.writeFile(REVIEW_FILE, updatedReview, 'utf8');
@@ -1536,7 +1681,8 @@ async function submitWeeklyReview({ wins }) {
       await writeFileSafely(REVIEW_FILE, updatedReview);
     }
   } catch (err) {
-    for (const change of written) await writeFileSafely(change.full, change.before).catch(() => {});
+    // A Reports.md this review created is removed again rather than left empty.
+    for (const change of written) await (change.before === null ? fs.promises.unlink(change.full) : writeFileSafely(change.full, change.before)).catch(() => {});
     throw err;
   }
   return { code: 200, body: { ok: true, archived, archivedTo: target } };
@@ -1626,6 +1772,7 @@ function addNamed(body, name, insert) {
 }
 
 const saveNewMilestone = (body) => addNamed(body, body.title, addMilestone);
+const deleteMilestone = (body) => updateProjectFile(body.folder, body.file, (content) => removeMilestone(content, body.line, body.title));
 const saveNewItem = (body) => addNamed(body, body.text, (content, text) => addMilestoneItem(content, body.line, body.title, text));
 const saveNewBlock = async (body) => ((await isReservedBlock(body.folder, body.title)) ? RESERVED_ERROR : addNamed(body, body.title, addBlock));
 async function saveNewTask(body) {
@@ -1745,8 +1892,10 @@ async function saveOptions({ values }) {
     if (err.code === 'ENOENT') return { code: 404, body: { error: 'Options.csv not found.' } };
     throw err;
   }
-  const known = Object.keys(parseOptions(text));
+  const known = [...Object.keys(parseOptions(text)), ...Object.keys(SWITCH_OPTIONS)];
   const updates = Object.fromEntries(Object.entries(values).filter(([key]) => known.includes(key)));
+  const badSwitch = Object.keys(SWITCH_OPTIONS).find((key) => key in updates && !SWITCH_VALUES.includes(updates[key]));
+  if (badSwitch) return { code: 400, body: { error: `${badSwitch} needs TRUE or FALSE.` } };
   if ('DATEFORMAT' in updates && !isUsableDateFormat(updates.DATEFORMAT)) {
     return { code: 400, body: { error: 'DATEFORMAT needs a year (YYYY or YY), a month (MM) and a day (DD).' } };
   }
@@ -1890,7 +2039,8 @@ const isRawEdit = (body) => inFile(body) && typeof body.from === 'string' && typ
 const isFieldEdit = (body) =>
   hasLine(body) && typeof body.from === 'string' && typeof body.to === 'string' && (body.label === null || typeof body.label === 'string');
 const isNewEntry = (body) => inFile(body) && typeof body.title === 'string' && typeof body.section === 'string';
-const isEntryRemoval = (body) => hasLine(body) && typeof body.title === 'string';
+// Deleting an entry or a milestone: the line its heading is on, and the heading's text.
+const isHeadingRemoval = (body) => hasLine(body) && typeof body.title === 'string';
 const isTextEdit = (body) => hasLine(body) && EDITABLE_TEXT.includes(body.kind) && typeof body.from === 'string' && typeof body.to === 'string';
 // `line` is null for the untitled text before a file's first heading.
 const isBodyEdit = (body) =>
@@ -2008,6 +2158,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/block-body' && req.method === 'POST') return handleEdit(req, res, isBodyEdit, saveBlockBody);
     if (url.pathname === '/api/block' && req.method === 'POST') return handleEdit(req, res, isNewTitled, saveNewBlock);
     if (url.pathname === '/api/milestone' && req.method === 'POST') return handleEdit(req, res, isNewTitled, saveNewMilestone);
+    if (url.pathname === '/api/milestone-remove' && req.method === 'POST') return handleEdit(req, res, isHeadingRemoval, deleteMilestone);
     if (url.pathname === '/api/milestone-item' && req.method === 'POST') return handleEdit(req, res, isNewItem, saveNewItem);
     if (url.pathname === '/api/status-table' && req.method === 'POST') return handleEdit(req, res, isStatusRow, saveStatusRow);
     if (url.pathname === '/api/leader-table' && req.method === 'POST') return handleEdit(req, res, isLeaderRow, saveLeaderRow);
@@ -2017,7 +2168,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/file-body' && req.method === 'POST') return handleEdit(req, res, isRawEdit, saveRawFile);
     if (url.pathname === '/api/entry-field' && req.method === 'POST') return handleEdit(req, res, isFieldEdit, saveEntryField);
     if (url.pathname === '/api/entry-add' && req.method === 'POST') return handleEdit(req, res, isNewEntry, saveNewEntry);
-    if (url.pathname === '/api/entry-remove' && req.method === 'POST') return handleEdit(req, res, isEntryRemoval, deleteEntry);
+    if (url.pathname === '/api/entry-remove' && req.method === 'POST') return handleEdit(req, res, isHeadingRemoval, deleteEntry);
     if (url.pathname === '/api/mark-reviewed' && req.method === 'POST') return handleEdit(req, res, inFile, markReviewed);
     if (url.pathname === '/api/date' && req.method === 'POST') return handleEdit(req, res, isDateEdit, saveDate);
     if (url.pathname === '/api/projects' && req.method === 'POST') return handleEdit(req, res, isNewProject, createProject);
@@ -2026,9 +2177,10 @@ const server = http.createServer(async (req, res) => {
     if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, 'Method not allowed');
 
     if (url.pathname === '/api/options') {
-      const options = await readOptions();
-      return sendJson(res, 200, Object.entries(options).map(([key, value]) => ({ key, value })));
+      const options = await readOptionsWithSwitches();
+      return sendJson(res, 200, Object.entries(options).map(([key, value]) => ({ key, value, toggle: key in SWITCH_OPTIONS })));
     }
+    if (url.pathname === '/api/reports') return sendJson(res, 200, await collectReports());
     if (url.pathname === '/api/timeline') {
       return sendJson(res, 200, { rows: await collectTimeline(), dateFormat: await readDateFormat() });
     }
@@ -2040,7 +2192,8 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/owner-tags.js') {
       const ids = (await readOwners()).map((o) => o.id);
       const archived = (await readStatuses()).filter((s) => s.type === 'ARCHIVED').map((s) => s.name);
-      return send(res, 200, `window.PMS_OWNER_IDS = ${JSON.stringify(ids)};\nwindow.PMS_ARCHIVED_STATUSES = ${JSON.stringify(archived)};\n`, MIME['.js']);
+      const showArchived = await readShowArchived();
+      return send(res, 200, `window.PMS_OWNER_IDS = ${JSON.stringify(ids)};\nwindow.PMS_ARCHIVED_STATUSES = ${JSON.stringify(archived)};\nwindow.PMS_SHOW_ARCHIVED = ${showArchived};\n`, MIME['.js']);
     }
     if (url.pathname === '/api/components.js') {
       return send(res, 200, `window.PMS_COMPONENTS = ${JSON.stringify(await readComponents())};\n`, MIME['.js']);
@@ -2114,6 +2267,7 @@ const REQUIRED_DIRS = ['Networking', 'Images', 'Labels', 'Entities', 'Projects',
 const STARTER_FILES = [
   ['Networking/Leads.md', '# Leads\n\n## Contacts\n'],
   ['Networking/Events.md', '# Events\n\n## Upcoming\n'],
+  ['Entities/Reports.md', ''], // blank until the first review adds a report
 ];
 
 // The Help Guide, its screenshots and the logo ship in dashboard/defaults.
