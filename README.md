@@ -28,7 +28,7 @@ A picture named `logo` in `Images`, such as `Images/Logo.png`, appears at the bo
 
 ## Running the dashboard
 
-From the `PMS` folder, run:
+From the `Octapu-System` folder, run:
 
 ```
 node dashboard/server.js
@@ -45,7 +45,7 @@ Stop the server with `Ctrl + C`.
 You can also run it from any directory. Paths are resolved relative to `server.js`, so this works too:
 
 ```
-node /path/to/PMS/dashboard/server.js
+node /path/to/Octapu-System/dashboard/server.js
 ```
 
 ### Options
@@ -69,7 +69,7 @@ The `TASKLISTS` row in `Labels/Options.csv` is a comma-separated list of heading
 
 ## How projects are organised
 
-The `PROJECTS` row in `Labels/Options.csv` says where projects live. It holds a comma-separated list of folder names directly inside `PMS/`, such as `"Projects,Incubator,Merch"`.
+The `PROJECTS` row in `Labels/Options.csv` says where projects live. It holds a comma-separated list of folder names directly inside `Octapu-System/`, such as `"Projects,Incubator,Merch"`.
 
 A directory can hold both kinds of project. Each file's `**Project Type:**` line decides which kind it is: `Milestone` for a full project with milestones, timeframes and dependencies, or `Ongoing` for a simpler one with a flat Tasks list. See [Ongoing projects](#ongoing-projects). A project with a missing or unknown type shows as a Milestone project and is listed on the Compatibility page.
 
