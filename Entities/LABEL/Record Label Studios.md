@@ -25,8 +25,7 @@ Well. Mostly sure.
   CLOSED: [2026-11-10 Tue 13:19]
 - [x] DONE [#B] Create a new event
   CLOSED: [2026-11-10 Tue 13:19]
-- [x] DONE [#A] Create a space to incubate potential project ideas
-  CLOSED: [2026-11-10 Tue 13:31]
+- [ ] Create a space to incubate potential project ideas
 - [ ] Add supplementary files to an entity
 
 ## Budgeting
