@@ -4,7 +4,7 @@ This guide walks through the dashboard from installing it to everyday use. It fo
 
 Everything you see in the dashboard is stored in plain markdown and CSV files in this folder, so you can also open and edit them in any text editor.
 
-Some screenshots show older wording. The dashboard used to be called PMS, the Dashboard was Home, entities were organisations, tentacles were suborganisations, Networking was Bookings, and Unplanned was No tasks. Those screenshots also show an older left menu, without Dashboard or Catalogs, and an older Todos filter.
+The screenshot in Step 1 shows the dashboard's old name, PMS. Everything else matches what you'll see.
 
 ## Step 1: Install Node and run the server
 
@@ -189,7 +189,7 @@ Save, and the indented tasks appear nested under their parent on the Overview.
 
 ## Step 18: Set a timeframe for an active project
 
-On the Overview, select the plus button beside **Active Timeframe**, choose a start and end month and year, and select **Add**. A timeframe always runs from the first day of its start month to the last day of its end month. A project can have more than one timeframe. The form in this screenshot shows full dates, as it did before months were introduced.
+On the Overview, select the plus button beside **Active Timeframe**, choose a start and end month and year, and select **Add**. A timeframe always runs from the first day of its start month to the last day of its end month. A project can have more than one timeframe.
 
 The timeframe puts the project on the Timeline. It also adds the project to **Priorities this month** while today falls inside it.
 
@@ -225,7 +225,7 @@ Your wins are saved in `Time_Management/Review.md`. Every finished task, not onl
 
 Each review also logs figures to `Entities/Reports.md`: the tasks you completed and those still open, overdue tasks, active projects with nothing finished, how much of your Plan got done, and the wins you logged. Step 38 shows how to read them.
 
-There's no screenshot of this step, but the Wins box can be seen at the bottom of the Review page in Step 19.
+There's no screenshot of this step. The Wins box is at the bottom of the Review page.
 
 ## Step 21: Plan the next work period and submit your focuses
 
