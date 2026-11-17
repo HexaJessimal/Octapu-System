@@ -88,7 +88,7 @@ The same status menu has **Schedule** and **Deadline** options. Each asks for a 
 
 The **Todos** list on the right shows every line, in every entity and non-archived project, that has a status. A task with no status stays in its own list and doesn't appear here.
 
-Use **Filter** to narrow the list, and **Sort** to change the order. The tick boxes across the top choose which status types show, and the **Status**, **Priority**, **Entity** and **Project** dropdowns narrow it further. Archived items only appear here when you tick **ARCHIVED**, and on other pages only when `SHOWARCHIVED` is ticked in Options.
+Use **Filter** to narrow the list, and **Sort** to change the order. Each of **Type**, **Status**, **Priority**, **Entity** and **Project** opens a list where you can tick as many choices as you like. **Type** chooses which status types show, and the others narrow the list further. Leave them on **All** to show everything, or select **Show all** at the top of a list to go back to it. Archived items only appear here when you tick **ARCHIVED** under **Type**, and on other pages only when `SHOWARCHIVED` is ticked in Options.
 
 [[IMAGE#Screenshots/10-TodoList.png]]
 
@@ -343,6 +343,8 @@ Open **Options** at the bottom of the left menu. The **General** tab holds:
 - `PROJECTS`: the folders that hold projects, separated by commas.
 - `TASKLISTS`: the task list headings on entities and Ongoing projects, separated by commas.
 - `SHOWARCHIVED`: tick it to keep archived tasks visible on project and entity pages.
+- `SYNCCONFLICTS`: tick it to be warned about Syncthing conflicts, as described in Step 40.
+- `MULTIUSER`: tick it to log in and keep a Changelog of who changed what, as described in Step 40.
 
 [[IMAGE#Screenshots/45-Options.png]]
 
@@ -480,6 +482,23 @@ To add records, select the plus button beside the table. A blank record opens wi
 To show a picture, put it in the `Images` folder and write its name in double square brackets, such as `[[IMAGE#Logo.png]]` for your logo. Type dates the same way as everywhere else.
 
 Each catalog is saved as a spreadsheet file in the `Catalogs` folder, so you can also open it in any spreadsheet program. Columns you add there appear in the dashboard too.
+
+## Step 40: Work together as a team
+
+Octapu doesn't share files between computers itself. To work as a team, keep the Octapu-System folder in sync with [Syncthing](https://syncthing.net), and run the dashboard on each computer. Two options on the **General** tab of **Options** help with this.
+
+**SYNCCONFLICTS** watches for clashes. If two people change the same file before Syncthing has synced it, Syncthing keeps both versions and names one of them like `First album.sync-conflict-20261117-101500-ABCDEF7.md`. With this ticked, a yellow **Sync conflict** box appears at the top of that project, entity, Leads or Events page. It shows how the two versions differ: lines marked − are only in the current file, and lines marked + are only in the conflict copy.
+
+- **Keep current** keeps the file as it is, and deletes the conflict copy.
+- **Use this version** replaces the file with the conflict copy, then deletes the copy.
+
+Either way, copy anything you want from the other version first. Conflict copies are never listed as files of their own.
+
+**MULTIUSER** keeps track of who changed what. With this ticked, everyone is asked to log in the first time they open the dashboard, by choosing their name from **Leaders**. There are no passwords, because Octapu is meant for a team who trust each other. Your name and **Log out** then appear at the bottom of the left menu.
+
+Each project, entity, Leads and Events page gets a **Changelog** tab. It lists every change made to that file through the dashboard, newest first, with who made it, which computer they used, and when. Added text is green and removed text is pink. For a changed line, the old text is shown crossed out in pink, with the new text in green below it.
+
+Changes are saved next to each file, such as `First album-change.LAPTOP.log`, with one log for each computer so that Syncthing never has two people writing to the same log. Changes are kept for twice the number of days set by `ROUNDUP`. Edits made in other apps, such as a text editor, aren't logged.
 
 When you've finished the guide, tick **Mark as read** below it. The green outline around **Help Guide** in the left menu then goes away.
 

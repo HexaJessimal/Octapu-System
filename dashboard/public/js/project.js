@@ -1,13 +1,14 @@
-// Project page: Overview (summary + milestones), Scratchpad (blocks) and Raw (the whole file).
+// Project page: Overview (summary + milestones), Scratchpad (blocks), Raw (the whole file) and,
+// in multi-user mode, Changelog.
 (function () {
   'use strict';
-  const { parseFolder, STATE_LABELS, progressLegend, escapeHtml, markdown: md, status, editing, milestoneControls, documentView, component, readJson, setViewInAddress, UNREACHABLE } = window.PMS;
+  const { parseFolder, STATE_LABELS, progressLegend, escapeHtml, markdown: md, status, editing, milestoneControls, documentView, changes, component, readJson, setViewInAddress, UNREACHABLE } = window.PMS;
   const { addButton, progressMeter, fact, titleSpan } = documentView;
 
   const DEFAULT_VIEW = 'overview';
   const params = new URLSearchParams(location.search);
   const folder = params.get('folder') || '';
-  let view = ['scratchpad', 'raw'].includes(params.get('view')) ? params.get('view') : DEFAULT_VIEW;
+  let view = changes.viewNames(['scratchpad', 'raw']).includes(params.get('view')) ? params.get('view') : DEFAULT_VIEW;
 
   const contentEl = document.getElementById('content');
   const titleEl = document.getElementById('page-title');
@@ -42,6 +43,8 @@
   function draw() {
     toggles.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === view)));
     if (!project || editing.isOpen()) return;
+    changes.cancelChangelog();
+    if (view === 'changelog') return changes.drawChangelog(project, contentEl, documentView.fileTabs(project, true));
     contentEl.innerHTML = view === 'overview' ? renderOverview() : view === 'scratchpad' ? renderScratchpad() : renderRaw();
   }
 
@@ -218,6 +221,7 @@
           project = data;
           typeEl.innerHTML = status.projectTypeControl(project);
           draw();
+          changes.showConflicts(project);
         })
         .catch((err) => showError(err.message));
     status.onChange(load);

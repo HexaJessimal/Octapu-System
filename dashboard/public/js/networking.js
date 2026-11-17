@@ -2,14 +2,14 @@
 // fields, and a Scratchpad of everything else in the file.
 (function () {
   'use strict';
-  const { markdown: md, status, editing, documentView, component, getJson, normalText, hashReference, setViewInAddress, loadError, UNREACHABLE, formDialog } = window.PMS;
+  const { markdown: md, status, editing, documentView, changes, component, getJson, normalText, hashReference, setViewInAddress, loadError, UNREACHABLE, formDialog } = window.PMS;
 
   const contentEl = document.getElementById('content');
   const titleEl = document.getElementById('page-title');
   const toggles = Array.from(document.querySelectorAll('[data-view]'));
   const params = new URLSearchParams(location.search);
   const page = params.get('page') === 'events' ? 'events' : 'leads';
-  let view = ['scratchpad', 'raw'].includes(params.get('view')) ? params.get('view') : 'list';
+  let view = changes.viewNames(['scratchpad', 'raw']).includes(params.get('view')) ? params.get('view') : 'list';
 
   md.setNetworkingPage(page);
 
@@ -66,6 +66,8 @@
       contentEl.innerHTML = component('empty-card', { message: doc.location + " doesn't exist yet." });
       return;
     }
+    changes.cancelChangelog();
+    if (view === 'changelog') return changes.drawChangelog(doc, contentEl);
     contentEl.innerHTML = view === 'list' ? renderList() : view === 'scratchpad' ? documentView.renderScratchpad(doc) : documentView.renderRaw(doc);
   }
 
@@ -148,6 +150,7 @@
         const listTab = toggles.find((b) => b.dataset.view === 'list');
         if (listTab) listTab.textContent = data.tab;
         draw();
+        changes.showConflicts(data);
         if (firstLoad) goToTarget();
         firstLoad = false;
       })

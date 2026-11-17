@@ -27,7 +27,8 @@ Well. Mostly sure.
 - [x] DONE [#B] Create a new event
   CLOSED: [2026-11-10 Tue 13:19]
 - [ ] Create a space to incubate potential project ideas
-- [ ] Add supplementary files to an entity
+- [x] DONE Add supplementary files to an entity
+  CLOSED: [2026-11-17 Tue 10:24]
 
 ## Budgeting
 
