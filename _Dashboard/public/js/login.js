@@ -15,7 +15,7 @@
       return;
     }
     if (!info.leaders.length) {
-      showFormError(error, 'There are no leaders to choose from yet. Add one to Labels/Leaders.csv.');
+      showFormError(error, 'There are no leaders to choose from yet. Add one to _Labels/Leaders.csv.');
       return;
     }
     const options = info.leaders.map((name) => component('option', { value: name, selected: name === info.user, label: name }));

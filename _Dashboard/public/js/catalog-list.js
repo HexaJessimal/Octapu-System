@@ -1,4 +1,4 @@
-// All catalogs: every TAG_Name.csv in the Catalogs folder, and the plus button that makes one.
+// All catalogs: every TAG_Name.csv in the _Catalogs folder, and the plus button that makes one.
 (function () {
   'use strict';
   const { component, getJson, postJson, loadError, formDialog } = window.PMS;

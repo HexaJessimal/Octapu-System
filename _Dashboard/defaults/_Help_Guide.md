@@ -11,7 +11,7 @@ The screenshot in Step 1 shows the dashboard's old name, PMS. Everything else ma
 1. Install **Node.js** version 18 or newer from https://nodejs.org. The LTS version is fine.
 2. Open a terminal and go to the folder that holds this dashboard.
 3. Check Node is installed by running `node --version`.
-4. Start the dashboard by running `node dashboard/server.js`.
+4. Start the dashboard by running `node _Dashboard/server.js`.
 
 The terminal prints the address of your dashboard, normally `http://127.0.0.1:4173`. Leave the terminal open while you use the dashboard. To stop it, press `Ctrl + C` in the terminal.
 
@@ -32,7 +32,7 @@ Fill in:
 
 [[IMAGE#Screenshots/03-SetupFill.png]]
 
-Select **Get started**. The dashboard creates the settings files it needs in the `Labels` folder and your entity's folder. You can change all of this later in Options.
+Select **Get started**. The dashboard creates the settings files it needs in the `_Labels` folder and your entity's folder. You can change all of this later in Options.
 
 ## Step 3: View your homepage
 
@@ -221,9 +221,9 @@ Further down the Review page, finished tasks since your last review are grouped 
 2. Edit the text or add anything else you're proud of.
 3. Select **Submit wins and archive**.
 
-Your wins are saved in `Time_Management/Review.md`. Every finished task, not only those listed, moves to the archived status and disappears from view. Past reviews are on the **History** tab.
+Your wins are saved in `_Time_Management/Review.md`. Every finished task, not only those listed, moves to the archived status and disappears from view. Past reviews are on the **History** tab.
 
-Each review also logs figures to `Entities/Reports.md`: the tasks you completed and those still open, overdue tasks, active projects with nothing finished, how much of your Plan got done, and the wins you logged. Step 38 shows how to read them.
+Each review also logs figures to `_Entities/Reports.md`: the tasks you completed and those still open, overdue tasks, active projects with nothing finished, how much of your Plan got done, and the wins you logged. Step 38 shows how to read them.
 
 There's no screenshot of this step. The Wins box is at the bottom of the Review page.
 
@@ -242,7 +242,7 @@ Select tasks to move them into **Focus** below, then set a status and priority f
 
 ## Step 22: Observe new highlighted todos relevant to your focus
 
-Your plan is saved in `Time_Management/Plan.md`, and can be read back on the **History** tab of the Plan page. The Todos list now outlines items according to your latest plan:
+Your plan is saved in `_Time_Management/Plan.md`, and can be read back on the **History** tab of the Plan page. The Todos list now outlines items according to your latest plan:
 
 - **Purple:** the plan names this task or its milestone.
 - **Cyan:** the plan includes this project, entity or tentacle.
@@ -323,7 +323,7 @@ These work anywhere you can write notes:
 - `[[ID]]` opens that entity's page, for example `[[LABEL]]`.
 - `[[ID#Tasks]]` opens that entity's task list. Use any heading from `TASKLISTS`.
 - `[[ID#Any other heading]]` opens that entity's Scratchpad at that section.
-- `[[IMAGE#Screenshots/01-RunServer.png]]` shows an image from the `Images` folder.
+- `[[IMAGE#Screenshots/01-RunServer.png]]` shows an image from the `_Images` folder.
 - `[the text to show](https://example.com)` links to a website, and a web address written out in full becomes a link by itself.
 
 A few details:
@@ -384,7 +384,10 @@ Under **Compatibility** in the left menu, the two pages check your entity and pr
 - **Pink:** something you need to change by hand. This example is a directory listed in Options that doesn't exist yet.
 - **Orange:** a file or folder that isn't where it's expected to be, or markdown with no clear purpose.
 
-Fix issues only ever adds what's missing and leaves everything else alone.
+Fix issues only ever adds what's missing and leaves everything else alone. Where it needs a choice, the box has a dropdown:
+
+- **Main file:** a project with no markdown file named after its title. Choose the file that should be the main one, and Fix issues renames it after the project.
+- **Owner:** a project whose Owner is missing, empty or not in your leaders. Choose who it belongs to, or leave it for now.
 
 [[IMAGE#Screenshots/50-ProjectCompatibility.png]]
 
@@ -394,14 +397,14 @@ Your files are organised like this:
 
 [[IMAGE#Screenshots/51-DirectoryStructure.png]]
 
-- `dashboard`: the dashboard's own code.
-- `Entities`: a folder per entity, named after its ID, with tentacles inside their parent, and `Reports.md`.
-- `Images`: pictures used in your notes and this guide.
-- `Labels`: the settings files behind the Options page.
-- `Networking`: `Leads.md` and `Events.md`.
-- `Catalogs`: a CSV file per catalog, named with its tag and name, such as `RLS_Record_Label_Studios.csv`. Step 39 shows how to use them.
+- `_Dashboard`: the dashboard's own code.
+- `_Entities`: a folder per entity, named after its ID, with tentacles inside their parent, and `Reports.md`.
+- `_Images`: pictures used in your notes and this guide.
+- `_Labels`: the settings files behind the Options page.
+- `_Networking`: `Leads.md` and `Events.md`.
+- `_Catalogs`: a CSV file per catalog, named with its tag and name, such as `RLS_Record_Label_Studios.csv`. Step 39 shows how to use them.
 - `Projects`, and any other directory in `PROJECTS`: a folder per project.
-- `Time_Management`: `Review.md`, `Plan.md` and `Commitments.md`.
+- `_Time_Management`: `Review.md`, `Plan.md` and `Commitments.md`.
 
 A project's folder name holds its status, its entity and its title:
 
@@ -410,19 +413,19 @@ A project's folder name holds its status, its entity and its title:
 - It starts with `+` when active and `-` when inactive. The tag beside the project's title changes this for you.
 - To archive a project, rename its folder to start with the date, such as `2026-11-30_LABEL_Design_A_New_Logo`.
 - Next comes the entity's ID, then an underscore, then the title with underscores for spaces.
-- The main markdown file inside is named after the title, such as `Design A New Logo.md`.
+- The main markdown file inside is named after the title, such as `Design A New Logo.md`. If there isn't one, the dashboard uses the first file alphabetically and Compatibility asks which file it should be.
 
-An entity's file is `Entities/ID/Name.md`, using the ID and name from setup.
+An entity's file is `_Entities/ID/Name.md`, using the ID and name from setup.
 
 ## Step 37: Create a new markdown file within an entity or project
 
-A project or entity can hold more than one markdown file. To add one, select the plus button on the row of file tabs, which is above the content on an entity and on the **Raw** tab of a project. The new file opens straight away with the fields and headings it needs.
+A project or entity can hold more than one markdown file. To add one, select the plus button on the row of file tabs, which is above the content. The new file opens straight away with the fields and headings it needs.
 
 You can also put a markdown file in the folder yourself, using any text editor.
 
 [[IMAGE#Screenshots/53-NewMarkdownFile.png]]
 
-Each file then gets its own tab. On a project, the tabs are on the Raw tab. On an entity, they're on all three tabs.
+Each file then gets its own tab, on every tab of the page, with the main file first.
 
 [[IMAGE#Screenshots/54-NewMarkdownView.png]]
 
@@ -430,7 +433,7 @@ If Compatibility lists a file you've added as **Unknown markdown**, it's only a 
 
 ## Step 38: Read your report and save it
 
-Each time you submit a Review, a few figures are added to `Entities/Reports.md`. Open **Dashboard** in the left menu and choose the **Report** tab to see them over time.
+Each time you submit a Review, a few figures are added to `_Entities/Reports.md`. Open **Dashboard** in the left menu and choose the **Report** tab to see them over time.
 
 [[IMAGE#Screenshots/55-DashboardReport.png]]
 
@@ -479,9 +482,9 @@ To add records, select the plus button beside the table. A blank record opens wi
 
 [[IMAGE#Screenshots/62-CatalogAdd.png]]
 
-To show a picture, put it in the `Images` folder and write its name in double square brackets, such as `[[IMAGE#Logo.png]]` for your logo. Type dates the same way as everywhere else.
+To show a picture, put it in the `_Images` folder and write its name in double square brackets, such as `[[IMAGE#Logo.png]]` for your logo. Type dates the same way as everywhere else.
 
-Each catalog is saved as a spreadsheet file in the `Catalogs` folder, so you can also open it in any spreadsheet program. Columns you add there appear in the dashboard too.
+Each catalog is saved as a spreadsheet file in the `_Catalogs` folder, so you can also open it in any spreadsheet program. Columns you add there appear in the dashboard too.
 
 ## Step 40: Work together as a team
 

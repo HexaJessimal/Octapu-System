@@ -1,4 +1,4 @@
-// Commitments: the entries in Time_Management/Commitments.md, as cards to view, edit, add and remove.
+// Commitments: the entries in _Time_Management/Commitments.md, as cards to view, edit, add and remove.
 (function () {
   'use strict';
   const { status, editing, escapeHtml, displayDates, setDateFormat, dependencyHref, normalText, hashReference, component, getJson, loadError, UNREACHABLE, formDialog } = window.PMS;

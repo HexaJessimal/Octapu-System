@@ -381,9 +381,11 @@ function projectProblems(markdown, folderOwner, owners, leaders, taskLists, fold
   if (!owners.some((o) => o.id === folderOwner)) problems.push(problem(`Folder's owner "${folderOwner}" isn't in Owners.csv`));
   if (!header.title) problems.push(missingTitle());
   else if (!header.title.owner) problems.push(problem("Page title doesn't start with an owner from Owners.csv"));
-  if (!header.leader) problems.push(missingField('Owner'));
-  else if (!header.leader.value) problems.push(problem("Owner hasn't been chosen"));
-  else if (!leaders.some((l) => l.id === header.leader.value)) problems.push(problem(`Owner "${header.leader.value}" isn't in Leaders.csv`));
+  // Owner problems let Fix issues set a leader picked on the Compatibility page.
+  const ownerProblem = (text) => (leaders.length ? { text, kind: 'fixable', fix: { owner: true }, choose: 'owner' } : problem(text));
+  if (!header.leader) problems.push(Object.assign(missingField('Owner'), leaders.length ? { choose: 'owner' } : {}));
+  else if (!header.leader.value) problems.push(ownerProblem("Owner hasn't been chosen"));
+  else if (!leaders.some((l) => l.id === header.leader.value)) problems.push(ownerProblem(`Owner "${header.leader.value}" isn't in Leaders.csv`));
   if (!header.createdLine) problems.push(missingField('Date Created'));
   if (!header.dates.reviewed.line) problems.push(missingField('Date Reviewed'));
   if (!header.dates.closed.line) problems.push(missingField('Date Closed'));
@@ -427,6 +429,8 @@ function applyFixes(markdown, problems, { title, owner, projectType = 'Milestone
   const wanted = (field) => fixes.some((f) => f.field === field);
   let out = markdown;
   if (fixes.some((f) => f.title)) out = insertLine(out, null, `# ${title}`);
+  // An Owner field that's empty or names an unknown leader is only changed once one is picked.
+  if (owner && fixes.some((f) => f.owner)) out = setHeaderField(out, 'Owner', owner);
 
   // A Project Type with no value already has its line.
   const blankType = wanted('Project Type') && findField(stripComments(out), 'Project Type');

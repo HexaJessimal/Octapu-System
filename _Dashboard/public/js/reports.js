@@ -1,4 +1,4 @@
-// The Dashboard's Report tab: the figures logged to Entities/Reports.md with each review, over
+// The Dashboard's Report tab: the figures logged to _Entities/Reports.md with each review, over
 // time, as headline tiles, charts and a table.
 (function () {
   'use strict';
@@ -275,7 +275,7 @@
     reports = data.reports;
     interval = data.interval;
     if (!reports.length) {
-      panel.innerHTML = component('empty-card', { message: 'No reports yet. One is added to Entities/Reports.md each time you submit a Review.' });
+      panel.innerHTML = component('empty-card', { message: 'No reports yet. One is added to _Entities/Reports.md each time you submit a Review.' });
       return;
     }
     const label = (key) => data.fields.find((field) => field.key === key).label;

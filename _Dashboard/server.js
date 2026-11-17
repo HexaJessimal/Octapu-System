@@ -1,5 +1,5 @@
 // Octapu System Dashboard server: zero dependencies, Node built-ins only.
-// Run from anywhere:  node dashboard/server.js   (then open the printed URL)
+// Run from anywhere:  node _Dashboard/server.js   (then open the printed URL)
 'use strict';
 
 const http = require('http');
@@ -115,20 +115,21 @@ const PORT = Number(process.env.PMS_PORT) || 4173;
 
 const PUBLIC_DIR = path.resolve(__dirname, 'public');
 const ROOT_DIR = path.resolve(__dirname, '..');
-const ENTITY_DIR = path.resolve(__dirname, '..', 'Entities');
-const TIME_MANAGEMENT_DIR = path.resolve(__dirname, '..', 'Time_Management');
+// The data folders sit beside this app's folder, each named with a leading underscore.
+const ENTITY_DIR = path.resolve(ROOT_DIR, '_Entities');
+const TIME_MANAGEMENT_DIR = path.resolve(ROOT_DIR, '_Time_Management');
 const REVIEW_FILE = path.join(TIME_MANAGEMENT_DIR, 'Review.md');
 const REPORTS_FILE = path.join(ENTITY_DIR, 'Reports.md'); // a report is added with each review
 const FOCUS_FILE = path.join(TIME_MANAGEMENT_DIR, 'Plan.md');
 const COMMITMENTS_FILE = path.join(TIME_MANAGEMENT_DIR, 'Commitments.md');
 const COMMITMENT_PREFIX = 'commitment:';
-const HELP_FILE = path.resolve(__dirname, '..', 'Help Guide.md');
-const IMAGES_DIR = path.resolve(__dirname, '..', 'Images');
+const HELP_FILE = path.resolve(__dirname, '..', '_Help_Guide.md');
+const IMAGES_DIR = path.resolve(ROOT_DIR, '_Images');
 const IMAGE_TYPES = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp']);
 // Edits name their document by folder. An entity's is this prefix plus its id.
 const ENTITY_PREFIX = 'entity:';
-const NETWORKING_DIR = path.resolve(__dirname, '..', 'Networking');
-const CATALOGS_DIR = path.resolve(__dirname, '..', 'Catalogs'); // a CSV per catalog
+const NETWORKING_DIR = path.resolve(ROOT_DIR, '_Networking');
+const CATALOGS_DIR = path.resolve(ROOT_DIR, '_Catalogs'); // a CSV per catalog
 const NETWORKING_PREFIX = 'networking:';
 const field = (label, match) => ({ label, match: match || new RegExp(`^${label.replace(/[/&]/g, '\\$&')}$`, 'i') });
 // Which file each Networking page reads, how deep its entries' headings are, which of its
@@ -159,7 +160,7 @@ const NETWORKING = {
 };
 const isNetworkingField = (page) => (label) => page.fields.some((f) => f.match.test(label));
 const DEFAULT_ROUNDUP_DAYS = 7; // only used if Options.csv doesn't set a usable ROUNDUP
-const LABELS_DIR = path.resolve(__dirname, '..', 'Labels');
+const LABELS_DIR = path.resolve(ROOT_DIR, '_Labels');
 const STATUS_FILE = path.join(LABELS_DIR, 'Status.csv');
 const OWNERS_FILE = path.join(LABELS_DIR, 'Owners.csv');
 const LEADERS_FILE = path.join(LABELS_DIR, 'Leaders.csv');
@@ -284,6 +285,7 @@ async function listDirectory(directory) {
   );
   const projects = listed.filter((p) => p.files.length);
   for (const project of projects) {
+    project.files = mainFirst(project.files, pickPrimary(project.name, project.files));
     const { projectType } = parseHeader(await readProjectFile(project, primaryFile(project)), []);
     project.ongoing = Boolean(projectType) && projectType.known === 'Ongoing';
   }
@@ -406,12 +408,16 @@ async function dependencyChoices(folder, projects, commitments = []) {
 
 const commitmentChoices = (commitments) => commitments.map((c) => ({ id: `${COMMITMENT_OWNER} ${c.title}`, name: `Commitment: ${c.title}` }));
 
-// Prefer the .md whose name matches the title in the folder name; else the first alphabetically.
-function pickPrimary(folder, files) {
-  const title = projectTitle(folder).toLowerCase();
-  const match = files.find((f) => f.slice(0, -3).trim().toLowerCase() === title);
-  return match || files[0];
-}
+// A project's main file is named after the title in its folder name. Case, spaces and
+// underscores don't matter, so "First_album.md" counts for "+MUSART_First_album".
+const sameFileName = (a, b) => a.replace(/[\s_]+/g, ' ').trim().toLowerCase() === b.replace(/[\s_]+/g, ' ').trim().toLowerCase();
+const namedFile = (folder, files) => files.find((f) => sameFileName(fileTitle(f), projectTitle(folder))) || null;
+
+// The named file, or else the first alphabetically, which Compatibility then points out.
+const pickPrimary = (folder, files) => namedFile(folder, files) || files[0];
+
+// A folder's files with the main one first, as its file tabs show them.
+const mainFirst = (files, main) => (main ? [main, ...files.filter((f) => f !== main)] : files);
 
 // Label files are re-read on every use, so edits apply without a restart.
 async function readLabelFile(file, parse, fallback) {
@@ -540,7 +546,7 @@ async function collectTimeline() {
   return rows;
 }
 
-// The name of the logo in Images/, whatever capitals it's written with, or null.
+// The name of the logo in _Images/, whatever capitals it's written with, or null.
 async function findLogo() {
   try {
     return (await fs.promises.readdir(IMAGES_DIR)).find((name) => /^logo\.(png|jpe?g|gif|webp)$/i.test(name)) || null;
@@ -645,7 +651,7 @@ async function readEntity(id, tab, requestedFile) {
     parentName: parent ? parent.name : null,
     tabs,
     folder: ENTITY_PREFIX + owner.id,
-    location: `Entities/${chain.join('/')}/${expected}`,
+    location: `_Entities/${chain.join('/')}/${expected}`,
   };
 
   const files = await entityFiles(dir);
@@ -656,7 +662,7 @@ async function readEntity(id, tab, requestedFile) {
   const blocks = parseBlocks(content);
   return Object.assign(base, parseHeader(content, owners), {
     file,
-    files,
+    files: mainFirst(files, primaryEntityFile(owner, files)),
     content,
     statuses,
     owners,
@@ -819,7 +825,7 @@ function splitHelp(content) {
 // Ticks or unticks the checkbox, adding it to the end of the guide if it isn't there yet.
 async function setHelpRead({ read }) {
   const content = await readIfExists(HELP_FILE);
-  if (content === null) return { code: 404, body: { error: "Help Guide.md doesn't exist." } };
+  if (content === null) return { code: 404, body: { error: "_Help_Guide.md doesn't exist." } };
   const line = `- [${read ? 'x' : ' '}] Mark as read`;
   const updated = HELP_READ_LINE.test(content) ? content.replace(HELP_READ_LINE, line) : content.trimEnd() + '\n\n' + line + '\n';
   if (updated !== content) await writeFileSafely(HELP_FILE, updated);
@@ -1067,7 +1073,7 @@ const networkingPage = (name) => (Object.hasOwn(NETWORKING, name) ? NETWORKING[n
 async function readNetworking(name) {
   const page = networkingPage(name);
   if (!page) return null;
-  const base = { title: page.title, tab: page.tab, noun: page.noun, location: `Networking/${page.file}`, dateFormat: await readDateFormat() };
+  const base = { title: page.title, tab: page.tab, noun: page.noun, location: `_Networking/${page.file}`, dateFormat: await readDateFormat() };
   const content = await readIfExists(path.join(NETWORKING_DIR, page.file));
   if (content === null) return Object.assign(base, { file: null, sections: [], past: [] });
 
@@ -1175,10 +1181,15 @@ async function incompatibleProjects() {
   let checked = 0;
   for (const project of projects) {
     const { folder, directory } = project;
+    const main = primaryFile(project);
     for (const file of project.files) {
       checked++;
       const problems = projectFileProblems(project, file, await readProjectFile(project, file), { owners, leaders, taskLists });
-      if (problems.length) rows.push({ folder, directory, file, additional: file !== primaryFile(project), problems });
+      // Without a file named after the project, its main file is only a guess, so the
+      // main file's row offers the folder's files to choose from.
+      const missing = file === main && missingMainFile(project);
+      if (missing) problems.unshift(missing);
+      if (problems.length) rows.push({ folder, directory, file, additional: file !== main, files: missing && missing.kind === 'fixable' ? project.files : undefined, problems });
     }
   }
   for (const dir of parseProjectDirs(await readOptions())) {
@@ -1193,10 +1204,46 @@ async function incompatibleProjects() {
       rows.push({ name: `${dir.name}/${file}`, problems: [unknownMarkdown()] });
     }
   }
-  return { checked, rows };
+  return { checked, rows, leaders: leaders.map(({ id, name }) => ({ id, name })) };
 }
 
-// Folders inside Entities/ that don't match an owner's place in Owners.csv.
+// The name a project's main file should have, from the title in its folder name.
+const mainFileName = (project) => `${projectTitle(project.name)}.md`;
+
+// A problem if no file is named after the project. Fix issues can rename one of its files,
+// unless the title can't be a file name.
+function missingMainFile(project) {
+  if (namedFile(project.name, project.files)) return null;
+  const wanted = mainFileName(project);
+  const kind = projectTitleError(fileTitle(wanted), 'name') ? 'error' : 'fixable';
+  return { text: `No file called "${wanted}", so "${primaryFile(project)}" is used as the main file`, kind, choose: 'main' };
+}
+
+// Renames `file` to the project's main file name, along with its change logs so its
+// history follows it.
+async function renameToMain(project, file) {
+  const target = mainFileName(project);
+  if (project.files.some((f) => f.toLowerCase() === target.toLowerCase())) return { code: 409, body: { error: `This folder already has a file called "${target}".` } };
+  const from = path.join(project.fullPath, file);
+  const to = path.join(project.fullPath, target);
+  try {
+    await fs.promises.access(to);
+    return { code: 409, body: { error: `This folder already has a file called "${target}".` } };
+  } catch (err) {
+    if (err.code !== 'ENOENT') throw err;
+  }
+  await fs.promises.rename(from, to);
+  const prefixLength = logName(file, '').length - '.log'.length;
+  for (const name of (await fs.promises.readdir(project.fullPath)).filter(isLogOf(file))) {
+    const device = name.slice(prefixLength, -'.log'.length);
+    await fs.promises.rename(path.join(project.fullPath, name), path.join(project.fullPath, logName(target, device))).catch((err) => {
+      console.error(`Could not rename the change log ${name}:`, err.message);
+    });
+  }
+  return null;
+}
+
+// Folders inside _Entities/ that don't match an owner's place in Owners.csv.
 async function unknownEntityFolders(owners) {
   const known = new Set(owners.map((o) => ownerChain(owners, o.id)).filter(Boolean).map((chain) => chain.join('/')));
   const unknown = [];
@@ -1223,7 +1270,7 @@ function entityFileProblems(owner, files, file, content, taskLists) {
 }
 
 // Every entity file that wouldn't work with the dashboard, any markdown loose in
-// Entities/, and how many of these were checked.
+// _Entities/, and how many of these were checked.
 async function incompatibleEntities() {
   const [owners, taskLists] = await Promise.all([readOwners(), readTaskLists()]);
   const rows = [];
@@ -1239,7 +1286,7 @@ async function incompatibleEntities() {
     if (!files.length) {
       // A name from a hand-edited Owners.csv might not be usable as a file name.
       const kind = projectTitleError(owner.name, 'name') ? 'error' : 'fixable';
-      rows.push({ id: owner.id, name: owner.name, problems: [{ text: `No markdown file at Entities/${place.chain.join('/')}/${expected}`, kind }] });
+      rows.push({ id: owner.id, name: owner.name, problems: [{ text: `No markdown file at _Entities/${place.chain.join('/')}/${expected}`, kind }] });
       continue;
     }
     const file = primaryEntityFile(owner, files);
@@ -1253,25 +1300,36 @@ async function incompatibleEntities() {
     }
   }
   const loose = (await entityFiles(ENTITY_DIR)).filter((file) => file !== path.basename(REPORTS_FILE));
-  for (const file of loose) rows.push({ name: `Entities/${file}`, problems: [unknownMarkdown()] });
+  for (const file of loose) rows.push({ name: `_Entities/${file}`, problems: [unknownMarkdown()] });
   const folders = await unknownEntityFolders(owners);
   for (const folder of folders) rows.push({ name: folder, problems: [{ text: "This folder isn't in Owners.csv", kind: 'unexpected' }] });
   return { checked: checked + loose.length + folders.length, rows };
 }
 
-// Fix issues for one of a project's files. A new Owner field is only filled in when
-// there's just one leader it could be.
-async function fixProject(folder, requested) {
-  const [owners, leaders, projects, taskLists] = await Promise.all([readOwners(), readLeaders(), listProjects(), readTaskLists()]);
-  const project = projects.find((p) => p.folder === folder);
+// Fix issues for one of a project's files. `main` is the file chosen to become the main one
+// when none is named after the project: it's renamed, then fixed in place of `requested`.
+// `owner` is the leader chosen for the Owner field. Without one, a new Owner field is only
+// filled in when there's just one leader it could be.
+async function fixProject(folder, requested, main, owner) {
+  const [owners, leaders, taskLists] = await Promise.all([readOwners(), readLeaders(), readTaskLists()]);
+  const findProject = async () => (await listProjects()).find((p) => p.folder === folder);
+  let project = await findProject();
   if (!project) return NOT_FOUND;
-  const file = requested || primaryFile(project);
+  let file = requested || primaryFile(project);
   if (!project.files.includes(file)) return NOT_FOUND;
+  if (owner && !leaders.some((l) => l.id === owner)) return { code: 400, body: { error: `"${owner}" isn't in Leaders.csv.` } };
+  if (main && missingMainFile(project)) {
+    if (!project.files.includes(main)) return NOT_FOUND;
+    const refused = await renameToMain(project, main);
+    if (refused) return refused;
+    project = await findProject();
+    file = primaryFile(project);
+  }
   const ownerId = folderOwner(project.name);
   const folderTitle = owners.some((o) => o.id === ownerId) ? `${ownerId} ${projectTitle(project.name)}` : project.name.replace(STATUS_PREFIX, '').replace(/_/g, ' ');
   const details = {
     title: file === primaryFile(project) ? folderTitle : fileTitle(file),
-    owner: leaders.length === 1 ? leaders[0].id : '',
+    owner: owner || (leaders.length === 1 ? leaders[0].id : ''),
     projectType: project.ongoing ? 'Ongoing' : 'Milestone',
   };
   return updateProjectFile(folder, file, (content) => applyFixes(content, projectFileProblems(project, file, content, { owners, leaders, taskLists }), details));
@@ -1331,7 +1389,7 @@ async function readCommitmentList() {
   return {
     folder: 'commitments',
     file: path.basename(COMMITMENTS_FILE),
-    location: 'Time_Management/Commitments.md',
+    location: '_Time_Management/Commitments.md',
     exists: text !== null,
     dateFormat: await readDateFormat(),
     priorities: PRIORITIES,
@@ -1490,7 +1548,7 @@ async function changeProjectType({ folder, type }) {
   return result;
 }
 
-const fixCompatibility = ({ type, key, file }) => (type === 'projects' ? fixProject(key, file) : fixEntity(key, file));
+const fixCompatibility = ({ type, key, file, main, owner }) => (type === 'projects' ? fixProject(key, file, main, owner) : fixEntity(key, file));
 
 // Non-archived projects and every entity with no Date Reviewed yet.
 async function collectToReview() {
@@ -1981,7 +2039,7 @@ async function setupState() {
   const entity = !owners.some((o) => !o.parent);
   return {
     needed: missing.length > 0 || entity,
-    missing: missing.map((file) => `Labels/${path.basename(file)}`),
+    missing: missing.map((file) => `_Labels/${path.basename(file)}`),
     fields: { entity, leader: leaders.length === 0, dateFormat: missing.includes(OPTIONS_FILE) },
     dateFormats: SETUP_DATE_FORMATS,
   };
@@ -2009,7 +2067,7 @@ async function saveSetup(body) {
   if (fields.dateFormat && !SETUP_DATE_FORMATS.includes(body.dateFormat)) return badSetup('Choose a date format.');
 
   await fs.promises.mkdir(LABELS_DIR, { recursive: true });
-  const isMissing = (file) => missing.includes(`Labels/${path.basename(file)}`);
+  const isMissing = (file) => missing.includes(`_Labels/${path.basename(file)}`);
   if (isMissing(OPTIONS_FILE)) {
     const text = newOptionsCsv({ dateFormat: body.dateFormat, roundup: DEFAULT_ROUNDUP_DAYS, projects: FALLBACK_PROJECT_DIRS, taskLists: FALLBACK_TASK_LISTS });
     await fs.promises.writeFile(OPTIONS_FILE, text, 'utf8');
@@ -2076,7 +2134,7 @@ function readBody(req) {
 // Shared handling for edit requests. `isValid` checks the fields specific to each edit.
 // ---------- catalogs ----------
 
-// Every TAG_Name.csv in the Catalogs folder, by name. Other files there are left alone.
+// Every TAG_Name.csv in the _Catalogs folder, by name. Other files there are left alone.
 async function listCatalogs() {
   let names;
   try {
@@ -2304,7 +2362,8 @@ const isCommitmentRename = (body) => isCommitmentRow(body) && typeof body.to ===
 const isPlanningEdit = (body) =>
   hasLine(body) && (typeof body.status === 'string' || body.status === null) && typeof body.text === 'string' && ['SCHEDULED', 'DEADLINE'].includes(body.kind) && typeof body.date === 'string';
 const isTypeChange = (body) => inFile(body) && typeof body.type === 'string';
-const isCompatibilityFix = ({ type, key, file }) => ['projects', 'entities'].includes(type) && typeof key === 'string' && (file === undefined || typeof file === 'string');
+const isCompatibilityFix = ({ type, key, file, main, owner }) =>
+  ['projects', 'entities'].includes(type) && typeof key === 'string' && [file, main, owner].every((v) => v === undefined || typeof v === 'string');
 const isHelpRead = ({ read }) => typeof read === 'boolean';
 const isFocusSubmit = ({ items }) =>
   Array.isArray(items) && items.every((i) => i && typeof i.folder === 'string' && typeof i.text === 'string');
@@ -2351,7 +2410,7 @@ async function serveStatic(req, res, urlPath) {
   return sendFileFrom(res, PUBLIC_DIR, rel);
 }
 
-// An image for an [[IMAGE#...]] link. Only pictures inside Images/ can be fetched.
+// An image for an [[IMAGE#...]] link. Only pictures inside _Images/ can be fetched.
 function serveImage(res, urlPath) {
   const rel = decodeURIComponent(urlPath.slice('/images'.length));
   if (!IMAGE_TYPES.has(path.extname(rel).toLowerCase())) return send(res, 404, 'Not found');
@@ -2534,14 +2593,14 @@ const server = http.createServer(async (req, res) => {
 
 // Every folder the dashboard expects, and the Networking files its pages open. Anything
 // already there is left alone.
-const REQUIRED_DIRS = ['Networking', 'Images', 'Labels', 'Entities', 'Projects', 'Time_Management', 'Catalogs'];
+const REQUIRED_DIRS = [NETWORKING_DIR, IMAGES_DIR, LABELS_DIR, ENTITY_DIR, path.join(ROOT_DIR, 'Projects'), TIME_MANAGEMENT_DIR, CATALOGS_DIR];
 const STARTER_FILES = [
-  ['Networking/Leads.md', '# Leads\n\n## Contacts\n'],
-  ['Networking/Events.md', '# Events\n\n## Upcoming\n'],
-  ['Entities/Reports.md', ''], // blank until the first review adds a report
+  [path.join(NETWORKING_DIR, 'Leads.md'), '# Leads\n\n## Contacts\n'],
+  [path.join(NETWORKING_DIR, 'Events.md'), '# Events\n\n## Upcoming\n'],
+  [REPORTS_FILE, ''], // blank until the first review adds a report
 ];
 
-// The Help Guide, its screenshots and the logo ship in dashboard/defaults.
+// The Help Guide, its screenshots and the logo ship in _Dashboard/defaults.
 const DEFAULTS_DIR = path.join(__dirname, 'defaults');
 
 const unlessExists = (err) => {
@@ -2562,11 +2621,11 @@ async function copyFolderIfMissing(from, to) {
 // Adds anything missing and never replaces a file that's there, so edits and the guide's
 // "Mark as read" tick are kept. Any logo of the user's own counts as the logo.
 async function createMissingFolders() {
-  for (const dir of REQUIRED_DIRS) await fs.promises.mkdir(path.join(ROOT_DIR, dir), { recursive: true });
+  for (const dir of REQUIRED_DIRS) await fs.promises.mkdir(dir, { recursive: true });
   for (const [file, content] of STARTER_FILES) {
-    await fs.promises.writeFile(path.join(ROOT_DIR, file), content, { encoding: 'utf8', flag: 'wx' }).catch(unlessExists);
+    await fs.promises.writeFile(file, content, { encoding: 'utf8', flag: 'wx' }).catch(unlessExists);
   }
-  await copyIfMissing(path.join(DEFAULTS_DIR, 'Help Guide.md'), HELP_FILE);
+  await copyIfMissing(path.join(DEFAULTS_DIR, '_Help_Guide.md'), HELP_FILE);
   await copyFolderIfMissing(path.join(DEFAULTS_DIR, 'Screenshots'), path.join(IMAGES_DIR, 'Screenshots'));
   if (!(await findLogo())) await copyIfMissing(path.join(DEFAULTS_DIR, 'Logo.png'), path.join(IMAGES_DIR, 'Logo.png'));
 }

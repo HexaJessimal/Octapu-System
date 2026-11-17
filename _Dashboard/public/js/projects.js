@@ -349,7 +349,7 @@
     return text.replace(/(?<![0-9])(?<![0-9][-./_])\d{4}-\d{2}-\d{2}(?![0-9])(?![-./_][0-9])/g, displayDate);
   }
 
-  // The fixed status types, in order. Status names always come from Labels/Status.csv.
+  // The fixed status types, in order. Status names always come from _Labels/Status.csv.
   const TYPES = ['UNASSIGNED', 'ASSIGNED', 'WAITING', 'DONE', 'ARCHIVED'];
 
   function presentTypes(statuses) {

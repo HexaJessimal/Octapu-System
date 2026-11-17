@@ -10,7 +10,7 @@
       url: 'api/status-table',
       title: 'Statuses',
       noun: 'status',
-      file: 'Labels/Status.csv',
+      file: '_Labels/Status.csv',
       missing: 'Until then, the built-in default statuses are in use.',
       keyOf: (row) => row.name,
       columns: (data) => {
@@ -27,7 +27,7 @@
       url: 'api/leader-table',
       title: 'Leaders',
       noun: 'leader',
-      file: 'Labels/Leaders.csv',
+      file: '_Labels/Leaders.csv',
       missing: '',
       keyOf: (row) => row.id,
       columns: () => [
@@ -39,7 +39,7 @@
       url: 'api/colour-table',
       title: 'Colours',
       noun: 'colour',
-      file: 'Labels/Colours.csv',
+      file: '_Labels/Colours.csv',
       fixedRows: true, // the stylesheet uses each row by name
       keyOf: (row) => row.name,
       columns: () => [

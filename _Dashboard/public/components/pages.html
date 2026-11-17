@@ -252,8 +252,12 @@
     </header>
     {{#if location}}<div class="review-meta">{{location}}</div>{{/if}}
     <ul class="compat-problems">{{{problems}}}</ul>
+    {{#if choices}}<div class="compat-choices">{{{choices}}}</div>{{/if}}
   </section>
 </template>
+
+<!-- A choice Fix issues uses, such as which file becomes the main one. -->
+<template name="compat-choice"><label>{{label}}<select data-choice="{{{name}}}">{{{options}}}</select></label></template>
 
 <template name="compat-problem"><li class="compat-issue compat-{{{kind}}}">{{text}}</li></template>
 

@@ -1,4 +1,4 @@
-// Catalogs: one CSV per catalog in the Catalogs folder, named TAG_Name.csv, such as
+// Catalogs: one CSV per catalog in the _Catalogs folder, named TAG_Name.csv, such as
 // "RLS_Record_Label_Studios.csv". Pure text functions only; the server does the file work.
 'use strict';
 

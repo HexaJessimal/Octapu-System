@@ -50,13 +50,12 @@
   }
 
   // Tabs for a folder's markdown files, when it has more than one, and a button to add one.
-  // Tabs open the Raw view, unless `keepView` says to stay on the current one.
-  function fileTabs(doc, keepView) {
+  // The main file comes first. A tab keeps the view you're on.
+  function fileTabs(doc) {
     if (!doc.files) return '';
     const tab = (file) => {
       const query = new URLSearchParams(location.search);
       query.set('file', file);
-      if (!keepView) query.set('view', 'raw');
       return component('file-tab', { query: query.toString(), current: file === doc.file, file });
     };
     return component('file-tabs', { tabs: doc.files.length > 1 ? doc.files.map(tab).join('') : '', add: addButton('file', 'New markdown file') });

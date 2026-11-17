@@ -1,4 +1,4 @@
-// Options page: an edit form for Labels/Options.csv, plus the Statuses, Leaders and Colours tabs.
+// Options page: an edit form for _Labels/Options.csv, plus the Statuses, Leaders and Colours tabs.
 (function () {
   'use strict';
   const { labelTables, component, getJson, postJson, loadError, UNREACHABLE } = window.PMS;
@@ -49,7 +49,7 @@
 
   function render(options) {
     if (!options.length) {
-      contentEl.innerHTML = component('empty-card', { message: 'No options found in Labels/Options.csv.' });
+      contentEl.innerHTML = component('empty-card', { message: 'No options found in _Labels/Options.csv.' });
       return;
     }
     contentEl.innerHTML = component('options-form', { fields: options.map(field).join('') });

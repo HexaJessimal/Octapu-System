@@ -44,8 +44,9 @@
     toggles.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === view)));
     if (!project || editing.isOpen()) return;
     changes.cancelChangelog();
-    if (view === 'changelog') return changes.drawChangelog(project, contentEl, documentView.fileTabs(project, true));
-    contentEl.innerHTML = view === 'overview' ? renderOverview() : view === 'scratchpad' ? renderScratchpad() : renderRaw();
+    if (view === 'changelog') return changes.drawChangelog(project, contentEl, documentView.fileTabs(project));
+    contentEl.innerHTML =
+      documentView.fileTabs(project) + (view === 'overview' ? renderOverview() : view === 'scratchpad' ? renderScratchpad() : renderRaw());
   }
 
   editing.init({ project: () => project, redraw: draw });
@@ -58,7 +59,7 @@
     return status.ownerControl(project) + titleSpan(project, editable);
   }
 
-  const renderRaw = () => documentView.fileTabs(project) + documentView.renderRaw(project, documentView.headerOptions(project, () => titleHtml(false), true));
+  const renderRaw = () => documentView.renderRaw(project, documentView.headerOptions(project, () => titleHtml(false), true));
 
   // A subheading with its add button, then one editable row per timeframe.
   function timeframeFact() {

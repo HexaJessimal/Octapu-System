@@ -9,7 +9,7 @@
   function render(data) {
     setDateFormat(data.dateFormat);
     if (!data.exists) {
-      contentEl.innerHTML = component('empty-card', { message: "Help Guide.md doesn't exist yet." });
+      contentEl.innerHTML = component('empty-card', { message: "_Help_Guide.md doesn't exist yet." });
       return;
     }
     read = data.read;

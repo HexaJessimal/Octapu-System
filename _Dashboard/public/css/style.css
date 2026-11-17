@@ -10,7 +10,7 @@
 :root {
   color-scheme: dark;
 
-  /* Labels/Colours.csv overrides these colours, by way of api/colours.css. The values here
+  /* _Labels/Colours.csv overrides these colours, by way of api/colours.css. The values here
      only apply to a row missing from that file. */
   --accent: #bba5f8;
   --bg: #0b0b0b;
@@ -1512,6 +1512,28 @@ textarea.inline-field {
 }
 .compat-unexpected {
   --issue: var(--orange);
+}
+.compat-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin-top: 12px;
+}
+.compat-choices label {
+  display: grid;
+  gap: 4px;
+  min-width: min(240px, 100%);
+  font-size: 0.8rem;
+  color: var(--text-soft);
+}
+.compat-choices select {
+  padding: 6px 10px;
+  border: 1px solid var(--surface-raised);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
 }
 .review-queue {
   margin-bottom: 18px;

@@ -72,7 +72,7 @@
     const heading = (m[2] || '').trim();
     const page = file ? (LINKABLE_FILES.includes(file) ? file : null) : heading && currentNetworkingPage;
     // Anything starting with an owner's id goes to that owner's page. The list comes from
-    // Labels/Owners.csv, by way of the api/owner-tags.js script each page loads first.
+    // _Labels/Owners.csv, by way of the api/owner-tags.js script each page loads first.
     const firstWord = unescape(m[1].trim().split(/\s+/)[0]);
     const owner = !page && (global.PMS_OWNER_IDS || []).includes(firstWord) ? firstWord : null;
     if (!page && !owner) return null;
@@ -209,7 +209,7 @@
   }
 
   // True if the scanner found an ARCHIVED type status on this line, and SHOWARCHIVED in
-  // Labels/Options.csv isn't on (that comes from the api/owner-tags.js script too).
+  // _Labels/Options.csv isn't on (that comes from the api/owner-tags.js script too).
   const isArchivedRow = (no, ctx) => {
     if (global.PMS_SHOW_ARCHIVED) return false;
     const item = ctx.todos.get(no);
@@ -384,7 +384,7 @@
   }
 
   // True if a checkbox's text opens with a status of the ARCHIVED type. Those names come from
-  // Labels/Status.csv, by way of the api/owner-tags.js script each page loads first.
+  // _Labels/Status.csv, by way of the api/owner-tags.js script each page loads first.
   function startsWithArchivedStatus(text) {
     const words = text.replace(/^[*_\s]+/, '').split(/[\s:*_]/, 1);
     return (global.PMS_ARCHIVED_STATUSES || []).includes(words[0]);

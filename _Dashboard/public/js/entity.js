@@ -77,9 +77,9 @@
       return;
     }
     changes.cancelChangelog();
-    if (view === 'changelog') return changes.drawChangelog(org, contentEl, documentView.fileTabs(org, true));
+    if (view === 'changelog') return changes.drawChangelog(org, contentEl, documentView.fileTabs(org));
     contentEl.innerHTML =
-      documentView.fileTabs(org, true) +
+      documentView.fileTabs(org) +
       (view === 'overview' ? renderSummary() + documentView.renderTaskLists(org) : view === 'scratchpad' ? documentView.renderScratchpad(org) : renderRaw());
   }
 
