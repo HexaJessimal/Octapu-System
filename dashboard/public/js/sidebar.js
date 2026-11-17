@@ -8,8 +8,16 @@
 
   const STORAGE_KEY = 'pms.sidebar';
   const FILE_ORDER = 'file';
-  const ANY = ''; // a dropdown left on "All"
   const NO_PRIORITY = 'none';
+  // The filter's dropdowns, in the order they're laid out. Any number of choices can be
+  // ticked in each. Ticking none in Status, Priority, Entity or Project lets everything through.
+  const FILTERS = [
+    ['type', 'Type'],
+    ['status', 'Status'],
+    ['priority', 'Priority'],
+    ['entity', 'Entity'],
+    ['project', 'Project'],
+  ];
   const HIGHLIGHT_NOTES = {
     milestone: 'Named in the latest focus',
     project: 'Its project is in the latest focus',
@@ -23,7 +31,7 @@
   // The filter. `shown` holds the ticked status types, or null until the first load ticks
   // every type but ARCHIVED.
   let shown = null;
-  let picked = { status: ANY, priority: ANY, entity: ANY, project: ANY };
+  let picked = { status: [], priority: [], entity: [], project: [] };
   let sort = FILE_ORDER;
   let shellReady = false;
 
@@ -36,7 +44,10 @@
       if (Array.isArray(saved.shown)) shown = new Set(saved.shown.filter((t) => typeof t === 'string'));
       if (saved.picked && typeof saved.picked === 'object') {
         Object.keys(picked).forEach((key) => {
-          if (typeof saved.picked[key] === 'string') picked[key] = saved.picked[key];
+          const value = saved.picked[key];
+          // Older versions saved one choice per dropdown, with '' for All.
+          if (typeof value === 'string') picked[key] = value ? [value] : [];
+          else if (Array.isArray(value)) picked[key] = value.filter((v) => typeof v === 'string');
         });
       }
       if (typeof saved.sort === 'string') sort = saved.sort;
@@ -66,7 +77,8 @@
   // Items from an entity's own files belong to no project.
   const projectOf = (item) => (item.entity ? null : item.folder);
 
-  // Each dropdown's test. Leaving one on All lets everything through.
+  // Each dropdown's test for one choice. An item passes a dropdown if it matches any ticked
+  // choice, or if nothing is ticked.
   const TESTS = {
     status: (item, value) => item.status === value,
     priority: (item, value) => (value === NO_PRIORITY ? !item.priority : item.priority === value),
@@ -74,7 +86,10 @@
     project: (item, value) => projectOf(item) === value,
   };
 
-  const passes = (item, except) => shown.has(item.type) && Object.keys(TESTS).every((key) => key === except || picked[key] === ANY || TESTS[key](item, picked[key]));
+  // `except` leaves one dropdown out, to count what each of its choices would show.
+  const passes = (item, except) =>
+    (except === 'type' || shown.has(item.type)) &&
+    Object.keys(TESTS).every((key) => key === except || !picked[key].length || picked[key].some((value) => TESTS[key](item, value)));
 
   const visibleItems = () => items.filter((item) => passes(item));
 
@@ -102,13 +117,6 @@
     return options.length ? component('optgroup', { label, options: options.join('') }) : '';
   }
 
-  // A dropdown's choices, each with how many items it would show alongside the other filters.
-  function choices(key, list) {
-    const count = (value) => items.filter((item) => passes(item, key) && TESTS[key](item, value)).length;
-    const all = items.filter((item) => passes(item, key)).length;
-    return option(ANY, 'All (' + all + ')', picked[key]) + list.map(([value, label]) => option(value, label + ' (' + count(value) + ')', picked[key])).join('');
-  }
-
   const byLabel = (a, b) => a[1].localeCompare(b[1]);
 
   function entityList() {
@@ -116,20 +124,66 @@
     return names.map((name) => [name, name]).sort(byLabel);
   }
 
-  // Projects with items of a ticked type, and only those of the chosen entity if there is one.
+  // Projects with items of a ticked type, and only those of the ticked entities if there are any.
   function projectList() {
-    const folders = new Set(items.filter((i) => projectOf(i) && shown.has(i.type) && (picked.entity === ANY || i.entityName === picked.entity)).map(projectOf));
+    const folders = new Set(items.filter((i) => projectOf(i) && shown.has(i.type) && (!picked.entity.length || picked.entity.includes(i.entityName))).map(projectOf));
     return [...folders].map((folder) => [folder, parseFolder(folder).title]).sort(byLabel);
   }
 
-  const selects = () => ({
-    status: choices('status', statuses.map((s) => [s.name, s.name])),
-    priority: choices('priority', [...priorities.map((p) => [p, p]), [NO_PRIORITY, 'None']]),
-    entity: choices('entity', entityList()),
-    project: choices('project', projectList()),
-  });
+  // Each dropdown's choices as [value, label] pairs.
+  const CHOICES = {
+    type: () => types.map((t) => [t, t]),
+    status: () => statuses.map((s) => [s.name, s.name]),
+    priority: () => [...priorities.map((p) => [p, p]), [NO_PRIORITY, 'None']],
+    entity: entityList,
+    project: projectList,
+  };
 
-  const typeBoxes = () => types.map((type) => component('todo-type', { on: shown.has(type), checked: String(shown.has(type)), type })).join('');
+  const isTicked = (key, value) => (key === 'type' ? shown.has(value) : picked[key].includes(value));
+
+  // How many items a choice would show alongside the other dropdowns.
+  function count(key, value) {
+    const test = key === 'type' ? (item) => item.type === value : (item) => TESTS[key](item, value);
+    return items.filter((item) => passes(item, key) && test(item)).length;
+  }
+
+  // What the dropdown's button says: All, None, or the ticked choices' names.
+  function summary(key, list) {
+    const ticked = list.filter(([value]) => isTicked(key, value)).map(([, label]) => label);
+    if (key === 'type') return ticked.length === list.length ? 'All' : ticked.length ? ticked.join(', ') : 'None';
+    return ticked.length ? ticked.join(', ') : 'All';
+  }
+
+  function renderFilter(key) {
+    const list = CHOICES[key]();
+    const options = list.map(([value, label]) => {
+      const on = isTicked(key, value);
+      return component('multi-option', { on, checked: String(on), value, label, count: count(key, value) });
+    });
+    root.querySelector('#todo-' + key).innerHTML = list.length
+      ? component('multi-options', { all: 'Show all', options: options.join('') })
+      : component('multi-empty', { message: 'Nothing to choose from.' });
+    const text = summary(key, list);
+    const valueEl = root.querySelector('#todo-' + key + '-value');
+    valueEl.textContent = text;
+    valueEl.title = text;
+  }
+
+  // Ticks or unticks one choice. Unticking the last choice of a dropdown other than Type
+  // shows everything again.
+  function toggleChoice(key, value) {
+    if (key === 'type') {
+      if (shown.has(value)) shown.delete(value);
+      else shown.add(value);
+      return;
+    }
+    picked[key] = picked[key].includes(value) ? picked[key].filter((v) => v !== value) : picked[key].concat(value);
+  }
+
+  function showAll(key) {
+    if (key === 'type') shown = new Set(types);
+    else picked[key] = [];
+  }
 
   function sortOptions() {
     // Archived items are never mixed with others and done items always go last,
@@ -153,7 +207,7 @@
       project: projectList().map(([value]) => value),
     };
     Object.keys(picked).forEach((key) => {
-      if (picked[key] !== ANY && !known[key].includes(picked[key])) picked[key] = ANY;
+      picked[key] = picked[key].filter((value) => known[key].includes(value));
     });
     if (![FILE_ORDER, 'by-status', 'by-type'].includes(sort)) {
       const { kind, name } = split(sort);
@@ -182,11 +236,7 @@
 
   // Redraws the filter's choices, whose counts depend on each other, and then the list.
   function renderList() {
-    const options = selects();
-    Object.keys(options).forEach((key) => {
-      root.querySelector('#todo-' + key).innerHTML = options[key];
-    });
-    root.querySelector('#todo-types').innerHTML = typeBoxes();
+    FILTERS.forEach(([key]) => renderFilter(key));
     const list = sorted(visibleItems());
     const open = list.filter((i) => !isDone(i.type));
     const done = list.filter((i) => isDone(i.type));
@@ -202,30 +252,60 @@
     renderList();
   };
 
+  const openDropdowns = () => Array.from(root.querySelectorAll('.multi-select[open]'));
+
   function renderShell() {
-    const s = selects();
-    root.innerHTML = component('sidebar-shell', { types: typeBoxes(), status: s.status, priority: s.priority, entity: s.entity, project: s.project, sort: sortOptions() });
-    Object.keys(picked).forEach((key) =>
-      root.querySelector('#todo-' + key).addEventListener('change', (e) => {
-        picked[key] = e.target.value;
-        changed();
-      })
-    );
+    const filters = FILTERS.map(([key, label]) => component('multi-select', { key, label })).join('');
+    root.innerHTML = component('sidebar-shell', { filters, sort: sortOptions() });
+    const controls = root.querySelector('.sidebar-controls');
     root.querySelector('#todo-sort').addEventListener('change', (e) => {
       sort = e.target.value;
       changed();
     });
-    root.querySelector('#todo-types').addEventListener('click', (e) => {
-      const box = e.target.closest('[data-type]');
-      if (!box) return;
-      e.preventDefault(); // a click on the label would otherwise click the box a second time
-      const type = box.dataset.type;
-      if (shown.has(type)) shown.delete(type);
-      else shown.add(type);
+    controls.addEventListener('click', (e) => {
+      const dropdown = e.target.closest('.multi-select');
+      if (!dropdown) return;
+      const key = dropdown.dataset.filter;
+      let focus;
+      if (e.target.closest('[data-all]')) {
+        showAll(key);
+        focus = '[data-all]';
+      } else {
+        const choice = e.target.closest('.multi-option');
+        if (!choice) return;
+        e.preventDefault(); // a click on the label would otherwise click the box a second time
+        const value = choice.querySelector('[data-value]').dataset.value;
+        toggleChoice(key, value);
+        focus = '[data-value="' + CSS.escape(value) + '"]';
+      }
       changed();
-      root.querySelector('[data-type="' + CSS.escape(type) + '"]').focus(); // the boxes were redrawn
+      const target = dropdown.querySelector(focus); // the choices were redrawn
+      if (target) target.focus();
+    });
+    // Only one dropdown is open at a time. <details> toggle events don't bubble.
+    controls.addEventListener(
+      'toggle',
+      (e) => {
+        if (e.target.open) openDropdowns().forEach((d) => d !== e.target && (d.open = false));
+      },
+      true
+    );
+    controls.addEventListener('keydown', (e) => {
+      const dropdown = e.key === 'Escape' && e.target.closest('.multi-select[open]');
+      if (!dropdown) return;
+      dropdown.open = false;
+      dropdown.querySelector('summary').focus();
     });
   }
+
+  // A click anywhere outside an open dropdown closes it. Ticking a choice redraws the
+  // choices, so a click whose target has gone was inside one.
+  document.addEventListener('click', (e) => {
+    if (!e.target.isConnected) return;
+    openDropdowns().forEach((d) => {
+      if (!d.contains(e.target)) d.open = false;
+    });
+  });
 
   function showMessage(text) {
     shellReady = false;

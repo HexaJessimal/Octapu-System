@@ -1,0 +1,42 @@
+<!-- Syncthing conflict warnings, the Changelog view and the login page. -->
+
+<!-- One line of a diff. `kind` is add, remove, from (changed from) or to (changed to). -->
+<template name="diff-line"><div class="diff-line diff-{{{kind}}}"><span class="diff-num">{{{line}}}</span><span class="diff-mark" aria-hidden="true">{{{mark}}}</span><span class="visually-hidden">{{label}}: </span><code>{{text}}</code></div></template>
+
+<template name="diff-more"><div class="diff-line diff-more">{{text}}</div></template>
+
+<template name="diff-lines"><div class="diff">{{{lines}}}</div></template>
+
+<template name="conflict-warning">
+  <section class="card conflict-warning" role="alert" data-conflict="{{name}}">
+    <header>
+      <h2>Sync conflict</h2>
+      <span class="ms-count">{{when}} · device {{device}}</span>
+    </header>
+    <p class="conflict-note">Syncthing found two versions of this file and kept the other one as <code>{{name}}</code>. <span class="diff-key diff-remove">−</span> lines are only in this file, <span class="diff-key diff-add">+</span> lines are only in the conflict copy.</p>
+    {{#if diff}}{{{diff}}}{{else}}<p class="no-tasks">The two versions are the same apart from line endings.</p>{{/if}}
+    <div class="inline-actions">
+      <button type="button" class="primary-button" data-conflict-action="keep">Keep current</button>
+      <button type="button" class="plain-button" data-conflict-action="use">Use this version</button>
+    </div>
+  </section>
+</template>
+
+<template name="changelog-intro"><p class="changelog-note">Changes made to <strong>{{file}}</strong> through the dashboard in the last {{{days}}} days, newest first. Edits made in other apps aren't included.</p></template>
+
+<template name="changelog-entry">
+  <section class="card review-box changelog-entry">
+    <header>
+      <h2>{{user}}</h2>
+      <span class="ms-count">{{when}} · {{device}}</span>
+    </header>
+    {{{diff}}}
+  </section>
+</template>
+
+<template name="nav-user">
+  <div class="nav-user">
+    <span class="nav-user-name" title="Logged in as {{name}}">{{name}}</span>
+    <button type="button" class="plain-button nav-logout" data-logout>Log out</button>
+  </div>
+</template>

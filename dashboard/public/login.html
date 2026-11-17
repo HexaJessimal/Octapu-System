@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Log in · Octapu System</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="api/colours.css" />
+  </head>
+  <body>
+    <main class="setup-wrap">
+      <div class="modal">
+        <form id="login-form">
+          <h2>Who's here?</h2>
+          <p class="login-message" id="login-message" role="status" hidden>You have been logged out.</p>
+          <p class="setup-note">Choose your name so your changes are marked as yours in each page's Changelog.</p>
+          <div id="login-fields"></div>
+          <p class="form-error" role="alert" hidden></p>
+          <div class="modal-actions"><button type="submit" class="primary-button">Log in</button></div>
+        </form>
+      </div>
+    </main>
+
+    <script src="api/components.js"></script>
+    <script src="js/projects.js"></script>
+    <script src="js/login.js"></script>
+  </body>
+</html>

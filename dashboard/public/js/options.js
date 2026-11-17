@@ -35,7 +35,11 @@
   show(tables[requested] ? requested : 'general');
 
   // What each on/off option does, shown under its name.
-  const TOGGLE_NOTES = { SHOWARCHIVED: 'Show archived tasks on project, entity, Leads and Events pages' };
+  const TOGGLE_NOTES = {
+    SHOWARCHIVED: 'Show archived tasks on project, entity, Leads and Events pages',
+    SYNCCONFLICTS: 'Warn at the top of a page when Syncthing has left a conflicting copy of its file, and show how they differ',
+    MULTIUSER: 'Ask people to log in by choosing their name from Leaders, and log who changed each file in a Changelog tab',
+  };
 
   function field(o) {
     if (!o.toggle) return component('options-field', { key: o.key, value: o.value });
@@ -74,7 +78,8 @@
         const result = await postJson('api/options', { values });
         message.className = 'options-message' + (result.ok ? '' : ' is-error');
         message.textContent = result.ok ? 'Saved.' : result.error || 'Could not save the options.';
-        if (result.ok) window.PMS.status.refresh(); // the sidebars show dates in the new format
+        if (result.ok && values.MULTIUSER === 'TRUE' && !window.PMS_USER) location.assign('login.html'); // turning it on asks who you are
+        else if (result.ok) window.PMS.status.refresh(); // the sidebars show dates in the new format
       } catch (_) {
         message.className = 'options-message is-error';
         message.textContent = UNREACHABLE;

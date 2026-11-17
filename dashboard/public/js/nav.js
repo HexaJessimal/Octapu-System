@@ -129,8 +129,17 @@
       ], '') +
       link({ href: 'options.html', label: 'Options' }) +
       link({ href: 'help.html', label: 'Help Guide', className: data.helpUnread ? 'nav-unread' : '' }) +
+      (window.PMS_MULTI_USER && window.PMS_USER ? component('nav-user', { name: window.PMS_USER }) : '') +
       (data.logo ? component('nav-logo', { src: 'images/' + encodeURIComponent(data.logo) }) : '');
   }
+
+  // Log out goes back to the login page, which says you've logged out.
+  root.addEventListener('click', (e) => {
+    if (!e.target.closest('[data-logout]')) return;
+    window.PMS.postJson('api/logout', {})
+      .catch(() => {}) // the login page is still the right place to be
+      .then(() => location.assign('login.html?loggedout=1'));
+  });
 
   // <details> toggle events don't bubble, so listen during capture.
   root.addEventListener(
