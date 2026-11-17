@@ -59,7 +59,7 @@
 <template name="summary-card">
   <section class="card summary">
     <h2>{{{title}}}</h2>
-    <dl class="facts{{#if grid}} facts-grid{{/if}}">{{{facts}}}</dl>
+    <dl class="facts{{#if grid}} facts-grid{{/if}}{{#if quarters}} facts-quarters{{/if}}">{{{facts}}}</dl>
     {{{footer}}}
   </section>
 </template>
@@ -108,7 +108,9 @@
 
 <template name="back-link"><span aria-hidden="true">‹</span> {{label}}</template>
 
-<template name="org-tab"><a class="org-tab" href="{{href}}"{{#if current}} aria-current="page"{{/if}}>{{name}}</a></template>
+<!-- An entity tab, coloured by how deep it is: level-0 for the top-level entity, then 1, 2,
+     and level-deep for anything below that. -->
+<template name="org-tab"><a class="org-tab org-level-{{{level}}}" href="{{href}}"{{#if current}} aria-current="page"{{/if}}>{{name}}</a></template>
 
 <template name="org-tab-add"><button type="button" class="add-button org-tab-add" data-new-entity title="New tentacle" aria-label="New tentacle"></button></template>
 

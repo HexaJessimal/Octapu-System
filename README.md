@@ -268,7 +268,7 @@ Status names and leader tags are written into your markdown files. Renaming or d
 
 Each owner has a folder named after its `id` inside `Entities/`, nested inside its parent's folder when it has a `Parent`. For example, `Entities/OCTAPU/PIXELGRINDER/Pixelgrinder.md`. The markdown file is named after the owner's `Name`; if there's no file with that exact name, the first markdown file in the folder is used. An owner whose `Parent` isn't in the CSV is left out.
 
-Each top-level entity has one page, with a tab for itself and a tab for each owner under it.
+Each top-level entity has one page, with a tab for itself and a tab for each owner under it. The tabs are coloured by level, using the priority colours: the top-level entity like priority A, the level below like priority B, the third level orange, and anything deeper grey. The Overview's facts show **Created**, **Reviewed**, **Incomplete tasks** and **Parent**, which links to the parent's tab, or says **None (top level)**.
 
 - **Plus tab:** asks for a name and an ID, then creates the folder and markdown file and adds the row to `Labels/Owners.csv`. The new file has `Date Created` set to today, `Date Reviewed`, `## Notes` and a heading for each entry in `TASKLISTS`, so it passes the Compatibility check. The ID is suggested from the name. It can use letters, numbers and hyphens, and can't match an existing `id`.
 - **Overview** works like a project's, without the milestone bar. A box for each heading in `TASKLISTS` takes the place of the milestones. Use a box's plus button to add a task to it, or double-click a task to edit it. If a file doesn't have that heading yet, the first task adds it.

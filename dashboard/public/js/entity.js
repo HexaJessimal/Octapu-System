@@ -23,9 +23,14 @@
     return 'entity.html?' + query.toString();
   }
 
+  // Levels below this share one colour.
+  const DEEPEST_LEVEL = 2;
+  const levelName = (level) => (level > DEEPEST_LEVEL ? 'deep' : String(level));
+
   function drawTabs() {
     tabsEl.innerHTML =
-      org.tabs.map((t) => component('org-tab', { href: tabHref(t.id), current: t.id === org.id, name: t.name })).join('') + component('org-tab-add');
+      org.tabs.map((t) => component('org-tab', { href: tabHref(t.id), current: t.id === org.id, name: t.name, level: levelName(t.level) })).join('') +
+      component('org-tab-add');
   }
 
   function setView(next) {
@@ -52,8 +57,10 @@
         fact('Created', created ? md.inline(created) : '') +
         fact('Reviewed', reviewed ? md.inline(reviewed) : 'Not yet') +
         fact('Incomplete tasks', String(tasks.length - done)) +
+        fact('Parent', org.parentId ? component('link', { href: tabHref(org.parentId), label: org.parentName }) : 'None (top level)') +
         meta.order.filter((key) => !known.includes(key.toLowerCase())).map((key) => fact(key, md.inline(meta.fields[key.toLowerCase()]))).join(''),
       grid: false,
+      quarters: true,
       footer: progressMeter(done, tasks.length),
     });
   }

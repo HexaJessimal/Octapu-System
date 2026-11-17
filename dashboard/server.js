@@ -615,7 +615,12 @@ async function readEntity(id, tab, requestedFile) {
   if (!selected) return null;
   const root = selected.chain[0];
   const family = owners.filter((o) => (ownerChain(owners, o.id) || [])[0] === root);
-  const tabs = [...family.filter((o) => o.id === root), ...family.filter((o) => o.id !== root)].map((o) => ({ id: o.id, name: o.name }));
+  // `level` is 0 for the top-level entity, 1 for its tentacles, and so on down.
+  const tabs = [...family.filter((o) => o.id === root), ...family.filter((o) => o.id !== root)].map((o) => ({
+    id: o.id,
+    name: o.name,
+    level: ownerChain(owners, o.id).length - 1,
+  }));
 
   const { owner, chain, dir } = entityPlace(owners, family.some((o) => o.id === tab) ? tab : id);
   const expected = `${owner.name}.md`;
@@ -624,6 +629,7 @@ async function readEntity(id, tab, requestedFile) {
     id: owner.id,
     root,
     name: owner.name,
+    parentId: parent ? parent.id : null,
     parentName: parent ? parent.name : null,
     tabs,
     folder: ENTITY_PREFIX + owner.id,

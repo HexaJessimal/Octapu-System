@@ -390,6 +390,13 @@ a:hover {
 .facts-grid > div {
   grid-column: auto;
 }
+/* An entity: four boxes a row, below the full-width Owner. */
+.facts-quarters {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.facts-quarters > div {
+  grid-column: span 1;
+}
 .facts-grid > .fact-timeframe {
   grid-column: 3;
   grid-row: 1 / span 3;
@@ -1318,6 +1325,30 @@ textarea.inline-field {
   border-bottom-color: var(--accent);
   color: var(--text);
   font-weight: 600;
+}
+/* Entity tabs are coloured by level, with the priority colours: the top-level entity like
+   priority A, its tentacles like B, the next level orange, and anything deeper grey like an
+   unset priority. The open tab is underlined in its own colour. */
+.org-tab[class*='org-level-'] {
+  color: var(--level);
+}
+.org-tab[class*='org-level-']:hover {
+  filter: brightness(1.3);
+}
+.org-tab[class*='org-level-'][aria-current='page'] {
+  border-bottom-color: var(--level);
+}
+.org-level-0 {
+  --level: var(--green);
+}
+.org-level-1 {
+  --level: var(--yellow);
+}
+.org-level-2 {
+  --level: var(--orange);
+}
+.org-level-deep {
+  --level: var(--text-soft);
 }
 .org-tab-add,
 .org-tabs [data-add='file'] {
