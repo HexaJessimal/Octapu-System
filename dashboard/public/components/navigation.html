@@ -29,8 +29,25 @@
   </li>
 </template>
 
-<!-- One status type's tick box in the Todos filter. -->
-<template name="todo-type"><label class="todo-type"><button type="button" class="check-box{{#if on}} has-icon icon-done{{/if}}" role="checkbox" aria-checked="{{{checked}}}" data-type="{{type}}"></button>{{type}}</label></template>
+<!-- One of the Todos filter's dropdowns, where any number of choices can be ticked. The
+     button shows what's ticked, and the choices open below it. -->
+<template name="multi-select">
+  <div class="todo-filter">
+    <span class="todo-filter-label" id="todo-{{{key}}}-label">{{label}}</span>
+    <details class="multi-select" data-filter="{{{key}}}">
+      <summary class="multi-select-button" aria-labelledby="todo-{{{key}}}-label todo-{{{key}}}-value"><span class="multi-select-value" id="todo-{{{key}}}-value"></span></summary>
+      <div class="multi-select-panel" id="todo-{{{key}}}" role="group" aria-labelledby="todo-{{{key}}}-label"></div>
+    </details>
+  </div>
+</template>
+
+<!-- The choices in one of those dropdowns, after a button that ticks everything (or for
+     the filters where nothing ticked means everything, clears them). -->
+<template name="multi-options"><button type="button" class="multi-select-all" data-all>{{all}}</button>{{{options}}}</template>
+
+<template name="multi-option"><label class="multi-option"><button type="button" class="check-box{{#if on}} has-icon icon-done{{/if}}" role="checkbox" aria-checked="{{{checked}}}" data-value="{{value}}"></button><span class="multi-option-label">{{label}}</span><span class="multi-option-count">{{{count}}}</span></label></template>
+
+<template name="multi-empty"><p class="multi-select-empty">{{message}}</p></template>
 
 <template name="todo-date"><span><b>{{kind}}</b> {{value}}</span></template>
 
@@ -42,13 +59,8 @@
     <span class="count" id="todo-count">0</span>
   </div>
   <div class="sidebar-controls">
-    <div class="todo-filter-head">Filter</div>
-    <div class="todo-types" id="todo-types" role="group" aria-label="Status types">{{{types}}}</div>
-    <label>Status<select id="todo-status">{{{status}}}</select></label>
-    <label>Priority<select id="todo-priority">{{{priority}}}</select></label>
-    <label>Entity<select id="todo-entity">{{{entity}}}</select></label>
-    <label>Project<select id="todo-project">{{{project}}}</select></label>
-    <label class="todo-sort">Sort<select id="todo-sort">{{{sort}}}</select></label>
+    {{{filters}}}
+    <label class="todo-filter"><span class="todo-filter-label">Sort</span><select id="todo-sort">{{{sort}}}</select></label>
   </div>
   <ul class="todo-list" id="todo-list"></ul>
 </template>

@@ -250,7 +250,14 @@ Dates are read day-first, as `25.07.26`, `31.10.2026`, `11-13.09.26` or `14.05.2
 
 ### Options
 
-**General** edits the values in `Labels/Options.csv`, including the `PROJECTS` directory list. `SHOWARCHIVED` is a tick box, and is always listed even if the file doesn't have it yet.
+**General** edits the values in `Labels/Options.csv`, including the `PROJECTS` directory list. `SHOWARCHIVED`, `SYNCCONFLICTS` and `MULTIUSER` are tick boxes, and are always listed even if the file doesn't have them yet.
+
+#### Working as a team
+
+Octapu doesn't copy files between computers. Keep the folder in sync with Syncthing, and run the dashboard on each computer.
+
+- **`SYNCCONFLICTS`**: when Syncthing keeps two versions of a file, it names the other one like `Plan.sync-conflict-20261117-101500-ABCDEF7.md`. With this on, a **Sync conflict** box at the top of the project, entity, Leads or Events page shows how the two differ. **Keep current** deletes the copy. **Use this version** saves the copy over the file, then deletes the copy. Conflict copies are never listed as project or entity files.
+- **`MULTIUSER`**: each page asks you to log in first, by choosing your name from `Labels/Leaders.csv`. Your choice is kept in a browser cookie, and **Log out** sits at the bottom of the left menu. There are no passwords, because this identifies who made a change rather than securing anything. Every markdown change made through the dashboard is added to a log next to the file, named `<file name>-change.<computer name>.log`. The computer name is the server's hostname. There's one log per computer, so Syncthing never sees two machines writing the same log. Each log entry has the time, user and computer, then one line per changed line: `+` added, `-` removed, `~-` changed from and `~+` changed to, each with its line number. Entries older than twice `ROUNDUP` days are removed whenever the log is written. The **Changelog** tab on project, entity, Leads and Events pages merges every computer's log for that file, newest first. Changes made in other apps aren't logged.
 
 **Statuses** and **Leaders** list `Labels/Status.csv` and `Labels/Leaders.csv`. Double-click a value to change it, use the plus button to add a row, and the minus button at the end of a row to delete it after confirming. If a file doesn't exist, adding the first row creates it. Any other rows or columns in the files are kept.
 
@@ -341,13 +348,14 @@ When a row enters a `DONE` type status through the dashboard, it gets a `CLOSED`
 - Markdown line openers are skipped before looking for the status: indents, `>` quotes, `#` headings, `-` `*` `+` bullets, numbered lists, `[ ]` / `[x]` checkboxes, and bold or italic markers. So `- [ ] **JESSIE** book the venue` counts as `JESSIE`.
 - Statuses are case-sensitive whole words: `JESSIE` matches, `Jessie` doesn't.
 - Ignored: `<!-- HTML comments -->`, `%% Obsidian comments %%`, `#+BEGIN_COMMENT` blocks, fenced code, and struck-through lines.
-- **Filter**: a tick box for each status type across the top, then four dropdowns. Every type is ticked except `ARCHIVED`, so archived items only show when you tick it.
-  - **Status:** one status from `Labels/Status.csv`.
+- **Filter**: five dropdowns, laid out in two columns with **Sort**. Each opens a list of tick boxes, and you can tick as many as you like. A row shows if it matches any ticked choice in a dropdown, and passes every dropdown.
+  - **Type:** the status types. Every type is ticked except `ARCHIVED`, so archived items only show when you tick it. Unticking every type shows nothing.
+  - **Status:** statuses from `Labels/Status.csv`.
   - **Priority:** `A`, `B`, `C`, or **None** for rows without one.
   - **Entity:** the top-level entity in `Labels/Owners.csv` a row belongs to. A project counts under the owner in its title or folder name, and a tentacle's rows count under its top-level entity. A project whose folder isn't named `OWNER_Title` and whose owner isn't known doesn't appear under any entity.
-  - **Project:** one project. It lists only projects with items of a ticked type, and only the chosen entity's projects when one is chosen.
+  - **Project:** projects. It lists only projects with items of a ticked type, and only the ticked entities' projects when any are ticked.
 
-  Each choice shows how many rows it would leave, alongside the other filters. Leave a dropdown on **All** to skip it.
+  Each choice shows how many rows it would leave, alongside the other filters. The button shows what's ticked. In Status, Priority, Entity and Project, ticking nothing means **All**. **Show all** at the top of a list ticks every type, or clears the other dropdowns back to All. A click outside, or Escape, closes the list.
 - **Sort** by project order, status, status type, or bring any one status or type to the top. Status order follows the CSV.
 - `DONE` type statuses always sit at the bottom, below a dividing line, however the list is sorted.
 
@@ -366,7 +374,7 @@ The focus is read as an outline of owner, then project, then items, so hand edit
 
 ### Archived items
 
-A row with an `ARCHIVED` type status, and anything nested under it, is hidden everywhere, unless `SHOWARCHIVED` is on (see below). On a milestone it still counts as a finished task, and a milestone with only archived checkboxes shows as complete and says **Milestone complete**. Task lists on entities and Ongoing projects leave archived rows out of their progress. It only appears in the Todos sidebar when the `ARCHIVED` box is ticked in Filter, and in the text box when you double-click a file's **Raw** tab to edit it.
+A row with an `ARCHIVED` type status, and anything nested under it, is hidden everywhere, unless `SHOWARCHIVED` is on (see below). On a milestone it still counts as a finished task, and a milestone with only archived checkboxes shows as complete and says **Milestone complete**. Task lists on entities and Ongoing projects leave archived rows out of their progress. It only appears in the Todos sidebar when `ARCHIVED` is ticked under Type in Filter, and in the text box when you double-click a file's **Raw** tab to edit it.
 
 `SHOWARCHIVED` in `Labels/Options.csv` keeps archived rows visible on project, entity, Leads and Events pages, with their archived icon. It's `TRUE` or `FALSE`, shown as a tick box on the Options page, and is off if the file doesn't have it. Ticking it and saving adds the row to an older file. Progress counts don't change, and the Todos sidebar still uses its own Filter.
 
@@ -462,9 +470,11 @@ dashboard/
   todos.js             finds status-prefixed items in markdown
   document-edits.js    blocks, milestones and single-line text edits
   catalogs.js          catalog files: names, rows and catalog numbers
+  changes.js           line diffs, change logs and Syncthing conflict copies
   defaults/Colours.csv the colours a new install starts with
   public/
     setup.html         first-time setup form
+    login.html         multi-user login
     home.html          the Dashboard: Overview, with the Timeline, and Report
     weekly-review.html Review page
     weekly-plan.html   Plan page
@@ -486,6 +496,8 @@ dashboard/
     js/markdown.js     markdown renderer + milestone/meta parsers
     js/nav.js          left-hand menu
     js/setup.js        first-time setup form
+    js/login.js        multi-user login form
+    js/changes.js      Sync conflict warnings and the Changelog tab
     js/home.js         Overview tab
     js/dashboard.js    Dashboard tabs and Generate report
     js/commitments.js  Commitments page

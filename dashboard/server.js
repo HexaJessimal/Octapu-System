@@ -4,7 +4,9 @@
 
 const http = require('http');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
+const { AsyncLocalStorage } = require('async_hooks');
 const {
   PRIORITIES,
   parseStatuses,
@@ -98,6 +100,15 @@ const {
 } = require('./document-edits');
 
 const { isDateColumn, catalogFileName, parseCatalogFileName, catalogError, newCatalogCsv, parseCatalog, nextCatalogNumber, editCatalogCsv } = require('./catalogs');
+const { diffLines, logName, isLogOf, cleanDevice, appendToLog, parseLog, isConflictCopy, conflictOf } = require('./changes');
+
+// Change logs name the machine that made the change. It's this computer's name, never
+// something typed in, so each machine keeps writing to the same log.
+const DEVICE = cleanDevice(os.hostname());
+// Who sent the edit being handled, so the change log can name them without every
+// function passing it along.
+const requestContext = new AsyncLocalStorage();
+const USER_COOKIE = 'pms_user';
 
 const HOST = process.env.PMS_HOST || '127.0.0.1';
 const PORT = Number(process.env.PMS_PORT) || 4173;
@@ -207,7 +218,7 @@ function sendJson(res, status, data) {
 async function listMarkdown(dir) {
   const entries = await fs.promises.readdir(dir, { withFileTypes: true });
   return entries
-    .filter((e) => e.isFile() && e.name.toLowerCase().endsWith('.md'))
+    .filter((e) => e.isFile() && e.name.toLowerCase().endsWith('.md') && !isConflictCopy(e.name))
     .map((e) => e.name)
     .sort((a, b) => a.localeCompare(b));
 }
@@ -418,7 +429,7 @@ const readLeaders = () => readLabelFile(LEADERS_FILE, parseLeaders, []);
 
 // On/off options and their values when Options.csv doesn't have them. The Options page always
 // lists them, and saving one adds it to the file.
-const SWITCH_OPTIONS = { SHOWARCHIVED: 'FALSE' };
+const SWITCH_OPTIONS = { SHOWARCHIVED: 'FALSE', SYNCCONFLICTS: 'FALSE', MULTIUSER: 'FALSE' };
 const SWITCH_VALUES = ['TRUE', 'FALSE'];
 
 // The file's options in its order, then any switch it doesn't have yet, where saving adds it.
@@ -428,7 +439,8 @@ async function readOptionsWithSwitches() {
 }
 
 // SHOWARCHIVED: archived rows stay visible on project, entity, Leads and Events pages.
-const readShowArchived = async () => ((await readOptions()).SHOWARCHIVED || '').toUpperCase() === 'TRUE';
+const readSwitch = async (key) => ((await readOptions())[key] || '').toUpperCase() === 'TRUE';
+const readShowArchived = () => readSwitch('SHOWARCHIVED');
 
 async function readRoundupDays() {
   const options = await readOptions();
@@ -669,6 +681,7 @@ async function writeEntityFile(dir, name) {
   const content = newEntityFile({ name, today: formatDate(new Date(), STORAGE_FORMAT), taskLists: await readTaskLists() });
   await fs.promises.mkdir(dir, { recursive: true });
   await fs.promises.writeFile(full, content, { encoding: 'utf8', flag: 'wx' });
+  await recordCreated(full, content);
   return full;
 }
 
@@ -714,8 +727,10 @@ function enqueueWrite(task) {
 }
 
 // Writes to a temp file then renames, so a crash can't leave a half-written markdown file.
+// A markdown file's change is added to its change log while MULTIUSER is on.
 async function writeFileSafely(full, data) {
   const { mode } = await fs.promises.stat(full);
+  const before = isMarkdown(full) ? await fs.promises.readFile(full, 'utf8') : null;
   const temp = `${full}.${process.pid}.tmp`;
   try {
     await fs.promises.writeFile(temp, data, { encoding: 'utf8', mode });
@@ -724,6 +739,36 @@ async function writeFileSafely(full, data) {
     await fs.promises.rm(temp, { force: true });
     throw err;
   }
+  if (before !== null) await recordChange(full, before, data);
+}
+
+const isMarkdown = (full) => full.toLowerCase().endsWith('.md');
+
+// Logs a new markdown file as every one of its lines added.
+const recordCreated = (full, content) => recordChange(full, '', content);
+
+// Adds an entry to this machine's log for the file, naming the logged-in user, and drops
+// entries older than twice ROUNDUP. A failed log write is reported but never undoes the edit.
+async function recordChange(full, before, after) {
+  if (!isMarkdown(full) || before === after || !(await readSwitch('MULTIUSER'))) return;
+  const hunks = diffLines(before, after);
+  if (!hunks.length) return; // only line endings changed
+  const { user } = requestContext.getStore() || {};
+  const log = path.join(path.dirname(full), logName(path.basename(full), DEVICE));
+  try {
+    const existing = await readIfExists(log);
+    const text = appendToLog(existing, { time: new Date(), user: user || 'Unknown', device: DEVICE, hunks }, await changelogCutoff());
+    const temp = `${log}.${process.pid}.tmp`;
+    await fs.promises.writeFile(temp, text, 'utf8');
+    await fs.promises.rename(temp, log);
+  } catch (err) {
+    console.error(`Could not update the change log ${log}:`, err.message);
+  }
+}
+
+// Change logs keep twice the ROUNDUP period, so a Review can always see the whole period.
+async function changelogCutoff() {
+  return new Date(Date.now() - 2 * (await readRoundupDays()) * 24 * 60 * 60 * 1000);
 }
 
 // The path of a project's or entity's markdown file, or null if there's no such file.
@@ -1008,6 +1053,7 @@ async function submitWeeklyFocus({ items }) {
   if (existing === null) {
     await fs.promises.mkdir(TIME_MANAGEMENT_DIR, { recursive: true });
     await fs.promises.writeFile(FOCUS_FILE, updated, 'utf8');
+    await recordCreated(FOCUS_FILE, updated);
   } else {
     await writeFileSafely(FOCUS_FILE, updated);
   }
@@ -1321,7 +1367,9 @@ async function saveNewCommitment({ title }) {
   const existing = await readIfExists(COMMITMENTS_FILE);
   if (existing !== null) return updateCommitments((content) => addCommitment(content, name));
   await fs.promises.mkdir(TIME_MANAGEMENT_DIR, { recursive: true });
-  await fs.promises.writeFile(COMMITMENTS_FILE, addCommitment('# Timeline Commitments\n', name), 'utf8');
+  const content = addCommitment('# Timeline Commitments\n', name);
+  await fs.promises.writeFile(COMMITMENTS_FILE, content, 'utf8');
+  await recordCreated(COMMITMENTS_FILE, content);
   return { code: 200, body: { ok: true } };
 }
 
@@ -1411,6 +1459,7 @@ async function saveNewFile({ folder, name }) {
     if (err.code === 'EEXIST') return { code: 409, body: { error: 'This folder already has a file with that name.' } };
     throw err;
   }
+  await recordCreated(path.join(dir, file), content);
   return { code: 200, body: { ok: true, file } };
 }
 
@@ -1680,6 +1729,7 @@ async function submitWeeklyReview({ wins }) {
     if (reports === null) {
       await fs.promises.mkdir(ENTITY_DIR, { recursive: true });
       await fs.promises.writeFile(REPORTS_FILE, updatedReports, { encoding: 'utf8', flag: 'wx' });
+      await recordCreated(REPORTS_FILE, updatedReports);
     } else {
       await writeFileSafely(REPORTS_FILE, updatedReports);
     }
@@ -1687,6 +1737,7 @@ async function submitWeeklyReview({ wins }) {
     if (review === null) {
       await fs.promises.mkdir(TIME_MANAGEMENT_DIR, { recursive: true });
       await fs.promises.writeFile(REVIEW_FILE, updatedReview, 'utf8');
+      await recordCreated(REVIEW_FILE, updatedReview);
     } else {
       await writeFileSafely(REVIEW_FILE, updatedReview);
     }
@@ -1855,6 +1906,7 @@ async function createProject(body) {
     await fs.promises.rm(dir, { recursive: true, force: true });
     throw err;
   }
+  await recordCreated(path.join(dir, spec.file), spec.content);
   return { code: 200, body: { ok: true, folder: directory.prefix + spec.folder } };
 }
 
@@ -2109,8 +2161,98 @@ async function handleEdit(req, res, isValid, apply) {
     return sendJson(res, 400, { error: 'Invalid request' });
   }
   if (!isValid(body)) return sendJson(res, 400, { error: 'Invalid request' });
-  const result = await enqueueWrite(() => apply(body));
+  const user = await loggedInUser(req);
+  if (!user && (await readSwitch('MULTIUSER'))) return sendJson(res, 401, { error: 'Please log in again before making changes.' });
+  const result = await enqueueWrite(() => requestContext.run({ user }, () => apply(body)));
   return sendJson(res, result.code, result.body);
+}
+
+// ---------- multi-user login ----------
+
+// The logged-in leader's name from the request's cookie, or null if it doesn't name a
+// leader in Leaders.csv. There are no passwords: logging in says who you are, for the change log.
+async function loggedInUser(req) {
+  const cookie = (req.headers.cookie || '')
+    .split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${USER_COOKIE}=`));
+  if (!cookie) return null;
+  let name;
+  try {
+    name = decodeURIComponent(cookie.slice(USER_COOKIE.length + 1));
+  } catch {
+    return null;
+  }
+  return (await readLeaders()).some((leader) => leader.name === name) ? name : null;
+}
+
+const userCookie = (value, maxAge) => `${USER_COOKIE}=${encodeURIComponent(value)}; Path=/; Max-Age=${maxAge}; SameSite=Lax; HttpOnly`;
+
+// Login and logout skip handleEdit's check for a logged-in user, as they're how you get one.
+async function handleLogin(req, res) {
+  if (!isTrustedRequest(req)) return sendJson(res, 403, { error: 'Forbidden' });
+  let body;
+  try {
+    body = JSON.parse(await readBody(req)) || {};
+  } catch {
+    return sendJson(res, 400, { error: 'Invalid request' });
+  }
+  const name = typeof body.name === 'string' ? body.name : '';
+  if (!(await readLeaders()).some((leader) => leader.name === name)) return sendJson(res, 400, { error: 'Choose your name from the list.' });
+  res.setHeader('Set-Cookie', userCookie(name, 60 * 60 * 24 * 365));
+  return sendJson(res, 200, { ok: true });
+}
+
+function handleLogout(req, res) {
+  if (!isTrustedRequest(req)) return sendJson(res, 403, { error: 'Forbidden' });
+  res.setHeader('Set-Cookie', userCookie('', 0));
+  return sendJson(res, 200, { ok: true });
+}
+
+// ---------- change log and Syncthing conflicts ----------
+
+// Every entry in every machine's log for one file, newest first, within the kept period.
+async function readChangelog(folder, file) {
+  const full = await editableFile(folder, file);
+  if (!full) return null;
+  const dir = path.dirname(full);
+  const cutoff = await changelogCutoff();
+  const logs = (await fs.promises.readdir(dir)).filter(isLogOf(path.basename(full)));
+  const entries = [];
+  for (const name of logs) {
+    const text = await readIfExists(path.join(dir, name));
+    if (text) entries.push(...parseLog(text).filter((entry) => entry.time >= cutoff));
+  }
+  entries.sort((a, b) => b.time - a.time);
+  return { entries, days: 2 * (await readRoundupDays()) };
+}
+
+// The file's Syncthing conflict copies, each with how it differs from the file.
+async function readConflicts(folder, file) {
+  const full = await editableFile(folder, file);
+  if (!full) return null;
+  if (!(await readSwitch('SYNCCONFLICTS'))) return { conflicts: [] };
+  const dir = path.dirname(full);
+  const current = await fs.promises.readFile(full, 'utf8');
+  const copies = (await fs.promises.readdir(dir)).map((name) => conflictOf(path.basename(full), name)).filter(Boolean);
+  const conflicts = [];
+  for (const copy of copies) {
+    const text = await readIfExists(path.join(dir, copy.name));
+    if (text !== null) conflicts.push(Object.assign(copy, { hunks: diffLines(current, text) }));
+  }
+  return { conflicts };
+}
+
+// Settles a conflict: 'keep' deletes the copy, 'use' saves the copy over the file first.
+async function settleConflict({ folder, file, name, action }) {
+  const full = await editableFile(folder, file);
+  if (!full || !conflictOf(path.basename(full), name)) return { code: 404, body: { error: 'That conflict copy was not found.' } };
+  const copy = path.join(path.dirname(full), name);
+  const text = await readIfExists(copy);
+  if (text === null) return { code: 404, body: { error: 'That conflict copy was not found.' } };
+  if (action === 'use') await writeFileSafely(full, text);
+  await fs.promises.rm(copy, { force: true });
+  return { code: 200, body: { ok: true } };
 }
 
 const inFile = ({ folder, file }) => typeof folder === 'string' && typeof file === 'string';
@@ -2180,6 +2322,7 @@ const isRowAction = (body) =>
 const isDateEdit = (body) => inFile(body) && typeof body.value === 'string' && body.field === 'closed';
 const isNewProject = ({ entity, title, owner, notes, type, dir }) =>
   [entity, title, owner, notes, type].every((v) => typeof v === 'string') && (dir === undefined || typeof dir === 'string');
+const isConflictAction = (body) => inFile(body) && typeof body.name === 'string' && ['keep', 'use'].includes(body.action);
 const isOptionsEdit = ({ values }) =>
   typeof values === 'object' && values !== null && Object.values(values).every((v) => typeof v === 'string');
 
@@ -2191,15 +2334,19 @@ async function readComponents() {
   return Object.assign({}, ...files.map(parseComponents));
 }
 
-async function serveStatic(res, urlPath) {
+// Pages wait for first-time setup, then, while MULTIUSER is on, for someone to log in.
+async function serveStatic(req, res, urlPath) {
   let rel = decodeURIComponent(urlPath);
   if (rel === '/' || rel === '') rel = '/home.html';
   if (rel.endsWith('.html')) {
+    const redirect = (location) => {
+      res.writeHead(302, { Location: location, 'Cache-Control': 'no-store' });
+      res.end();
+    };
     const { needed } = await setupState();
-    if (needed !== (rel === '/setup.html')) {
-      res.writeHead(302, { Location: needed ? '/setup.html' : '/', 'Cache-Control': 'no-store' });
-      return res.end();
-    }
+    if (needed !== (rel === '/setup.html')) return redirect(needed ? '/setup.html' : '/');
+    if (!needed && rel !== '/login.html' && (await readSwitch('MULTIUSER')) && !(await loggedInUser(req))) return redirect('/login.html');
+    if (rel === '/login.html' && !(await readSwitch('MULTIUSER'))) return redirect('/');
   }
   return sendFileFrom(res, PUBLIC_DIR, rel);
 }
@@ -2271,7 +2418,19 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/projects' && req.method === 'POST') return handleEdit(req, res, isNewProject, createProject);
     if (url.pathname === '/api/options' && req.method === 'POST') return handleEdit(req, res, isOptionsEdit, saveOptions);
     if (url.pathname === '/api/setup' && req.method === 'POST') return handleEdit(req, res, isSetup, saveSetup);
+    if (url.pathname === '/api/conflict' && req.method === 'POST') return handleEdit(req, res, isConflictAction, settleConflict);
+    if (url.pathname === '/api/login' && req.method === 'POST') return handleLogin(req, res);
+    if (url.pathname === '/api/logout' && req.method === 'POST') return handleLogout(req, res);
     if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, 'Method not allowed');
+
+    if (url.pathname === '/api/login-info') {
+      return sendJson(res, 200, { multiUser: await readSwitch('MULTIUSER'), user: await loggedInUser(req), leaders: (await readLeaders()).map((l) => l.name) });
+    }
+    if (url.pathname === '/api/changelog' || url.pathname === '/api/conflicts') {
+      const read = url.pathname === '/api/changelog' ? readChangelog : readConflicts;
+      const result = await read(url.searchParams.get('folder') || '', url.searchParams.get('file') || '');
+      return result ? sendJson(res, 200, result) : sendJson(res, 404, { error: 'File not found.' });
+    }
 
     if (url.pathname === '/api/options') {
       const options = await readOptionsWithSwitches();
@@ -2295,7 +2454,17 @@ const server = http.createServer(async (req, res) => {
       const ids = (await readOwners()).map((o) => o.id);
       const archived = (await readStatuses()).filter((s) => s.type === 'ARCHIVED').map((s) => s.name);
       const showArchived = await readShowArchived();
-      return send(res, 200, `window.PMS_OWNER_IDS = ${JSON.stringify(ids)};\nwindow.PMS_ARCHIVED_STATUSES = ${JSON.stringify(archived)};\nwindow.PMS_SHOW_ARCHIVED = ${showArchived};\n`, MIME['.js']);
+      const flags = {
+        PMS_OWNER_IDS: ids,
+        PMS_ARCHIVED_STATUSES: archived,
+        PMS_SHOW_ARCHIVED: showArchived,
+        PMS_MULTI_USER: await readSwitch('MULTIUSER'),
+        PMS_SYNC_CONFLICTS: await readSwitch('SYNCCONFLICTS'),
+        PMS_USER: await loggedInUser(req),
+      };
+      // JSON can hold "</script>"-like text in a name, so "<" is escaped as well.
+      const script = Object.entries(flags).map(([key, value]) => `window.${key} = ${JSON.stringify(value).replace(/</g, '\\u003c')};\n`).join('');
+      return send(res, 200, script, MIME['.js']);
     }
     if (url.pathname === '/api/components.js') {
       return send(res, 200, `window.PMS_COMPONENTS = ${JSON.stringify(await readComponents())};\n`, MIME['.js']);
@@ -2356,7 +2525,7 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, project);
     }
     if (url.pathname.startsWith('/images/')) return serveImage(res, url.pathname);
-    return serveStatic(res, url.pathname);
+    return serveStatic(req, res, url.pathname);
   } catch (err) {
     console.error(err);
     send(res, 500, 'Internal server error');

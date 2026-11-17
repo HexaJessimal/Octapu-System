@@ -2,12 +2,12 @@
 // project page but with a single Tasks list in place of the milestones.
 (function () {
   'use strict';
-  const { markdown: md, status, editing, documentView, component, readJson, normalText, hashReference, setViewInAddress, suggestIdFrom, postJson, formDialog } = window.PMS;
+  const { markdown: md, status, editing, documentView, changes, component, readJson, normalText, hashReference, setViewInAddress, suggestIdFrom, postJson, formDialog } = window.PMS;
   const { progressMeter, fact, titleSpan } = documentView;
 
   const DEFAULT_VIEW = 'overview';
   const params = new URLSearchParams(location.search);
-  let view = ['scratchpad', 'raw'].includes(params.get('view')) ? params.get('view') : DEFAULT_VIEW;
+  let view = changes.viewNames(['scratchpad', 'raw']).includes(params.get('view')) ? params.get('view') : DEFAULT_VIEW;
 
   const contentEl = document.getElementById('content');
   const titleEl = document.getElementById('page-title');
@@ -76,6 +76,8 @@
       contentEl.innerHTML = component('error-card', { message: 'This entity has no markdown file yet. It belongs at ' + org.location });
       return;
     }
+    changes.cancelChangelog();
+    if (view === 'changelog') return changes.drawChangelog(org, contentEl, documentView.fileTabs(org, true));
     contentEl.innerHTML =
       documentView.fileTabs(org, true) +
       (view === 'overview' ? renderSummary() + documentView.renderTaskLists(org) : view === 'scratchpad' ? documentView.renderScratchpad(org) : renderRaw());
@@ -160,6 +162,7 @@
         document.title = data.name + ' · Octapu System';
         drawTabs();
         draw();
+        changes.showConflicts(data);
         if (firstLoad) goToTarget();
         firstLoad = false;
       })

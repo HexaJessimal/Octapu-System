@@ -2347,62 +2347,131 @@ a.home-stat:hover {
   background: var(--accent-soft);
   color: var(--accent);
 }
+/* The Todos filter: six controls of the same size in two columns. Type, Status, Priority,
+   Entity and Project each open a list of tick boxes, and Sort is a plain dropdown. */
 .sidebar-controls {
+  position: relative; /* each dropdown's list spans the whole filter, not just its button */
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 8px;
   padding: 0 18px 14px;
   border-bottom: 1px solid var(--border);
 }
-.sidebar-controls label {
+.todo-filter {
   display: grid;
   gap: 4px;
   min-width: 0;
+}
+.todo-filter-label {
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-soft);
 }
-/* The Todos filter: a tick box per status type across the top, then four dropdowns. */
-.todo-filter-head,
-.todo-types,
-.sidebar-controls .todo-sort {
-  grid-column: 1 / -1;
-}
-.todo-filter-head {
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-soft);
-}
-.todo-types {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 12px;
-}
-.sidebar-controls .todo-type {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 0.7rem;
-  letter-spacing: 0.04em;
-  color: var(--text);
-  cursor: pointer;
-}
-.sidebar-controls .todo-sort {
-  margin-top: 4px;
-}
-.sidebar-controls select {
+.sidebar-controls select,
+.multi-select-button {
+  box-sizing: border-box;
   width: 100%;
+  min-height: 32px;
   font: inherit;
   font-size: 0.85rem;
-  text-transform: none;
-  letter-spacing: 0;
+  line-height: 1.2;
   color: var(--text);
   background: var(--surface);
   border: 1px solid var(--surface-raised);
   border-radius: var(--radius-sm);
   padding: 6px 8px;
+}
+/* A plain block that clips its text, because browsers don't reliably lay out a <summary>
+   as flex, and long choices would otherwise spill into the next column. */
+.multi-select {
+  min-width: 0;
+}
+.multi-select-button {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  padding-right: 24px; /* room for the arrow */
+  cursor: pointer;
+  list-style: none;
+}
+.multi-select-button::-webkit-details-marker {
+  display: none;
+}
+.multi-select-button::after {
+  content: '▾';
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  color: var(--text-soft);
+}
+.multi-select-button:hover,
+.multi-select[open] .multi-select-button {
+  border-color: var(--accent);
+}
+.multi-select-value {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.multi-select-panel {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  z-index: 20;
+  display: grid;
+  max-height: min(320px, 60vh);
+  overflow-y: auto;
+  margin-top: 4px;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--surface-raised);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+}
+.multi-select-all {
+  justify-self: start;
+  margin-bottom: 2px;
+  padding: 4px 6px;
+  font: inherit;
+  font-size: 0.78rem;
+  color: var(--accent);
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.multi-select-all:hover {
+  background: var(--accent-soft);
+}
+.multi-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  font-size: 0.85rem;
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.multi-option:hover {
+  background: var(--accent-soft);
+}
+.multi-option-label {
+  overflow-wrap: anywhere;
+}
+.multi-option-count {
+  font-size: 0.75rem;
+  color: var(--text-soft);
+}
+.multi-select-empty {
+  margin: 0;
+  padding: 6px;
+  font-size: 0.85rem;
+  color: var(--text-soft);
 }
 
 .todo-list {
@@ -3048,4 +3117,130 @@ select optgroup {
     justify-content: space-between;
     border-radius: 6px !important;
   }
+}
+
+/* ---------- Syncthing conflicts, Changelog and login ---------- */
+
+/* A diff: one row per line, its number, a +/− mark and the text. Added text is green and
+   removed text pink. A changed line shows its old text struck through, then its new text. */
+.diff {
+  display: grid;
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+}
+.diff-line {
+  --diff: var(--text-soft);
+  display: grid;
+  grid-template-columns: 3.5em 1.5em 1fr;
+  align-items: baseline;
+  padding: 2px 8px 2px 0;
+  background: color-mix(in srgb, var(--diff) 12%, transparent);
+  border-left: 3px solid var(--diff);
+}
+.diff-line code {
+  color: var(--diff);
+  font: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.diff-num {
+  text-align: right;
+  padding-right: 8px;
+  color: var(--text-soft);
+}
+.diff-mark {
+  color: var(--diff);
+  font-weight: 700;
+}
+.diff-add,
+.diff-to {
+  --diff: var(--green);
+}
+.diff-remove,
+.diff-from {
+  --diff: var(--pink);
+}
+.diff-from code {
+  text-decoration: line-through;
+}
+.diff-more {
+  display: block;
+  padding: 4px 10px;
+  color: var(--text-soft);
+  font-style: italic;
+}
+.diff-key {
+  font-weight: 700;
+  color: var(--diff);
+}
+
+.conflict-warning {
+  margin-bottom: 16px;
+  border-color: var(--yellow);
+  background: color-mix(in srgb, var(--yellow) 6%, var(--surface));
+}
+.conflict-warning header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.conflict-warning h2 {
+  margin: 0;
+  color: var(--yellow);
+}
+.conflict-note {
+  margin: 8px 0 0;
+  color: var(--text-soft);
+  font-size: 0.9rem;
+}
+.conflict-warning .inline-actions {
+  margin-top: 12px;
+}
+
+.changelog-note {
+  margin: 0 0 12px;
+  color: var(--text-soft);
+  font-size: 0.9rem;
+}
+.changelog-entry header {
+  flex-wrap: wrap;
+}
+
+/* The logged-in name and Log out, at the bottom of the menu above the logo. */
+.nav-user {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+  padding: 14px 10px 4px;
+  border-top: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+.nav-user + .nav-logo {
+  margin-top: 0;
+}
+.nav-user-name {
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.nav-logout {
+  flex: none;
+}
+
+.login-message {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+#login-fields {
+  display: grid;
+  gap: 12px;
 }

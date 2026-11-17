@@ -17,9 +17,11 @@
             <button type="button" data-view="overview" aria-pressed="true">Overview</button>
             <button type="button" data-view="scratchpad" aria-pressed="false">Scratchpad</button>
             <button type="button" data-view="raw" aria-pressed="false">Raw</button>
+            <button type="button" data-view="changelog" aria-pressed="false" hidden>Changelog</button>
           </div>
         </header>
         <nav class="org-tabs" id="org-tabs" aria-label="Entity and tentacles"></nav>
+        <div id="conflicts"></div>
         <div id="content"></div>
       </main>
       <aside class="sidebar" id="todo-sidebar" aria-label="Todos"></aside>
@@ -33,6 +35,7 @@
     <script src="js/nav.js"></script>
     <script src="js/edit.js"></script>
     <script src="js/document-view.js"></script>
+    <script src="js/changes.js"></script>
     <script src="js/entity.js"></script>
     <script src="js/sidebar.js"></script>
   </body>
