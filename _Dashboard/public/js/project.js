@@ -195,6 +195,33 @@
     if (remove) removeMilestone(remove.closest('.milestone'));
   });
 
+  // Archiving sets Date Closed, which hides the project everywhere, then either copies its
+  // header into _Archive.md or renames its folder, depending on ARCHIVEMODE.
+  const archiveEl = document.getElementById('archive-project');
+  const ARCHIVE_NOTES = {
+    HEADERS: 'Its Date Closed is set to today and its details are copied into _Archive.md. The folder is left where it is for you to move.',
+    FULL: "Its Date Closed is set to today and its folder is renamed with today's date.",
+  };
+
+  async function archiveProject() {
+    const note = ARCHIVE_NOTES[window.PMS_ARCHIVE_MODE] || ARCHIVE_NOTES.HEADERS;
+    if (!(await status.confirmDelete(note + ' It will be hidden from the dashboard and Timeline.', 'Archive this project?', 'Archive'))) return;
+    try {
+      const result = await editing.post('api/project-archive', { folder: project.folder });
+      if (!result.ok) return status.toast(result.error || 'Could not archive the project.');
+      // Stay on the page so the warning can be read; it's archived either way.
+      if (result.warning) {
+        status.toast(result.warning);
+        return status.refresh();
+      }
+      location.assign(backEl.href);
+    } catch (_) {
+      status.toast(UNREACHABLE);
+    }
+  }
+
+  archiveEl.addEventListener('click', archiveProject);
+
   function showError(msg) {
     titleEl.textContent = 'Project not found';
     contentEl.innerHTML = component('error-card', { message: msg });
@@ -221,6 +248,7 @@
           if (!project) milestoneControls.closeFinished(md.parseMilestones(data.content).milestones);
           project = data;
           typeEl.innerHTML = status.projectTypeControl(project);
+          archiveEl.hidden = Boolean(project.archived);
           draw();
           changes.showConflicts(project);
         })

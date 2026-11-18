@@ -15,24 +15,6 @@
   </span>
 </template>
 
-<template name="control-commitment-priority">
-  <span class="status-control priority-control" {{{attrs}}} data-priority="{{{value}}}">
-    <button type="button" class="priority-button prio commitment-priority-button {{{className}}}" aria-haspopup="menu" aria-expanded="false" title="Priority" aria-label="Priority: {{{describe}}}">{{{value}}}</button>
-  </span>
-</template>
-
-<template name="control-commitment-timeframe">
-  <span class="status-control timeframe-control" {{{attrs}}} data-value="{{value}}">
-    <button type="button" class="timeframe-add commitment-timeframe{{#if set}} is-set{{/if}}" aria-haspopup="dialog" aria-expanded="false" title="{{action}}" aria-label="{{action}}"></button>
-  </span>
-</template>
-
-<template name="control-commitment-dependency">
-  <span class="status-control timeframe-control" {{{attrs}}} data-value="{{value}}">
-    <button type="button" class="timeframe-add commitment-dependency{{#if set}} is-set{{/if}}" aria-haspopup="menu" aria-expanded="false" title="{{action}}" aria-label="{{action}}"></button>
-  </span>
-</template>
-
 <template name="control-project-status">
   <span class="status-control project-status-control" {{{attrs}}}>
     <button type="button" class="pill pill-{{{status}}} project-status-button" aria-haspopup="menu" aria-expanded="false" title="Change the status" aria-label="Status: {{label}}">{{label}}</button>

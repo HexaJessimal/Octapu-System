@@ -104,13 +104,15 @@
 
     root.innerHTML =
       link({ href: './', label: 'Dashboard' }) +
+      link({ href: 'incubator.html', label: 'Incubator' }) +
       group('entity', 'Entities', data.entities.map(entityLink), 'No entities found.') +
       group('roundup', 'Time Management', [
         Object.assign(roundupLink('weekly-review.html', 'Review', roundup.review, roundup.interval), { counts: reviewCounts }),
         roundupLink('weekly-plan.html', 'Plan', roundup.plan, roundup.interval),
-        { href: 'commitments.html', label: 'Commitments' },
       ], '') +
       (data.directories || []).map(directoryGroup).join('') +
+      // With ARCHIVEMODE HEADERS, archived projects are kept in _Archive.md, shown on its own page.
+      (window.PMS_SHOW_ARCHIVED && window.PMS_ARCHIVE_MODE !== 'FULL' ? link({ href: 'archive.html', label: 'Archive Index' }) : '') +
       group(
         'catalogs',
         'Catalogs',
@@ -119,13 +121,12 @@
         ),
         ''
       ) +
-      group('networking', 'Networking', [
-        { href: 'networking.html?page=leads', label: 'Leads' },
-        { href: 'networking.html?page=events', label: 'Events' },
-      ], '') +
+      link({ href: 'networking.html?page=leads', label: 'Leads' }) +
+      link({ href: 'networking.html?page=events', label: 'Events' }) +
       group('compatibility', 'Compatibility', [
         { href: 'compatibility.html?type=entities', label: 'Entities' },
         { href: 'compatibility.html?type=projects', label: 'Projects' },
+        { href: 'compatibility.html?type=events', label: 'Events' },
       ], '') +
       link({ href: 'options.html', label: 'Options' }) +
       link({ href: 'help.html', label: 'Help Guide', className: data.helpUnread ? 'nav-unread' : '' }) +

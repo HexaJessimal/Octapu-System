@@ -41,7 +41,16 @@
     MULTIUSER: 'Ask people to log in by choosing their name from Leaders, and log who changed each file in a Changelog tab',
   };
 
+  // What each dropdown option does, and what each of its values means.
+  const CHOICE_NOTES = {
+    ARCHIVEMODE: 'What the Archive button on a project does. HEADERS sets Date Closed and copies its header into _Archive.md, leaving the folder for you to move off (to a NAS, say). FULL sets Date Closed and renames the folder with today\'s date.',
+  };
+
   function field(o) {
+    if (o.choices) {
+      const options = o.choices.map((value) => component('option', { value, label: value, selected: value === o.value.toUpperCase() })).join('');
+      return component('options-choice', { key: o.key, options, note: CHOICE_NOTES[o.key] || '' });
+    }
     if (!o.toggle) return component('options-field', { key: o.key, value: o.value });
     const on = o.value.toUpperCase() === 'TRUE';
     return component('options-toggle', { on, checked: String(on), key: o.key, value: on ? 'TRUE' : 'FALSE', note: TOGGLE_NOTES[o.key] || '' });

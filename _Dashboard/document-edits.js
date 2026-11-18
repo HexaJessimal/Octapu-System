@@ -2,7 +2,7 @@
 // Each edit checks the text it replaces is still there, and returns null if it isn't.
 'use strict';
 
-const { PLANNING_LINE, setPlanningDate, PRIORITIES, stripComments, titleIndex, findField, setHeaderField, editLine, insertLine, createMatcher, scanLines, parseHeader } = require('./todos');
+const { PLANNING_LINE, setPlanningDate, stripComments, titleIndex, findField, setHeaderField, editLine, insertLine, createMatcher, scanLines, parseHeader } = require('./todos');
 
 const HEADER_FIELD = /^\s*\*\*[^*]+\*\*\s*:/;
 // Project files also write these with the colon inside the bold. Other files keep such lines
@@ -244,12 +244,13 @@ function addEntryField(markdown, level, isField, line, label, to) {
   return text ? insertLine(markdown, entry.lastLine, ['', `**${label}**`, ...text.split('\n')]) : markdown;
 }
 
-// A new entry goes at the end of its section, with each field's label ready to fill in.
+// A new entry goes at the end of its section, with each field's label ready to fill in. A
+// field given as { line } is written as that line instead, for fields kept on one line.
 function addEntry(markdown, level, sectionTitle, title, labels) {
   const section = parseEntries(markdown, level).find((s) => s.title === sectionTitle);
   if (!section) return null;
   const last = lastContentLine(rawLines(markdown), section.line, section.end);
-  const body = labels.flatMap((label) => [`**${label}**`, '']);
+  const body = labels.flatMap((label) => [typeof label === 'string' ? `**${label}**` : label.line, '']);
   return insertLine(markdown, last, ['', `${'#'.repeat(level)} ${title}`, '---', '', ...body, '---']);
 }
 
@@ -287,23 +288,71 @@ function latestDate(text) {
   return found.length ? found.sort()[found.length - 1] : null;
 }
 
-// What an event's **Date** field says: the rest of that line, or else the next line.
-function eventDateText(body) {
-  const lines = body.split('\n');
-  const label = /^\s*\*\*\s*Date\s*:?\s*\*\*\s*:?\s*(.*)$/i;
-  const at = lines.findIndex((l) => label.test(l));
-  if (at === -1) return '';
-  const inline = lines[at].match(label)[1].trim();
-  if (inline) return inline;
-  const next = lines.slice(at + 1).find((l) => !isBlank(l)) || '';
-  return next.trim().startsWith('**') ? '' : next.trim();
+// ----- event dates: YYYY-MM-DD, or "YYYY-MM-DD to YYYY-MM-DD" for an event of several days -----
+
+const STORED_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const isRealDate = (value) => STORED_DATE.test(value) && latestDate(value) === value;
+
+// An Event Date or Application Deadline as written by the dashboard: { start, end }, with
+// both null when it's blank, or null if it isn't a date the dashboard wrote. A deadline
+// (`range` false) is a single date.
+function parseEventDate(value, range = true) {
+  const text = value.trim();
+  if (!text) return { start: null, end: null };
+  const [start, end = start, ...rest] = text.split(/\s+to\s+/i);
+  if (rest.length || (!range && end !== start) || !isRealDate(start) || !isRealDate(end) || end < start) return null;
+  return { start, end };
 }
 
-// When an event ends, and whether that's before `today`. A date of "In the past" counts.
-function eventTiming(body, today) {
-  const text = eventDateText(body);
-  const end = latestDate(text);
-  return { end, past: /\bin the past\b/i.test(text) || (end !== null && end < today) };
+const eventDateValue = ({ start, end }) => (!start ? '' : end && end !== start ? `${start} to ${end}` : start);
+
+// A date written by hand before Event Date was a date field, as { start, end }, or null if
+// the text is anything more than a date or two. Reads whatever latestDate does, plus a span
+// of days in one month (11-13.09.26, 23rd-24th July 2027). TBD and TBC mean no date yet.
+function readOldEventDate(text) {
+  const value = text.trim();
+  if (!value || /^tb[cd]\.?$/i.test(value)) return { start: null, end: null };
+  const one = (part) => {
+    const whole = /^(\d{1,2}[./-]\d{1,2}[./-](\d{4}|\d{2})|\d{4}-\d{2}-\d{2}|(\d{1,2}(st|nd|rd|th)?\s+)?[a-z]+\.?,?\s+\d{4})$/i;
+    return whole.test(part.trim()) ? latestDate(part) : null;
+  };
+  const days = value.match(/^(\d{1,2})(?:st|nd|rd|th)?\s*[-–]\s*(\d{1,2})(?:st|nd|rd|th)?((?:[./-]\d{1,2}[./-](?:\d{4}|\d{2}))|(?:\s+[a-z]+\.?,?\s+\d{4}))$/i);
+  const [first, last = first, ...more] = days ? [one(days[1] + days[3]), one(days[2] + days[3])] : value.split(/\s+(?:-|–|to)\s+/i).map(one);
+  if (more.length || !first || !last || last < first) return null;
+  return { start: first, end: last };
+}
+
+// When an event starts and ends, and whether it's over by `today`. A value the dashboard
+// didn't write is read as well as it can be, until Compatibility converts it, so that
+// events don't change lists in the meantime. "In the past" counts as over.
+function eventTiming(value, today) {
+  const stored = parseEventDate(value);
+  if (stored) return { start: stored.start, end: stored.end, past: stored.end !== null && stored.end < today, stored: true };
+  const end = latestDate(value);
+  return { start: null, end, past: /\bin the past\b/i.test(value) || (end !== null && end < today), stored: false };
+}
+
+// Writes a field on one line, "**Label**: value", in place of all the lines of the entry's
+// field that `matches`, or adds it after the last field before it in the page's order.
+// `before` tells whether a label comes earlier in that order. Returns null if the entry has
+// changed.
+function setInlineField(markdown, level, isField, entryLine, title, { label, matches, before }, value) {
+  const entry = allEntries(markdown, level, isField).find((e) => e.line === entryLine && e.title === title);
+  if (!entry) return null;
+  const line = `**${label}**: ${value}`.trimEnd();
+  // A field's last line can take in the blank lines after it, which are kept as they are.
+  const raw = rawLines(markdown);
+  const filledEnd = (f) => {
+    let end = f.lastLine;
+    while (end > f.line && isBlank(raw[end - 1])) end--;
+    return end;
+  };
+  const field = entry.fields.find((f) => f.label !== null && matches(f.label));
+  if (field) return replaceLines(markdown, field.line, filledEnd(field), [line]);
+  const earlier = entry.fields.filter((f) => f.label !== null && before(f.label));
+  if (earlier.length) return insertLine(markdown, filledEnd(earlier[earlier.length - 1]), ['', line]);
+  const first = entry.fields.find((f) => f.label !== null);
+  return first ? insertLine(markdown, first.line - 1, [line, '']) : insertLine(markdown, entry.lastLine, ['', line]);
 }
 
 // A new block goes at the very end of the file.
@@ -462,12 +511,16 @@ function setProjectType(markdown, type, taskList) {
   return insertLine(out, parseHeader(out, []).title ? lastHeaderLine(out) : null, `**Project Type:** ${type}`);
 }
 
-// ----- commitments: a "## Name" per commitment, each with the fields below -----
+// ----- _Archive.md and _Incubator.md: a "## Title" per entry, with bold fields under it -----
 
-const COMMITMENT_FIELDS = { priority: 'Colour', timeframe: 'Active Timeframe', dependency: 'Project Dependency' };
-const COMMITMENT_OWNER = 'COMMITMENT';
+// What an archived project's entry keeps from its header, in the order it's written.
+const ARCHIVE_FIELDS = { created: 'Date Created', closed: 'Date Closed', timeframe: 'Active Timeframe', dependency: 'Project Dependency', owner: 'Owner' };
+// An idea's fields. Archived and Promoted are added with a date, and hide the idea.
+const INCUBATOR_FIELDS = { dependency: 'Project Dependency', archived: 'Archived', promoted: 'Promoted' };
 
-function parseCommitments(markdown) {
+// Each `##` entry with the fields named in `labels` ({ key: 'Label' }), each field missing
+// from the entry coming back with no line. `notes` is the rest of the entry's text.
+function parseNamedEntries(markdown, labels) {
   const visible = stripComments(markdown);
   const heads = [];
   visible.forEach((text, i) => {
@@ -478,59 +531,39 @@ function parseCommitments(markdown) {
     const end = i + 1 < heads.length ? heads[i + 1].line - 1 : visible.length;
     const body = visible.slice(head.line, end);
     const fields = {};
-    for (const [key, label] of Object.entries(COMMITMENT_FIELDS)) {
+    const fieldLines = new Set();
+    for (const [key, label] of Object.entries(labels)) {
       const field = findField(body, label);
       fields[key] = field ? { line: head.line + field.line, at: field.at, value: field.value.trim() } : { line: null, at: 0, value: '' };
+      if (field) fieldLines.add(field.line);
     }
-    const priority = fields.priority.value.toUpperCase();
-    return Object.assign({}, head, { end, fields, priority: PRIORITIES.includes(priority) ? priority : '' });
+    const notes = body.filter((_, k) => !fieldLines.has(k + 1)).join('\n').trim();
+    return Object.assign({}, head, { end, fields, notes });
   });
 }
 
-// The commitment a Project Dependency value names, in lowercase, or null if it names a project.
-function commitmentNamed(value) {
-  const match = value.trim().match(new RegExp(`^${COMMITMENT_OWNER}\\s+(.+)$`, 'i'));
-  return match ? match[1].replace(/\s+/g, ' ').toLowerCase() : null;
-}
-
-const commitmentAt = (markdown, line, title) => parseCommitments(markdown).find((c) => c.line === line && c.title === title) || null;
-
-// Sets one of a commitment's fields, adding it after the others if it isn't there.
-function setCommitmentField(markdown, line, title, key, value) {
-  const commitment = commitmentAt(markdown, line, title);
-  if (!commitment) return null;
-  const field = commitment.fields[key];
-  const text = value.trim();
-  if (field.line) return editLine(markdown, field.line, (row) => row.slice(0, field.at).trimEnd() + (text ? ` ${text}` : ''));
-  if (!text) return markdown;
-  const last = Math.max(commitment.line, ...Object.values(commitment.fields).map((f) => f.line || 0));
-  return insertLine(markdown, last, `**${COMMITMENT_FIELDS[key]}**: ${text}`);
-}
-
-// A new commitment goes at the end, with each field's label ready to fill in.
-function addCommitment(markdown, title) {
+// A new entry goes at the end of the file: its `## title`, then `lines`.
+function addNamedEntry(markdown, title, lines) {
   const raw = rawLines(markdown);
   const last = lastContentLine(raw, 1, raw.length);
-  const lines = [`## ${title}`, ...Object.values(COMMITMENT_FIELDS).map((label) => `**${label}**:`)];
-  return last ? insertLine(markdown, last, ['', ...lines]) : insertLine(markdown, null, lines);
+  const entry = [`## ${title}`, ...lines];
+  return last ? insertLine(markdown, last, ['', ...entry]) : insertLine(markdown, null, entry);
 }
 
-function removeCommitment(markdown, line, title) {
-  const commitment = commitmentAt(markdown, line, title);
-  return commitment ? removeLines(markdown, commitment.line, commitment.end) : null;
+// Removes the entry at `line`, from its heading to the next one. Returns null if the
+// entry has changed.
+function removeNamedEntry(markdown, labels, line, title) {
+  const entry = parseNamedEntries(markdown, labels).find((e) => e.line === line && e.title === title);
+  return entry ? removeLines(markdown, entry.line, entry.end) : null;
 }
 
-// Renames a commitment, and anything in the same file that depends on it.
-function renameCommitment(markdown, line, title, to) {
-  if (!commitmentAt(markdown, line, title)) return null;
-  const old = title.replace(/\s+/g, ' ').toLowerCase();
-  let out = editLine(markdown, line, () => `## ${to}`);
-  for (const other of parseCommitments(out)) {
-    if (other.fields.dependency.line && commitmentNamed(other.fields.dependency.value) === old) {
-      out = setCommitmentField(out, other.line, other.title, 'dependency', `${COMMITMENT_OWNER} ${to}`);
-    }
-  }
-  return out;
+// Adds a field to the entry at `line`, after its heading and any of its other `labels`
+// fields. Returns null if the entry has changed.
+function addEntryMark(markdown, labels, line, title, label, value) {
+  const entry = parseNamedEntries(markdown, labels).find((e) => e.line === line && e.title === title);
+  if (!entry) return null;
+  const last = Math.max(entry.line, ...Object.values(entry.fields).map((f) => f.line || 0));
+  return insertLine(markdown, last, `**${label}**: ${value}`);
 }
 
 // A new task goes at the end of its task list's section, which is added if it's missing.
@@ -811,13 +844,12 @@ module.exports = {
   applyFixes,
   setProjectType,
   setRowDate,
-  COMMITMENT_OWNER,
-  parseCommitments,
-  commitmentNamed,
-  setCommitmentField,
-  addCommitment,
-  removeCommitment,
-  renameCommitment,
+  ARCHIVE_FIELDS,
+  INCUBATOR_FIELDS,
+  parseNamedEntries,
+  addNamedEntry,
+  addEntryMark,
+  removeNamedEntry,
   parseEntries,
   setEntryField,
   addEntryField,
@@ -825,6 +857,10 @@ module.exports = {
   removeEntry,
   eventTiming,
   latestDate,
+  parseEventDate,
+  eventDateValue,
+  readOldEventDate,
+  setInlineField,
   addTask,
   isTaskList,
   addReview,

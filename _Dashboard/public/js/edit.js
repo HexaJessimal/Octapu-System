@@ -26,7 +26,6 @@
     const { edit: kind, line, from } = target.dataset;
     if (kind === 'body') return post('api/block-body', { line: line === '' ? null : Number(line), from, to });
     if (kind === 'raw') return post('api/file-body', { from, to });
-    if (kind === 'commitment') return post('api/commitment-rename', { line: Number(line), title: from, to });
     if (kind === 'field') return post('api/entry-field', { line: Number(line), from, to, label: target.dataset.label || null });
     return post('api/text', { kind, line: Number(line), from, to });
   }

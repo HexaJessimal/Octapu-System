@@ -47,7 +47,7 @@
 <template name="gantt-head"><div class="gantt-row gantt-head"><div class="gantt-label"></div>{{{cells}}}</div></template>
 
 <template name="gantt-project">
-  <div class="gantt-row gantt-project">
+  <div class="gantt-row gantt-project" data-row="{{{index}}}">
     <div class="gantt-label" style="--lanes:{{{lanes}}}">
       <a href="{{href}}">{{title}}</a>
       {{{pill}}}
@@ -87,9 +87,11 @@
 
 <template name="gantt-chart">
   {{{warnings}}}
+  <p class="gantt-none" id="gantt-none" hidden>Nothing has an Active Timeframe within two months of these dates. Scroll to see more.</p>
   <div class="card gantt-scroll" id="gantt-scroll" tabindex="0" role="region" aria-label="Project timeline">
     <div class="gantt" style="--gantt-months:{{{months}}}">
       {{{rows}}}
+      <div class="gantt-marks" aria-hidden="true">{{{marks}}}</div>
     </div>
   </div>
   {{{legend}}}
@@ -97,29 +99,48 @@
 
 <template name="gantt-empty">{{{warnings}}}<p class="card empty">No project has an Active Timeframe yet.</p></template>
 
+<!-- Tick boxes above the Timeline for which projects it shows. -->
+<template name="gantt-toggles">
+  <div class="gantt-toolbar">
+    <div class="gantt-toggles" role="group" aria-label="Show on the Timeline">{{{boxes}}}</div>
+    <div class="chips gantt-zoom" role="group" aria-label="Months across the Timeline">{{{zooms}}}</div>
+  </div>
+</template>
+
+<template name="gantt-zoom"><button type="button" class="chip" data-timeline-zoom="{{{months}}}" aria-pressed="{{{pressed}}}">{{{months}}} months</button></template>
+
+<template name="gantt-toggle">
+  <label class="gantt-toggle">
+    <button type="button" class="check-box{{#if on}} has-icon icon-done{{/if}}" role="checkbox" aria-checked="{{{checked}}}" data-timeline-kind="{{{kind}}}"></button>
+    <span>{{label}}</span>
+  </label>
+</template>
+
+<!-- An event or application deadline on the Timeline. `at` is in months from its first month. -->
+<template name="gantt-mark"><div class="gantt-mark is-{{{kind}}}" style="--at:{{{at}}}" title="{{title}}"></div></template>
+
+<!-- An event of several days: a line at each end and a band between them. -->
+<template name="gantt-span"><div class="gantt-span is-{{{kind}}}" style="--from:{{{from}}};--to:{{{to}}}" title="{{title}}"></div></template>
+
+<template name="legend-line"><span><b class="legend-line is-{{{kind}}}" aria-hidden="true"></b>{{label}}</span></template>
+
+<template name="legend-archived"><span><i class="legend-archived"></i>Archived</span></template>
+
 <template name="legend-no-milestones"><span><i class="legend-plain"></i>N/A</span></template>
 
-<template name="commitment-card">
-  <section class="card scratch-block{{#if target}} is-target{{/if}}">
+<!-- One project in _Archive.md, on the Archive Index page. -->
+<template name="archive-card">
+  <section class="card scratch-block{{#if target}} is-target{{/if}}" data-archive="{{{index}}}">
     <header class="entry-head">
-      <h2 class="scratch-title"{{{attrs}}}>{{title}}</h2>
-      <div class="commitment-tools">
-        {{{priority}}}
-        <button type="button" class="row-remove" data-remove-commitment="{{{index}}}" title="Delete this commitment" aria-label="Delete {{title}}"></button>
-      </div>
+      <h2 class="scratch-title">{{{title}}}</h2>
+      <button type="button" class="row-remove" data-remove-archive title="Remove this entry" aria-label="Remove {{name}}"></button>
     </header>
-    <dl class="entry-fields">
-      <div class="entry-field">
-        <dt>Active Timeframe</dt>
-        <dd>{{timeframe}}{{{timeframeControl}}}</dd>
-      </div>
-      <div class="entry-field">
-        <dt>Project Dependency</dt>
-        <dd>{{{dependency}}}{{{dependencyControl}}}</dd>
-      </div>
-    </dl>
+    <dl class="entry-fields">{{{fields}}}</dl>
+    {{#if notes}}<p class="archive-notes">{{{notes}}}</p>{{/if}}
   </section>
 </template>
+
+<template name="archive-field"><div class="entry-field"><dt>{{label}}</dt><dd>{{{value}}}</dd></div></template>
 
 <template name="legend-depends"><span><b class="legend-arrow" aria-hidden="true"></b>Depends on</span></template>
 
@@ -225,6 +246,14 @@
   </form>
 </template>
 
+<!-- A Help Guide screenshot at full size. The picture is its own close button. -->
+<template name="image-viewer"><dialog class="image-viewer" aria-label="{{alt}}"><button type="button" class="image-viewer-close" data-cancel title="Click to close"><img src="{{src}}" alt="{{alt}}"></button></dialog></template>
+
+<!-- The Help Guide's contents, linking to each of its ## headings. -->
+<template name="help-contents"><nav class="help-contents" aria-label="Contents"><h2 class="help-contents-title">Contents</h2><ol>{{{items}}}</ol></nav></template>
+
+<template name="help-contents-item"><li><a href="#{{id}}">{{label}}</a></li></template>
+
 <template name="help-read">
   <label class="card help-read">
     <button type="button" class="check-box{{#if read}} has-icon icon-done{{/if}}" role="checkbox" aria-checked="{{{checked}}}" data-help-read></button>
@@ -266,6 +295,9 @@
 <template name="compat-page"><p class="review-since">{{{count}}} of {{{checked}}} need changes.</p>{{{body}}}</template>
 
 <template name="options-field"><label>{{key}}<input data-key="{{key}}" value="{{value}}" autocomplete="off"></label></template>
+
+<!-- An option with a fixed set of values. -->
+<template name="options-choice"><label class="options-choice">{{key}}<select data-key="{{key}}">{{{options}}}</select><small>{{note}}</small></label></template>
 
 <!-- An on/off option, saved as TRUE or FALSE. -->
 <template name="options-toggle">

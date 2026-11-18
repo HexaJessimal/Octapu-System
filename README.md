@@ -1,5 +1,7 @@
 # Octapu System Dashboard
 
+Version 0.5
+
 A small, self-contained dashboard for the markdown-driven project management system in this folder. Markdown files are the source of truth, so you can keep editing them in any text editor. The dashboard only changes them when you make an edit in it.
 
 - **No build step.** There's nothing to compile or bundle.
@@ -97,19 +99,21 @@ A folder with no markdown file directly inside it, such as one holding only imag
 The sidebar on the left appears on every page:
 
 - **Dashboard:** two tabs, described below. **Overview** shows what matters today, and **Report** charts the figures logged with each Review. The address `?tab=report` opens the Report tab.
+- **Incubator:** ideas for projects, described below.
 - **Entities:** the top-level owners from `_Labels/Owners.csv`, meaning those with no `Parent`.
-- **Time Management:** `Review`, `Plan` and `Commitments` are described below. `Review` and `Plan` each turn green in the menu once the number of days set by `ROUNDUP` in `_Labels/Options.csv` has passed since the last entry, or if there's never been one. On the day it's due it says "Due today", and after that it says how overdue it is, such as "Due 2 days ago". For the two days before that it turns yellow and counts down, such as "Due in 2 days".
+- **Time Management:** `Review` and `Plan` are described below. `Review` and `Plan` each turn green in the menu once the number of days set by `ROUNDUP` in `_Labels/Options.csv` has passed since the last entry, or if there's never been one. On the day it's due it says "Due today", and after that it says how overdue it is, such as "Due 2 days ago". For the two days before that it turns yellow and counts down, such as "Due in 2 days".
 - **One section per project directory** (`Projects`, for example), in the order `PROJECTS` lists them: `All projects` opens that directory's list, followed by a link to each of its projects with a `+` folder.
+- **Archive Index:** after the last project directory, only with `ARCHIVEMODE` set to `HEADERS` while `SHOWARCHIVED` is on. It lists `_Archive.md`, described under Archiving a project.
 - **Catalogs:** **All catalogs**, then each catalog by name, described below.
-- **Networking:** `Leads` and `Events`, described below.
-- **Compatibility:** `Entities` and `Projects`, described below.
+- **Leads** and **Events:** described under Networking below.
+- **Compatibility:** `Entities`, `Projects` and `Events`, described below.
 - **Options:** tabs for general settings (`_Labels/Options.csv`), statuses, leaders and colours, described below.
-- **Help Guide:** a step by step guide to the dashboard, from `_Help_Guide.md` in the main folder. Edit that file and refresh to change it. Until it's marked as read, the menu link has a green outline. The **Mark as read** checkbox below the guide is the `- [ ] Mark as read` line at the bottom of the file, which ticking it changes. If the line is missing, ticking the box adds it.
+- **Help Guide:** a step by step guide to the dashboard, from `_Help_Guide.md` in the main folder, with a numbered contents list under its title linking to each `##` heading. A link written as `[text](#heading-name)` goes to a heading on the same page, and stays in the same tab. Select a screenshot to see it full size in a popup, and select it again, or press Escape, to close it. Edit that file and refresh to change it. Until it's marked as read, the menu link has a green outline. The **Mark as read** checkbox below the guide is the `- [ ] Mark as read` line at the bottom of the file, which ticking it changes. If the line is missing, ticking the box adds it.
 
 ### Overview tab
 
 - **Tiles:** **Scheduled Projects**, the number of projects in a timeframe today, comes first. Then **Open projects** and **Inactive projects**, the number of active and inactive projects across every project directory, how many days until the next Review and Plan are due, and the number of overdue tasks. Review and Plan use the `ROUNDUP` number of days from `_Labels/Options.csv`.
-- **Timeline:** a Gantt chart that scrolls sideways, with one bar per timeframe in each project's `Active Timeframe`, accurate to the month. Each bar is graded through the project's milestones from left to right, using the same colours as the milestone progress bar. A project with no milestones is `N/A` in the key, and commitments appear as solid bars. Timeframes that aren't written as `YYYY-MM-DD` are listed above the chart. A chart taller than 12 rows scrolls up and down, with the year and month headings staying in view.
+- **Timeline:** a Gantt chart that scrolls sideways, with one bar per timeframe in each project's `Active Timeframe`, accurate to the month. Each bar is graded through the project's milestones from left to right, using the same colours as the milestone progress bar. A project with no milestones is `N/A` in the key. Tick boxes above the chart show or hide **Active** and **Inactive** projects, and are remembered in the browser. While `SHOWARCHIVED` is on, archived projects are charted too, in the complete colour, `green`, with an **Archive** box to hide them. An event's Application Deadline is a cyan line until it's been applied for or booked. Its Event Date is a purple line once it's booked, and grey before that. An event of several days has a line at each end, with a paler band between. Point at a line to see the event. Timeframes that aren't written as `YYYY-MM-DD` are listed above the chart. **3 months**, **6 months** and **12 months** set how many months fit across the chart, and the choice is remembered in the browser. It opens at 6, with last month at the left. A row only shows while one of its timeframes is within two months of the months on screen, so scrolling sideways shows and hides rows and the chart only grows as tall as the stretch of time being looked at. If nothing is near, a line above the chart says so. Arrows are only drawn between rows on screen. A chart taller than 12 rows scrolls up and down, with the year and month headings staying in view.
 - **Current plan** shows the newest entry in `_Time_Management/Plan.md`, while it's less than `ROUNDUP` days old. After that it links to the Plan page instead.
 - **Due in the next 7 days** and **Overdue tasks** list open tasks with a `DEADLINE` or `SCHEDULED` date, from every non-archived project and every entity, soonest first. If a task has both, the deadline counts. Finished, archived and cancelled tasks are left out, and today counts as due, not overdue. Its status can be changed right there.
 - **Priorities this month** lists Milestone projects with a timeframe that includes today, and their progress.
@@ -179,23 +183,47 @@ The **Report** tab draws the file:
 
 Point at or tab to a chart to show a line across it at that review, with every value it shows. The charts take their colours from `_Labels/Colours.csv`, matching what each colour means elsewhere: green for done, orange for assigned, yellow for waiting, grey for unassigned and pink for overdue.
 
-**Generate report** saves a single HTML file, named with today's date, holding the Overview and Report tabs as they look at that moment. The table of every report stays on the tab and isn't included. The styles and icons are inside it, so it opens in any browser with the dashboard closed, and can be emailed or kept. Links, menus, hover readouts and the add, drag and collapse buttons are left out, as they only work inside the dashboard. Printing it, including to PDF, uses dark text on white, from the `print-` colours in `_Labels/Colours.csv`, and shows the whole Timeline.
+**Generate report** saves a single HTML file, named with today's date, holding the Overview and Report tabs as they look at that moment. The table of every report stays on the tab and isn't included. The styles and icons are inside it, so it opens in any browser with the dashboard closed, and can be emailed or kept. Links, menus, hover readouts, the add, drag and collapse buttons, and the Timeline's tick boxes and zoom buttons are left out, as they only work inside the dashboard. The Timeline in the file shows every row, not only those near the months on screen. Printing it, including to PDF, uses dark text on white, from the `print-` colours in `_Labels/Colours.csv`, and shows the whole Timeline.
 
-### Commitments
+### Archiving a project
 
-Lists each `##` heading in `_Time_Management/Commitments.md`, which is a commitment that isn't a project. Each one has these fields, and all of them can be left empty:
+The **Archive** button at the top of a project page asks first, then sets the project's `**Date Closed**:` to today. A project with any Date Closed counts as archived, whatever its folder is called. It's hidden from the Dashboard, the menu, the projects list, the Todos sidebar, Review and the Timeline's Active and Inactive rows, even when `SHOWARCHIVED` is on. What else happens depends on `ARCHIVEMODE` in `_Labels/Options.csv`:
 
-- `**Colour**:` is its priority, `A`, `B` or `C`. On the Timeline its bar is a solid colour instead of a milestone gradient, using the same colours as milestones: `A` is `green`, as for Complete, `B` is `yellow`, as for In progress, and `C` is `pink`, as for Unplanned.
-- `**Active Timeframe**:` is written as `YYYY-MM-DD to YYYY-MM-DD`. A date that can't be read is listed above the Timeline, as for a project.
-- `**Project Dependency**:` is a project, or `COMMITMENT` followed by another commitment's name.
+- **`HEADERS`** (the default) copies the project's header into `_Archive.md` in the main folder, and leaves its folder alone. This is for a folder you'll move off this computer, to a NAS say, while Syncthing shares the record:
 
-The plus button adds a commitment and the minus button deletes one after asking. Double-click a name to change it, which also updates anything depending on it. The tag and pencil buttons change the priority, timeframe and dependency.
+  ```
+  ## LABEL Design A New Logo
+  **Date Created**: 2026-11-10
+  **Date Closed**: 2026-11-17
+  **Active Timeframe**: 2026-11-10 to 2026-11-30
+  **Project Dependency**:
+  **Owner** : #Hexajessimal
+  ```
 
-A project can depend on a commitment too, by choosing it from its Project Dependency list or writing `COMMITMENT` and its name in the file. Dependencies between projects and commitments are drawn as arrows on the Timeline.
+  The Timeline's Archive rows come from this file, and folders whose names start with a date are ignored. The projects list has no Archived filter. Instead, while `SHOWARCHIVED` is on, **Archive Index** in the menu lists the file, newest first. Its plus button adds an entry by hand, asking for the entity and title, then optionally Date Created, Date Closed, a timeframe, a Project Dependency and an owner. The minus button on an entry removes it from the file after asking.
+
+  An entry's title is written like a project's name, so a project, or another entry, can depend on it. Its Project Dependency list includes the archive's entries, marked (archived), and the Timeline draws arrows to and from them.
+- **`FULL`** also renames the folder to start with today's date, such as `2026-11-17_LABEL_Design_A_New_Logo`, and writes nothing to `_Archive.md`. The Timeline's Archive rows come from those folders and any project with a Date Closed, and while `SHOWARCHIVED` is on the projects list's **Archived** filter lists those folders.
+
+### Incubator
+
+Ideas for projects, kept in `_Incubator.md` in the main folder, one card each. The plus button asks for a title, an entity, a Project Dependency and notes, and adds the idea at the end of the file, creating it if needed:
+
+```
+## LABEL Merch Line
+**Project Dependency**:
+
+T-shirts first, then hoodies.
+```
+
+- **Promote to Project** asks for an Active Timeframe and an owner from `_Labels/Leaders.csv`, and for a directory if `PROJECTS` names more than one. It creates a Milestone project as **New project** does, with the timeframe, dependency and notes filled in, then opens it. The idea gains `**Promoted**: <date>`.
+- **Archive Idea** asks first, then adds `**Archived**: <date>`.
+
+Either date hides the idea, which stays in the file. Notes can't hold `#` headings, which would start a new idea.
 
 ### Compatibility
 
-**Entities** and **Projects** list everything whose markdown doesn't yet fit the dashboard, and why. Only a field's label is needed, not a value. Links open the page so it can be fixed. The lists are worked out fresh each time.
+**Entities**, **Projects** and **Events** list everything whose markdown doesn't yet fit the dashboard, and why. Only a field's label is needed, not a value. Links open the page so it can be fixed. The lists are worked out fresh each time.
 
 Each issue is coloured by what can be done about it:
 
@@ -234,11 +262,17 @@ Each page has three tabs. The first lists entries as cards, **Scratchpad** shows
 
 **Leads** lists each `###` entry under `## Contacts` in `_Networking/Leads.md`, with the fields Contact Details, Links, Events & Associations and Notes. `**Events**` also counts as Events & Associations, and any label ending in Notes, such as `**Octapu Notes**`, counts as Notes and keeps its own name.
 
-**Events** lists each `####` entry in `_Networking/Events.md`, grouped by the file's `##` headings, with the fields Artist/s, Date, Venue, Main Contact, Details, Payment and Tasks. An event moves to **Past events** at the bottom once its `**Date**` has gone by, and a heading with nothing left in it isn't shown.
+**Events** lists each `####` entry in `_Networking/Events.md` in two lists, whatever the file's own `##` headings: **Upcoming Events**, soonest first with undated ones last, and **Past Events**, most recent first, once the Event Date's last day has gone by. Its fields are Artist/s, Application Deadline, Event Date, Application Submitted, Booking Confirmed, Venue, Main Contact, Details, Payment and Tasks.
+
+- **Event Date** and **Application Deadline** are picked from a calendar with the pencil or plus button, and written on one line as `**Event Date**: 2026-07-25`. An Event Date can have an end date too, for an event of several days: `**Event Date**: 2026-09-11 to 2026-09-13`. Clearing both dates leaves the field empty. Dates show in the `DATEFORMAT`.
+- **Application Submitted** and **Booking Confirmed** are tick boxes, written as `**Application Submitted**: Yes` or `No`. A card's border turns `cyan` once it's applied for, and `purple` once it's booked, matching the Timeline.
+- Filters at the top, **All**, **Not applied**, **Applied** and **Booked**, show events by how far they've got, with a count beside each. Applied means applied for but not yet booked. The filter is kept in the address as `?filter=`.
+
+A date the dashboard can't read is shown in `pink`. **Compatibility > Events** converts dates written by hand, and lists what it can't.
 
 A field is a line holding just that bold label, and its value is the text up to the next field. Double-click a value or an entry's name to edit it. A field the entry doesn't have yet is added the first time you fill it in. Any text before the first field has its own area at the top of the card. Other bold text, such as `**Parking**` inside Details, stays part of the value.
 
-The plus button adds an entry, asking for a heading on the Events page, and the minus button on a card deletes it after confirming. The `---` lines around an entry stay in the file. Statuses and checkboxes work as they do on project pages, but these files aren't listed in the Todos sidebar. Tasks under a contact or an event do appear on the Plan and Review pages.
+The plus button adds an entry, at the end of the file's last heading on the Events page, and the minus button on a card deletes it after confirming. The `---` lines around an entry stay in the file. Statuses and checkboxes work as they do on project pages, but these files aren't listed in the Todos sidebar. Tasks under a contact or an event do appear on the Plan and Review pages.
 
 A reference in double square brackets becomes a link wherever it appears in the dashboard, and the entry it points to is scrolled to and outlined. `[[Leads#Scheme Boy (Varispeed)]]` links to that heading in `Leads.md`, and `[[Events#Infest|the gig]]` shows "the gig" as the link's text. On a Networking page, `[[#Brawny]]` with no file name looks on that page first, and then on the other one. A name also finds a heading that adds something in brackets, so `Scott` finds `Scott (SWOLE)`. 
 
@@ -248,11 +282,11 @@ A reference starting with an `id` from `_Labels/Owners.csv` links to that owner'
 
 Any other reference stays as plain text.
 
-Dates are read day-first, as `25.07.26`, `31.10.2026`, `11-13.09.26` or `14.05.2027 - 17.05.2027`, or as `2026-07-25` or `23rd-24th July 2027`. For a range, the last date counts. A date of `In the past` counts as past, and anything else, such as `TBD`, stays under its heading.
+Until it's converted, a hand-written Event Date is read day-first, as `25.07.26`, `31.10.2026`, `11-13.09.26` or `14.05.2027 - 17.05.2027`, or as `2026-07-25` or `23rd-24th July 2027`, with the last date deciding when it's past. `In the past` counts as past. On **Compatibility > Events**, Fix issues renames `**Date**` to `**Event Date**`, converts any of those forms, turns `TBD` or `TBC` into an empty date, and adds missing fields, with the tick boxes set to `No`. A date followed by more text, such as a time, or words like `In the past`, are listed for you to change.
 
 ### Options
 
-**General** edits the values in `_Labels/Options.csv`, including the `PROJECTS` directory list. `SHOWARCHIVED`, `SYNCCONFLICTS` and `MULTIUSER` are tick boxes, and are always listed even if the file doesn't have them yet.
+**General** edits the values in `_Labels/Options.csv`, including the `PROJECTS` directory list. `SHOWARCHIVED`, `SYNCCONFLICTS` and `MULTIUSER` are tick boxes, and `ARCHIVEMODE` is a dropdown of `HEADERS` or `FULL` (see Archiving a project). They're always listed, even if the file doesn't have them yet.
 
 #### Working as a team
 
@@ -260,6 +294,40 @@ Octapu doesn't copy files between computers. Keep the folder in sync with Syncth
 
 - **`SYNCCONFLICTS`**: when Syncthing keeps two versions of a file, it names the other one like `Plan.sync-conflict-20261117-101500-ABCDEF7.md`. With this on, a **Sync conflict** box at the top of the project, entity, Leads or Events page shows how the two differ. **Keep current** deletes the copy. **Use this version** saves the copy over the file, then deletes the copy. Conflict copies are never listed as project or entity files.
 - **`MULTIUSER`**: each page asks you to log in first, by choosing your name from `_Labels/Leaders.csv`. Your choice is kept in a browser cookie, and **Log out** sits at the bottom of the left menu. There are no passwords, because this identifies who made a change rather than securing anything. Every markdown change made through the dashboard is added to a log next to the file, named `<file name>-change.<computer name>.log`. The computer name is the server's hostname. There's one log per computer, so Syncthing never sees two machines writing the same log. Each log entry has the time, user and computer, then one line per changed line: `+` added, `-` removed, `~-` changed from and `~+` changed to, each with its line number. Entries older than twice `ROUNDUP` days are removed whenever the log is written. The **Changelog** tab on project, entity, Leads and Events pages merges every computer's log for that file, newest first. Changes made in other apps aren't logged.
+
+##### Recommended Syncthing setup
+
+The system works best combined with Syncthing, especially with `ARCHIVEMODE` set to `HEADERS`. Our recommended setup keeps the whole Octapu-System folder on a NAS drive or local server, shared as the primary **Send & Receive** folder, with these ignore patterns set on the NAS only (Syncthing's **Ignore Patterns** tab, saved as `.stignore`). Syncthing never sends an ignored file, so each computer only ever receives the files the patterns allow, without needing patterns of its own. Don't add the patterns to the computers as well, and connect each computer to the NAS rather than to each other, as computers sharing directly would sync everything between them.
+
+Sync every file of active projects, but only the markdown files of inactive ones, to save local disk space. These two lines need repeating for each project directory if `PROJECTS` names more than one:
+
+```
+!/Projects/+*
+!/Projects/-**.md
+```
+
+Include all the system's own files and folders, which all start with an underscore:
+
+```
+!/_*
+```
+
+Finally, ignore everything else:
+
+```
+*
+```
+
+The order matters, because Syncthing uses the first pattern that matches, so keep `*` last. The whole file:
+
+```
+!/Projects/+*
+!/Projects/-**.md
+!/_*
+*
+```
+
+Once a project's header has been archived (the **Archive** button in `HEADERS` mode), rename its folder **on the NAS** from `+OWNER_ProjectTitle` to `YYYY-MM-DD_OWNER_ProjectTitle`, using the archive date. The NAS then ignores it, so the computers delete their copies and the NAS keeps the folder. Don't rename it on a computer: the NAS would receive the old folder's deletion but ignore the new name, and lose the project.
 
 **Statuses** and **Leaders** list `_Labels/Status.csv` and `_Labels/Leaders.csv`. Double-click a value to change it, use the plus button to add a row, and the minus button at the end of a row to delete it after confirming. If a file doesn't exist, adding the first row creates it. Any other rows or columns in the files are kept.
 
@@ -304,6 +372,7 @@ Projects with `**Project Type:** Ongoing` use the same folder names, status pref
 
 ### Project page
 - **Status** is the tag beside the title on the Overview. On an active or inactive project, its caret offers the other one, which changes the `+` or `-` at the start of the project's folder name. Nothing else about the folder changes. If another program is using the folder, nothing is changed and you're told. Archived projects can't be changed this way.
+- **Archive**, at the top of every tab until the project is archived, archives it after asking. See Archiving a project.
 - **Project type** is shown at the top of every tab, and the dropdown changes it. Changing it rewrites `**Project Type:**` in the project's main file and renames its heading to match: `## Milestones` becomes the first heading listed in `TASKLISTS`, and that heading becomes `## Milestones` going the other way. Nothing else in the file changes. A file with both headings is left alone until one is renamed. Items under a `## Milestones` heading only appear on the Overview if they're under a `###` milestone heading.
 - **Overview** is the default tab, and shows:
   - a summary card: the title with its status tag, then a three by three grid. Owner and Project Dependency share the first row, Created and Reviewed the second, and Milestones and Closed the third, with the list of active timeframes down the right of all three. Any other `**Key**:` fields in the file follow below, then overall task progress. On a narrow screen the grid drops to two columns, with the timeframes below.
@@ -413,8 +482,8 @@ The top of each project file follows this pattern:
 - **Title:** the first `#` heading is the page title, and it's never listed as a todo. If it starts with an `id` from `_Labels/Owners.csv`, the dashboard shows that owner's `Name` with a dropdown for choosing another. The file keeps the `id`.
 - **Date Reviewed:** a single date, shown read-only and set from the Review page.
 - **Date Closed:** a single date, in the `DATEFORMAT` set in `_Labels/Options.csv`. Click the plus to add one or the pencil to change it. Saving an empty box clears the date.
-- **Active Timeframe:** empty by default. Click the plus button next to it and choose a start and end month and year. A timeframe always runs from the first day of its start month to the last day of its end month, and is stored as full dates. Commitments work the same way. Each new timeframe is added to the end of the line, separated by a comma. If a file doesn't have the line yet, the first timeframe adds it below `Date Created`. The Overview tab lists the timeframes one per row, each with a pencil to change its dates and a cross to delete it. The file keeps them on the single comma-separated line.
-- **Project Dependency:** empty by default. On the Overview tab, the plus button lists every project that isn't archived, apart from this one and any that already depend on it, followed by your commitments. A commitment is stored as `COMMITMENT` followed by its name. For a project, the file stores the other project's name (its folder name without the status prefix and with spaces for underscores), and the Overview shows it as a link. On the Timeline, a dependent project sits directly below its parent, and an arrow runs from the end of the parent project's last bar to the start of the dependent project's first bar, if both have an `Active Timeframe`.
+- **Active Timeframe:** empty by default. Click the plus button next to it and choose a start and end month and year. A timeframe always runs from the first day of its start month to the last day of its end month, and is stored as full dates. Each new timeframe is added to the end of the line, separated by a comma. If a file doesn't have the line yet, the first timeframe adds it below `Date Created`. The Overview tab lists the timeframes one per row, each with a pencil to change its dates and a cross to delete it. The file keeps them on the single comma-separated line.
+- **Project Dependency:** empty by default. On the Overview tab, the plus button lists every project that isn't archived, apart from this one and any that already depend on it. With `ARCHIVEMODE` set to `HEADERS`, the entries in `_Archive.md` follow, marked (archived). The file stores the other project's name (its folder name without the status prefix and with spaces for underscores), and the Overview shows it as a link. On the Timeline, a dependent project sits directly below its parent, and an arrow runs from the end of the parent project's last bar to the start of the dependent project's first bar, if both have an `Active Timeframe`.
 - **Owner:** shown as a `Name` from `_Labels/Leaders.csv`, with a dropdown for choosing another. The file keeps the `Tag`.
 
 **Dates are always stored in the markdown as `YYYY-MM-DD`.** `DATEFORMAT` only controls how the browser shows dates and how you type them into the dashboard, so changing it never touches your files. If you edit a file by hand, write dates as `YYYY-MM-DD` so the dashboard can read them. Dates in links, URLs and code are shown exactly as written.
@@ -461,8 +530,11 @@ Changes you make to the markdown files or the CSV appear when you refresh the br
 
 ```
 _Help_Guide.md         the step by step guide shown in the dashboard
+HelpGuide.pdf          the same guide as a PDF, to read or print without the dashboard
+_Incubator.md          ideas for projects
+_Archive.md            the headers of archived projects (ARCHIVEMODE HEADERS)
 _Images/               pictures for [[IMAGE#...]] links, and the logo
-_Time_Management/      Plan.md, Review.md and Commitments.md
+_Time_Management/      Plan.md and Review.md
 _Entities/             a folder for each entity, with tentacles inside, and Reports.md
 _Networking/           Leads.md and Events.md
 _Catalogs/             a TAG_Name.csv per catalog
@@ -480,7 +552,8 @@ _Dashboard/
     home.html          the Dashboard: Overview, with the Timeline, and Report
     weekly-review.html Review page
     weekly-plan.html   Plan page
-    commitments.html   Commitments page
+    incubator.html     Incubator page
+    archive.html       Archive Index page
     networking.html    Leads and Events pages
     compatibility.html Compatibility pages
     help.html          Help Guide
@@ -502,7 +575,8 @@ _Dashboard/
     js/changes.js      Sync conflict warnings and the Changelog tab
     js/home.js         Overview tab
     js/dashboard.js    Dashboard tabs and Generate report
-    js/commitments.js  Commitments page
+    js/incubator.js    Incubator page
+    js/archive.js      Archive Index page
     js/help.js         Help Guide page
     js/list.js         projects list logic
     js/catalog-list.js All catalogs, and New catalog

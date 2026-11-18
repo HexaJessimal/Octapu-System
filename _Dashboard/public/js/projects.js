@@ -288,11 +288,11 @@
 
   // ---------- dependencies ----------
 
-  // A dependency is a project's folder, or "commitment:Name" for an entry in the commitments file.
-  const COMMITMENT_TOKEN = 'commitment:';
-  const dependencyTitle = (token) => (token.startsWith(COMMITMENT_TOKEN) ? token.slice(COMMITMENT_TOKEN.length) : parseFolder(token).title);
+  // A Timeline row is a project's folder, or "archive:Title" for an entry in _Archive.md.
+  const ARCHIVE_TOKEN = 'archive:';
+  const dependencyTitle = (token) => (token.startsWith(ARCHIVE_TOKEN) ? token.slice(ARCHIVE_TOKEN.length) : parseFolder(token).title);
   const dependencyHref = (token) =>
-    token.startsWith(COMMITMENT_TOKEN) ? 'commitments.html#' + encodeURIComponent(token.slice(COMMITMENT_TOKEN.length)) : 'project.html?folder=' + encodeURIComponent(token);
+    token.startsWith(ARCHIVE_TOKEN) ? 'archive.html#' + encodeURIComponent(token.slice(ARCHIVE_TOKEN.length)) : 'project.html?folder=' + encodeURIComponent(token);
 
   // ---------- milestones and project rows ----------
 
