@@ -16,7 +16,6 @@
   let leaders = [];
   let dependencyOptions = [];
   let projectTypes = [];
-  let commitmentOptions = { priorities: [], dependencies: [] };
   let dateFormat = '';
   let menu = null; // { el, caret, control } while the dropdown is open
   let busy = false;
@@ -33,10 +32,6 @@
     dateFormat = format;
     dependencyOptions = dependencyList;
     projectTypes = typeList;
-  }
-
-  function setCommitmentOptions(priorities, dependencies) {
-    commitmentOptions = { priorities, dependencies };
   }
 
   // Registers a function that reloads a view; it should return a promise.
@@ -110,29 +105,6 @@
     const value = project.leader.value;
     const leader = leaders.find((l) => l.id === value);
     return personControl(project, project.leader.line, value, leader ? leader.name : value || 'Choose…', true);
-  }
-
-  // A commitment's controls. Its title travels as the status, so a stale page can be refused.
-  const commitmentAttrs = (doc, commitment) => documentAttrs(doc, commitment.line, commitment.title);
-
-  function commitmentPriorityControl(doc, commitment) {
-    const { priority } = commitment;
-    return component('control-commitment-priority', {
-      attrs: commitmentAttrs(doc, commitment),
-      value: priority || NO_PRIORITY,
-      className: priority ? 'prio-' + priority.toLowerCase() : 'prio-none',
-      describe: priority || 'none',
-    });
-  }
-
-  function commitmentTimeframeControl(doc, commitment) {
-    const [first = ''] = commitment.timeframes;
-    return component('control-commitment-timeframe', { attrs: commitmentAttrs(doc, commitment), value: first, set: first, action: first ? 'Change the timeframe' : 'Add a timeframe' });
-  }
-
-  function commitmentDependencyControl(doc, commitment) {
-    const value = commitment.dependency;
-    return component('control-commitment-dependency', { attrs: commitmentAttrs(doc, commitment), value, set: value, action: value ? 'Change the dependency' : 'Add a dependency' });
   }
 
   // The status tag beside a project's title. Only active and inactive projects can be switched.
@@ -292,10 +264,6 @@
     }
   }
 
-  function sendCommitmentField(ctrl, field, value) {
-    sendEdit(ctrl, 'api/commitment-field', { title: ctrl.dataset.status, field, value });
-  }
-
   function change(ctrl, to) {
     if (!to || to === ctrl.dataset.status) return;
     sendEdit(ctrl, 'api/status', { from: ctrl.dataset.status || null, to });
@@ -328,9 +296,10 @@
   }
 
   // There's no undo in the dashboard, so deleting a row asks first.
-  function confirmDelete(text, heading = 'Delete this row?') {
+  // `action` names the button that goes ahead, for confirmations that aren't deletions.
+  function confirmDelete(text, heading = 'Delete this row?', action = 'Delete') {
     return new Promise((resolve) => {
-      const dialog = element('confirm-dialog', { heading, text: text || '(no text)' });
+      const dialog = element('confirm-dialog', { heading, text: text || '(no text)', action });
       let confirmed = false;
       dialog.querySelector('form').addEventListener('submit', (e) => {
         e.preventDefault();
@@ -437,25 +406,7 @@
 
   const readField = (form, name) => form.querySelector('[name="' + name + '"]').value.trim();
 
-  function commitmentForm(ctrl) {
-    const [start = '', end = ''] = ctrl.dataset.value.split(/\s+to\s+/i);
-    return buildForm('Timeframe', monthFields(start, end), 'Save', (form) =>
-      submitForm(form, ctrl, 'api/commitment-timeframe', Object.assign({ line: Number(ctrl.dataset.line), title: ctrl.dataset.status }, timeframeDates(form)))
-    );
-  }
-
-  function commitmentDependencyMenu(ctrl) {
-    const { status: title, value } = ctrl.dataset;
-    const self = commitmentOptions.dependencies.filter((o) => o.name !== 'Commitment: ' + title);
-    return menuPanel(labelMenu((value ? [{ id: '', name: 'None' }] : []).concat(self), 'commitment-dependency', value));
-  }
-
   function buildMenu(caret, ctrl) {
-    if (caret.matches('.commitment-priority-button')) {
-      return menuPanel(labelMenu(commitmentOptions.priorities.map((p) => ({ id: p, name: p })), 'commitment-priority', ctrl.dataset.priority), 'status-menu priority-menu');
-    }
-    if (caret.matches('.commitment-timeframe')) return commitmentForm(ctrl);
-    if (caret.matches('.commitment-dependency')) return commitmentDependencyMenu(ctrl);
     if (caret.matches('.dependency-edit')) return menuPanel(dependencyMenu(ctrl.dataset.status));
     if (caret.matches('.date-edit')) {
       const label = ctrl.dataset.label;
@@ -527,8 +478,6 @@
         return;
       }
       if (choice.dataset.priority) changePriority(ctrl, choice.dataset.priority);
-      else if (choice.dataset.commitmentPriority) sendCommitmentField(ctrl, 'priority', choice.dataset.commitmentPriority);
-      else if (choice.dataset.commitmentDependency !== undefined) sendCommitmentField(ctrl, 'dependency', choice.dataset.commitmentDependency);
       else if (choice.dataset.projectStatus) moveProject(ctrl, choice.dataset.projectStatus);
       else if (choice.dataset.projectType) sendEdit(ctrl, 'api/project-type', { type: choice.dataset.projectType });
       else if (choice.dataset.owner) sendEdit(ctrl, 'api/owner', { from: ctrl.dataset.status || null, to: choice.dataset.owner });
@@ -589,5 +538,5 @@
     true
   );
 
-  global.PMS.status = { itemLink, setStatuses, setHeaderOptions, onChange, refresh, toast, confirmDelete, control, checkbox, setCommitmentOptions, commitmentPriorityControl, commitmentTimeframeControl, commitmentDependencyControl, ownerControl, leaderControl, projectStatusControl, projectTypeControl, timeframeControl, timeframeEntryControl, dateControl, dependencyControl };
+  global.PMS.status = { itemLink, setStatuses, setHeaderOptions, onChange, refresh, toast, confirmDelete, control, checkbox, dateInput, ownerControl, leaderControl, projectStatusControl, projectTypeControl, timeframeControl, timeframeEntryControl, dateControl, dependencyControl };
 })(window);

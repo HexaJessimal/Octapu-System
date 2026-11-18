@@ -1,14 +1,17 @@
-// Compatibility pages: the projects or entities whose markdown needs changes.
+// Compatibility pages: the projects, entities or events whose markdown needs changes.
 (function () {
   'use strict';
   const { parseFolder, STATUS_LABELS, escapeHtml, component, getJson, postJson, UNREACHABLE } = window.PMS;
 
   const contentEl = document.getElementById('content');
   const titleEl = document.getElementById('page-title');
-  const type = new URLSearchParams(location.search).get('type') === 'entities' ? 'entities' : 'projects';
-  const title = type === 'projects' ? 'Project compatibility' : 'Entity compatibility';
+  const TITLES = { projects: 'Project compatibility', entities: 'Entity compatibility', events: 'Event compatibility' };
+  const requested = new URLSearchParams(location.search).get('type');
+  const type = Object.hasOwn(TITLES, requested) ? requested : 'projects';
+  const title = TITLES[type];
 
   function describe(row) {
+    if (type === 'events') return { name: row.name, href: 'networking.html?page=events#' + encodeURIComponent(row.name), pill: '' };
     if (type === 'entities') {
       return { name: row.name, href: row.id ? 'entity.html?id=' + encodeURIComponent(row.id) : null, pill: '' };
     }
@@ -48,6 +51,13 @@
     return parts.join('');
   }
 
+  // What Fix issues sends to find the row's file again. An event is found by its heading's
+  // line and title.
+  function fixKey(row) {
+    if (type === 'events') return { key: String(row.line), file: row.name };
+    return { key: type === 'projects' ? row.folder : row.id, file: row.file };
+  }
+
   function card(row) {
     const { name, href: page, pill } = describe(row);
     const href = pageOf(row, page);
@@ -58,7 +68,7 @@
       count: row.problems.length,
       location: row.file ? [row.directory, row.file].filter(Boolean).join(' · ') : '',
       problems: row.problems.map(({ text, kind }) => component('compat-problem', { kind, text })).join(''),
-      fix: row.problems.some((p) => p.kind === 'fixable') ? component('compat-fix', { key: type === 'projects' ? row.folder : row.id, file: row.file }) : '',
+      fix: row.problems.some((p) => p.kind === 'fixable') ? component('compat-fix', fixKey(row)) : '',
     });
   }
 

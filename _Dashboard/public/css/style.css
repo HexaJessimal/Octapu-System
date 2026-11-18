@@ -1061,6 +1061,8 @@ summary.nav-link {
 .gantt-month {
   display: flex;
   align-items: center;
+  min-width: 0;
+  overflow: hidden;
   padding: 0 8px;
   font-size: 0.78rem;
   color: var(--text-soft);
@@ -1074,6 +1076,91 @@ summary.nav-link {
 .gantt-month.is-now {
   color: var(--accent);
   font-weight: 600;
+}
+/* Events and deadlines run the full height of the chart, behind the pinned names and
+   headings. --at, --from and --to count months from the chart's first month. */
+.gantt-marks {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+.gantt-mark,
+.gantt-span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  pointer-events: auto;
+}
+.gantt-mark {
+  left: calc(var(--gantt-label) + var(--at) * var(--gantt-month) - 1px);
+  width: 2px;
+  background: var(--mark);
+}
+.gantt-mark.is-deadline {
+  --mark: var(--cyan);
+}
+.gantt-mark.is-event,
+.gantt-span.is-event {
+  --mark: var(--purple);
+}
+/* Grey, as for an unset priority, until the event is booked. */
+.gantt-mark.is-unbooked,
+.gantt-span.is-unbooked {
+  --mark: var(--text-soft);
+}
+.gantt-span {
+  left: calc(var(--gantt-label) + var(--from) * var(--gantt-month) - 1px);
+  width: calc((var(--to) - var(--from)) * var(--gantt-month) + 2px);
+  border-inline: 2px solid var(--mark);
+  background: color-mix(in srgb, var(--mark) 25%, transparent);
+}
+.legend-line {
+  display: inline-block;
+  width: 2px;
+  height: 12px;
+}
+.legend-line.is-deadline {
+  background: var(--cyan);
+}
+.legend-line.is-event {
+  background: var(--purple);
+}
+.legend-line.is-unbooked {
+  background: var(--text-soft);
+}
+.legend i.legend-archived {
+  background: var(--green);
+}
+.gantt-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 18px;
+  margin: 0 6px 10px;
+}
+.gantt-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  font-size: 0.85rem;
+  color: var(--text-soft);
+}
+/* Rows with nothing near the months on screen are hidden while scrolling. */
+.gantt-row[hidden] {
+  display: none;
+}
+.gantt-none {
+  margin: 0 6px 10px;
+  font-size: 0.85rem;
+  color: var(--text-soft);
+}
+.gantt-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
 }
 .gantt-now {
   grid-column: var(--column);
@@ -1252,6 +1339,17 @@ textarea.inline-field {
   -webkit-mask: url('../img/circle-info-solid-full.svg') center / contain no-repeat;
   mask: url('../img/circle-info-solid-full.svg') center / contain no-repeat;
 }
+/* An event's card shows how far it has got, in the Timeline's colours: cyan once applied
+   for, purple once booked. */
+.card.is-applied {
+  border-color: var(--cyan);
+}
+.card.is-booked {
+  border-color: var(--purple);
+}
+.event-filters {
+  margin-bottom: 14px;
+}
 .is-target {
   border-radius: var(--radius);
   outline: 2px solid var(--accent);
@@ -1298,6 +1396,42 @@ textarea.inline-field {
 }
 .entry-field dd > :last-child {
   margin-bottom: 0;
+}
+/* An event's date or Yes/No field, with its button after the value. */
+.entry-value {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.entry-value.is-invalid {
+  color: var(--pink);
+}
+.entry-date-button {
+  position: relative;
+  appearance: none;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+  --button-icon: url('../img/circle-plus-solid-full.svg');
+}
+.entry-date-button.is-set {
+  --button-icon: url('../img/pencil-solid-full.svg');
+}
+.entry-date-button:hover {
+  color: var(--accent);
+}
+.entry-date-button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: currentColor;
+  -webkit-mask: var(--button-icon) center / 125% no-repeat;
+  mask: var(--button-icon) center / 125% no-repeat;
 }
 
 .org-tabs {
@@ -1721,6 +1855,31 @@ textarea.inline-field {
 .topbar .primary-button {
   margin-left: auto;
 }
+/* Outlined, so it reads as a button beside the project type, without competing with it. */
+.archive-button {
+  border-color: var(--surface-raised);
+}
+.archive-button:hover {
+  border-color: var(--pink);
+}
+.archive-notes {
+  margin: 10px 0 0;
+  color: var(--text-soft);
+}
+.idea-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+}
+.idea-card .pill {
+  border-color: var(--surface-raised);
+  color: var(--text-soft);
+}
+.modal textarea {
+  min-height: 6em;
+}
 
 .modal {
   width: min(460px, calc(100vw - 32px));
@@ -1815,7 +1974,17 @@ textarea.inline-field {
 .options-toggle .check-box {
   margin-top: 1px;
 }
-.options-toggle small {
+.options-form select {
+  padding: 8px 10px;
+  border: 1px solid var(--surface-raised);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  letter-spacing: 0;
+}
+.options-toggle small,
+.options-choice small {
   display: block;
   margin-top: 2px;
   font-size: 0.75rem;
@@ -2758,7 +2927,8 @@ a.home-stat:hover {
   align-items: center;
   gap: 4px;
 }
-.timeframe-form .date-native {
+/* The browser's own date box only opens the calendar, so it stays hidden wherever it's used. */
+.date-field .date-native {
   position: absolute;
   right: 0;
   bottom: 0;
@@ -2769,16 +2939,24 @@ a.home-stat:hover {
   opacity: 0;
   pointer-events: none;
 }
-.status-menu.timeframe-form .date-pick {
+.status-menu.timeframe-form .date-pick,
+.date-field .date-pick {
   position: relative;
   flex: none;
   width: 30px;
   height: 30px;
   padding: 0;
+  border: 0;
   background: transparent;
   color: var(--text-soft);
+  cursor: pointer;
 }
-.status-menu.timeframe-form .date-pick:hover {
+.date-field input[name] {
+  flex: 1;
+  min-width: 0;
+}
+.status-menu.timeframe-form .date-pick:hover,
+.date-field .date-pick:hover {
   background: transparent;
   color: var(--accent);
 }

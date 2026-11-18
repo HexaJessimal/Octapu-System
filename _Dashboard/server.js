@@ -54,6 +54,8 @@ const {
   ownerChain,
   updateOptionsCsv,
   cleanName,
+  stripComments,
+  setHeaderField,
 } = require('./todos');
 
 const {
@@ -75,19 +77,22 @@ const {
   applyFixes,
   setProjectType,
   setRowDate,
-  COMMITMENT_OWNER,
-  parseCommitments,
-  commitmentNamed,
-  setCommitmentField,
-  addCommitment,
-  removeCommitment,
-  renameCommitment,
+  ARCHIVE_FIELDS,
+  INCUBATOR_FIELDS,
+  parseNamedEntries,
+  addNamedEntry,
+  addEntryMark,
+  removeNamedEntry,
   parseEntries,
   setEntryField,
   addEntryField,
   addEntry,
   removeEntry,
   eventTiming,
+  parseEventDate,
+  eventDateValue,
+  readOldEventDate,
+  setInlineField,
   addTask,
   isTaskList,
   addReview,
@@ -121,8 +126,10 @@ const TIME_MANAGEMENT_DIR = path.resolve(ROOT_DIR, '_Time_Management');
 const REVIEW_FILE = path.join(TIME_MANAGEMENT_DIR, 'Review.md');
 const REPORTS_FILE = path.join(ENTITY_DIR, 'Reports.md'); // a report is added with each review
 const FOCUS_FILE = path.join(TIME_MANAGEMENT_DIR, 'Plan.md');
-const COMMITMENTS_FILE = path.join(TIME_MANAGEMENT_DIR, 'Commitments.md');
-const COMMITMENT_PREFIX = 'commitment:';
+// Archived projects' headers (ARCHIVEMODE HEADERS) and ideas not yet made into projects.
+const ARCHIVE_FILE = path.join(ROOT_DIR, '_Archive.md');
+const INCUBATOR_FILE = path.join(ROOT_DIR, '_Incubator.md');
+const ARCHIVE_PREFIX = 'archive:'; // a Timeline row for an entry in _Archive.md
 const HELP_FILE = path.resolve(__dirname, '..', '_Help_Guide.md');
 const IMAGES_DIR = path.resolve(ROOT_DIR, '_Images');
 const IMAGE_TYPES = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp']);
@@ -155,9 +162,37 @@ const NETWORKING = {
     noun: 'event',
     file: 'Events.md',
     level: 4,
-    fields: ['Artist/s', 'Date', 'Venue', 'Main Contact', 'Details', 'Payment', 'Tasks'].map((label) => field(label)),
+    // Event Date also finds the plain **Date** written before it was renamed.
+    fields: [
+      field('Artist/s'),
+      eventField('Application Deadline', 'date'),
+      eventField('Event Date', 'range', /^(event )?date$/i),
+      eventField('Application Submitted', 'yesno'),
+      eventField('Booking Confirmed', 'yesno'),
+      ...['Venue', 'Main Contact', 'Details', 'Payment', 'Tasks'].map((label) => field(label)),
+    ],
   },
 };
+// The events fields written on one line and edited with their own controls, by `kind`: a
+// single date, a date or range of dates, or Yes or No.
+function eventField(label, kind, match) {
+  return Object.assign(field(label, match), { kind });
+}
+const YES_NO = ['Yes', 'No'];
+const isValidEventValue = (kind, value) => (kind === 'yesno' ? !value.trim() || YES_NO.includes(value.trim()) : parseEventDate(value, kind === 'range') !== null);
+// The value of an event's field, found by its label in the page's list of fields.
+function eventValue(entry, label) {
+  const spec = NETWORKING.events.fields.find((f) => f.label === label);
+  const found = entry.fields.find((f) => f.label !== null && spec.match.test(f.label));
+  return found ? found.value.trim() : '';
+}
+const eventDateOf = (entry) => eventValue(entry, 'Event Date');
+// How far an event has got: booked once Booking Confirmed is Yes, else applied once
+// Application Submitted is Yes, else open.
+function eventProgress(entry) {
+  if (eventValue(entry, 'Booking Confirmed') === 'Yes') return 'booked';
+  return eventValue(entry, 'Application Submitted') === 'Yes' ? 'applied' : 'open';
+}
 const isNetworkingField = (page) => (label) => page.fields.some((f) => f.match.test(label));
 const DEFAULT_ROUNDUP_DAYS = 7; // only used if Options.csv doesn't set a usable ROUNDUP
 const LABELS_DIR = path.resolve(ROOT_DIR, '_Labels');
@@ -175,6 +210,9 @@ const FALLBACK_TASK_LISTS = 'Tasks'; // only used if Options.csv has no TASKLIST
 // Folders the dashboard uses for something else, so they can't also hold projects.
 const RESERVED_DIRS = new Set([__dirname, ENTITY_DIR, NETWORKING_DIR, LABELS_DIR, CATALOGS_DIR].map((dir) => path.basename(dir).toLowerCase()));
 const ARCHIVED_FOLDER = /^\d{4}[.\-_]\d{2}[.\-_]\d{2}/;
+// A project is archived once its folder starts with a date or it has a Date Closed. Either
+// way it's hidden from the dashboard, even when SHOWARCHIVED is on.
+const isArchived = (project) => ARCHIVED_FOLDER.test(project.name) || project.closed;
 const STATUS_PREFIX = /^(\+|-|\d{4}[.\-_]\d{2}[.\-_]\d{2}_?)/;
 const MAX_BODY_BYTES = 256 * 1024;
 const LOOPBACK_NAMES = new Set(['127.0.0.1', 'localhost', '[::1]', '::1']);
@@ -286,8 +324,9 @@ async function listDirectory(directory) {
   const projects = listed.filter((p) => p.files.length);
   for (const project of projects) {
     project.files = mainFirst(project.files, pickPrimary(project.name, project.files));
-    const { projectType } = parseHeader(await readProjectFile(project, primaryFile(project)), []);
+    const { projectType, dates } = parseHeader(await readProjectFile(project, primaryFile(project)), []);
     project.ongoing = Boolean(projectType) && projectType.known === 'Ongoing';
+    project.closed = Boolean(dates.closed.value);
   }
   return projects;
 }
@@ -324,13 +363,14 @@ async function readProject(folder, requestedFile) {
   const todos = scanLines(content, createMatcher(statuses)).map((t) => Object.assign(t, { folder, file }));
   const { title, timeframe, leader, dates, dependency } = parseHeader(content, owners);
   const blocks = parseBlocks(content);
-  const details = { folder, directory, ongoing, projectTypes: PROJECT_TYPES, file, files: project.files, content, statuses, todos, owners, leaders, dateFormat, title, timeframe, leader, dates, dependency };
+  const details = { folder, directory, ongoing, archived: isArchived(project), projectTypes: PROJECT_TYPES, file, files: project.files, content, statuses, todos, owners, leaders, dateFormat, title, timeframe, leader, dates, dependency };
   if (ongoing) return Object.assign(details, splitTaskLists(blocks, await readTaskLists()), { dependencyOptions: [] });
   const planned = projects.filter((p) => !p.ongoing);
+  const archive = await dependableArchive();
   return Object.assign(details, {
     blocks,
-    dependencyFolder: resolveDependency(dependency.value, planned, await readCommitments()),
-    dependencyOptions: await dependencyChoices(folder, planned, await readCommitments()),
+    dependencyFolder: resolveDependency(dependency.value, planned, archive),
+    dependencyOptions: await dependencyChoices(folder, planned, archive),
   });
 }
 
@@ -340,7 +380,9 @@ async function listProjectsWithContent(directory) {
   return Promise.all(
     projects.map(async (project) => {
       const { folder, files, ongoing } = project;
-      return { folder, files, ongoing, content: await readProjectFile(project, primaryFile(project)) };
+      const content = await readProjectFile(project, primaryFile(project));
+      // A Date Closed archives a project even if its folder hasn't been renamed.
+      return { folder, files, ongoing, content, closed: parseHeader(content, []).dates.closed.value || null };
     })
   );
 }
@@ -356,23 +398,27 @@ function projectName(folder) {
   return folder.replace(STATUS_PREFIX, '').replace(/_/g, ' ');
 }
 
-async function readCommitments() {
-  const text = await readIfExists(COMMITMENTS_FILE);
-  return text === null ? [] : parseCommitments(text);
+// The entries in _Archive.md, one per project archived in HEADERS mode.
+async function readArchive() {
+  const text = await readIfExists(ARCHIVE_FILE);
+  return text === null ? [] : parseNamedEntries(text, ARCHIVE_FIELDS);
 }
 
-// What a Project Dependency value refers to, or null: a project's folder or, when the value
-// starts with COMMITMENT, a token for that entry in the commitments file.
-function resolveDependency(value, projects, commitments = []) {
-  const named = commitmentNamed(value);
-  if (named !== null) {
-    const found = commitments.find((c) => c.title.replace(/\s+/g, ' ').toLowerCase() === named);
-    return found ? COMMITMENT_PREFIX + found.title : null;
-  }
-  const key = value.trim().replace(/\s+/g, ' ').toLowerCase();
+// The archive entries a project can depend on: those in _Archive.md, in HEADERS mode only.
+const dependableArchive = async () => ((await readArchiveMode()) === 'FULL' ? [] : readArchive());
+
+const dependencyKey = (text) => text.trim().replace(/\s+/g, ' ').toLowerCase();
+
+// What a Project Dependency value names: a project's folder, or else an entry in
+// `archive` as "archive:Title", or null. An entry's title, "OWNERID Title", is written the
+// same way as a project's name, so the file doesn't need to say which it is.
+function resolveDependency(value, projects, archive = []) {
+  const key = dependencyKey(value);
   if (!key) return null;
-  const match = projects.find((p) => projectName(p.name).toLowerCase() === key);
-  return match ? match.folder : null;
+  const match = projects.find((p) => dependencyKey(projectName(p.name)) === key);
+  if (match) return match.folder;
+  const entry = archive.find((e) => dependencyKey(e.title) === key);
+  return entry ? ARCHIVE_PREFIX + entry.title : null;
 }
 
 // Each project's dependency, as a Map of folder -> the folder it depends on.
@@ -387,8 +433,9 @@ async function dependencyParents(projects) {
 }
 
 // The projects `folder` may depend on: not archived, not itself, and not any project
-// that already depends on it, which would make a loop.
-async function dependencyChoices(folder, projects, commitments = []) {
+// that already depends on it, which would make a loop. Then the entries in `archive`, apart
+// from `folder` itself when it's one of them.
+async function dependencyChoices(folder, projects, archive = []) {
   const parents = await dependencyParents(projects);
   const dependsOnFolder = (candidate) => {
     const seen = new Set();
@@ -398,15 +445,14 @@ async function dependencyChoices(folder, projects, commitments = []) {
     }
     return false;
   };
-  return projects
-    .filter((p) => !ARCHIVED_FOLDER.test(p.name) && !dependsOnFolder(p.folder))
-    .map((p) => projectName(p.name))
+  const names = projects.filter((p) => !isArchived(p) && !dependsOnFolder(p.folder)).map((p) => projectName(p.name));
+  const taken = new Set(names.map(dependencyKey));
+  const archived = archive.map((e) => e.title).filter((title) => ARCHIVE_PREFIX + title !== folder && !taken.has(dependencyKey(title)));
+  return names
     .sort((a, b) => a.localeCompare(b))
     .map((name) => ({ id: name, name }))
-    .concat(commitmentChoices(commitments));
+    .concat(archived.sort((a, b) => a.localeCompare(b)).map((title) => ({ id: title, name: `${title} (archived)` })));
 }
-
-const commitmentChoices = (commitments) => commitments.map((c) => ({ id: `${COMMITMENT_OWNER} ${c.title}`, name: `Commitment: ${c.title}` }));
 
 // A project's main file is named after the title in its folder name. Case, spaces and
 // underscores don't matter, so "First_album.md" counts for "+MUSART_First_album".
@@ -438,11 +484,25 @@ const readLeaders = () => readLabelFile(LEADERS_FILE, parseLeaders, []);
 const SWITCH_OPTIONS = { SHOWARCHIVED: 'FALSE', SYNCCONFLICTS: 'FALSE', MULTIUSER: 'FALSE' };
 const SWITCH_VALUES = ['TRUE', 'FALSE'];
 
-// The file's options in its order, then any switch it doesn't have yet, where saving adds it.
+// Options with a fixed set of values, shown as a dropdown, and the value used when the file
+// doesn't have them. ARCHIVEMODE: HEADERS keeps an archived project's header in _Archive.md
+// and leaves its folder alone, for Syncthing to move off; FULL renames the folder instead.
+const CHOICE_OPTIONS = { ARCHIVEMODE: { values: ['HEADERS', 'FULL'], fallback: 'HEADERS' } };
+
+// The file's options in its order, then any switch or choice it doesn't have yet, where
+// saving adds it.
 async function readOptionsWithSwitches() {
   const options = await readOptions();
-  return Object.assign({}, options, ...Object.entries(SWITCH_OPTIONS).filter(([key]) => !(key in options)).map(([key, value]) => ({ [key]: value })));
+  const defaults = Object.assign({}, SWITCH_OPTIONS, ...Object.entries(CHOICE_OPTIONS).map(([key, c]) => ({ [key]: c.fallback })));
+  return Object.assign({}, options, ...Object.entries(defaults).filter(([key]) => !(key in options)).map(([key, value]) => ({ [key]: value })));
 }
+
+// A choice option's value, or its fallback if the file's value isn't one of its choices.
+async function readChoice(key) {
+  const value = ((await readOptions())[key] || '').toUpperCase();
+  return CHOICE_OPTIONS[key].values.includes(value) ? value : CHOICE_OPTIONS[key].fallback;
+}
+const readArchiveMode = () => readChoice('ARCHIVEMODE');
 
 // SHOWARCHIVED: archived rows stay visible on project, entity, Leads and Events pages.
 const readSwitch = async (key) => ((await readOptions())[key] || '').toUpperCase() === 'TRUE';
@@ -467,7 +527,7 @@ async function collectTodos(find = findTodos) {
   const focus = await readLatestFocus();
   const items = [];
   for (const project of await listProjects()) {
-    if (ARCHIVED_FOLDER.test(project.name)) continue;
+    if (isArchived(project)) continue;
     const active = project.name.startsWith('+');
     // The focus only ever lists projects with milestones.
     const focused = active && !project.ongoing ? await focusNames(project, focus, owners) : null;
@@ -526,24 +586,52 @@ async function focusNames(project, focus, owners) {
   return matching.length ? new Set(matching.flatMap((entry) => entry.items.map(focusKey))) : null;
 }
 
-// Every project's Active Timeframe entries, whatever the project's status.
+// Every project's Active Timeframe entries, each row marked active, inactive or archive.
+// Archived projects are only included while SHOWARCHIVED is on. They come from _Archive.md
+// in HEADERS mode, where the folders may already have gone, and from the archived folders
+// themselves in FULL mode.
 async function collectTimeline() {
   const rows = [];
   const projects = await listProjects('milestone');
-  const commitments = await readCommitments();
+  const fullArchive = (await readArchiveMode()) === 'FULL';
+  const showArchived = await readShowArchived();
+  const archive = fullArchive ? [] : await readArchive();
   for (const project of projects) {
+    const archived = isArchived(project);
+    if (archived && !(fullArchive && showArchived)) continue;
     const file = primaryFile(project);
     const content = await readProjectFile(project, file);
     const header = parseHeader(content, []);
     const parsed = parseTimeframes(header.timeframe.value, STORAGE_FORMAT);
-    const dependency = resolveDependency(header.dependency.value, projects, commitments);
-    rows.push(Object.assign({ folder: project.folder, file, content, dependency }, parsed));
+    const dependency = resolveDependency(header.dependency.value, projects, archive);
+    const kind = archived ? 'archive' : project.name.startsWith('+') ? 'active' : 'inactive';
+    rows.push(Object.assign({ folder: project.folder, file, content, dependency, kind }, parsed));
   }
-  for (const { title, priority, fields } of commitments) {
-    const dependency = resolveDependency(fields.dependency.value, projects, commitments);
-    rows.push(Object.assign({ folder: COMMITMENT_PREFIX + title, file: path.basename(COMMITMENTS_FILE), content: '', dependency, commitment: { title, priority } }, parseTimeframes(fields.timeframe.value, STORAGE_FORMAT)));
+  if (!fullArchive && showArchived) {
+    for (const { title, fields } of archive) {
+      const dependency = resolveDependency(fields.dependency.value, projects, archive);
+      rows.push(Object.assign({ folder: ARCHIVE_PREFIX + title, file: path.basename(ARCHIVE_FILE), content: '', dependency, kind: 'archive', archive: { title } }, parseTimeframes(fields.timeframe.value, STORAGE_FORMAT)));
+    }
   }
   return rows;
+}
+
+// Each event's Event Date and Application Deadline, for the Timeline's lines. Only dates the
+// dashboard wrote are used, so an event shows once Compatibility has converted its dates. A
+// deadline only matters until the event has been applied for or booked.
+async function timelineEvents() {
+  const page = NETWORKING.events;
+  const content = await readIfExists(path.join(NETWORKING_DIR, page.file));
+  if (content === null) return [];
+  return parseEntries(content, page.level, isNetworkingField(page))
+    .flatMap((s) => s.entries)
+    .map((entry) => {
+      const progress = eventProgress(entry);
+      const date = parseEventDate(eventValue(entry, 'Event Date')) || {};
+      const deadline = progress === 'open' ? (parseEventDate(eventValue(entry, 'Application Deadline'), false) || {}).start : null;
+      return { title: entry.title, start: date.start || null, end: date.end || null, deadline: deadline || null, booked: progress === 'booked' };
+    })
+    .filter((e) => e.start || e.deadline);
 }
 
 // The name of the logo in _Images/, whatever capitals it's written with, or null.
@@ -568,7 +656,7 @@ async function collectNav() {
     entities: owners.filter((o) => !o.parent).map(({ id, name }) => ({ id, name })),
     catalogs: await listCatalogs(),
     directories: await Promise.all(
-      (await readProjectDirs()).map(async (d) => ({ name: d.name, projects: (await listDirectory(d)).map((p) => p.folder) }))
+      (await readProjectDirs()).map(async (d) => ({ name: d.name, projects: (await listDirectory(d)).filter((p) => !p.closed).map((p) => p.folder) }))
     ),
     roundup: {
       projectsToReview: toReview.projects.length,
@@ -845,7 +933,7 @@ async function readIfExists(file) {
 async function liveProjectFiles() {
   const files = [];
   for (const project of await listProjects()) {
-    if (ARCHIVED_FOLDER.test(project.name)) continue;
+    if (isArchived(project)) continue;
     for (const file of project.files) {
       const full = path.join(project.fullPath, file);
       files.push({ folder: project.folder, name: project.name, ongoing: project.ongoing, file, full, content: await fs.promises.readFile(full, 'utf8') });
@@ -904,7 +992,7 @@ async function collectHome() {
     daysSinceLastEntry(REVIEW_FILE),
     daysSinceLastEntry(FOCUS_FILE),
   ]);
-  const live = projects.filter((p) => !ARCHIVED_FOLDER.test(p.name));
+  const live = projects.filter((p) => !isArchived(p));
   const planned = live.filter((p) => !p.ongoing);
 
   const inTimeframe = [];
@@ -1092,20 +1180,32 @@ async function readNetworking(name) {
     entry.fields = intro.concat(
       page.fields.flatMap((spec) => {
         const found = entry.fields.filter((f) => f.label !== null && spec.match.test(f.label));
-        return found.length ? found : [{ label: spec.label, line: entry.line, value: '', missing: true }];
+        const fields = found.length ? found : [{ label: spec.label, line: entry.line, value: '', missing: true }];
+        // Fields with their own controls go by the page's label, and say if their value
+        // is one the control can show.
+        return spec.kind ? fields.map((f) => Object.assign(f, { label: spec.label, kind: spec.kind, valid: isValidEventValue(spec.kind, f.value) })) : fields;
       })
     );
   }
-  const past = [];
   if (name === 'events') {
-    for (const section of sections) {
-      section.entries = section.entries.filter((entry) => {
-        const timing = eventTiming(entry.body, today);
-        if (timing.past) past.push(Object.assign(entry, { end: timing.end }));
-        return !timing.past;
-      });
-    }
-    past.sort((a, b) => (b.end || '').localeCompare(a.end || ''));
+    // The file's own headings don't matter here: events are listed by date.
+    const events = sections.flatMap((s) => s.entries).map((entry) => Object.assign(entry, eventTiming(eventDateOf(entry), today), { progress: eventProgress(entry) }));
+    const byStart = (a, b) => (a.start || a.end ? 0 : 1) - (b.start || b.end ? 0 : 1) || (a.start || a.end || '').localeCompare(b.start || b.end || '');
+    const upcoming = events.filter((e) => !e.past).sort(byStart);
+    const past = events.filter((e) => e.past).sort((a, b) => (b.end || '').localeCompare(a.end || ''));
+    return Object.assign(base, {
+      folder,
+      file: page.file,
+      content,
+      statuses,
+      todos: scanLines(content, createMatcher(statuses)).map((t) => Object.assign(t, { folder, file: page.file })),
+      sections: upcoming.length ? [{ title: 'Upcoming Events', entries: upcoming }] : [],
+      // A new event goes at the end of the file's last heading.
+      sectionNames: sectionNames.slice(-1),
+      past,
+      blocks,
+      others: await otherNetworkingTitles(name),
+    });
   }
   return Object.assign(base, {
     folder,
@@ -1115,7 +1215,7 @@ async function readNetworking(name) {
     todos: scanLines(content, createMatcher(statuses)).map((t) => Object.assign(t, { folder, file: page.file })),
     sections: sections.filter((s) => s.entries.length),
     sectionNames,
-    past,
+    past: [],
     blocks,
     others: await otherNetworkingTitles(name),
   });
@@ -1152,13 +1252,109 @@ function saveNewEntry(body) {
   const page = pageOfFolder(body.folder);
   if (!page) return NOT_FOUND;
   if (page.section && !page.section.test(body.section)) return { code: 400, body: { error: 'Invalid request' } };
-  return addNamed(body, body.title, (content, text) => addEntry(content, page.level, body.section, text, page.fields.map((f) => f.label)));
+  // Fields with their own controls start on one line, with Yes/No ones set to No.
+  const labels = page.fields.map((f) => (f.kind ? { line: f.kind === 'yesno' ? `**${f.label}**: No` : `**${f.label}**:` } : f.label));
+  return addNamed(body, body.title, (content, text) => addEntry(content, page.level, body.section, text, labels));
 }
 
 function deleteEntry({ folder, file, line, title }) {
   const page = pageOfFolder(folder);
   if (!page) return NOT_FOUND;
   return updateProjectFile(folder, file, (content) => removeEntry(content, page.level, line, title));
+}
+
+// How setInlineField finds the events field at `at` in the page's order, and where it goes.
+function eventFieldTarget(at) {
+  const fields = NETWORKING.events.fields;
+  const earlier = fields.slice(0, at);
+  return { label: fields[at].label, matches: (label) => fields[at].match.test(label), before: (label) => earlier.some((f) => f.match.test(label)) };
+}
+
+// Saves an event's date or Yes/No field, on one line. Dates arrive in the DATEFORMAT and are
+// stored as YYYY-MM-DD. Only Event Date can have an end date, for an event of several days.
+async function saveEventField({ line, title, label, start = '', end = '', value = '' }) {
+  const page = NETWORKING.events;
+  const at = page.fields.findIndex((f) => f.kind && f.label === label);
+  if (at === -1) return { code: 400, body: { error: 'Invalid request' } };
+  const { kind } = page.fields[at];
+  let text = value;
+  if (kind === 'yesno') {
+    if (!YES_NO.includes(value)) return { code: 400, body: { error: 'Choose Yes or No.' } };
+  } else {
+    const format = await readDateFormat();
+    const first = start.trim();
+    const last = kind === 'range' ? end.trim() : '';
+    if (!first && last) return { code: 400, body: { error: 'Add the start date as well.' } };
+    const error = [first, last].filter(Boolean).map((d) => dateError(d, format)).find(Boolean);
+    if (error) return { code: 400, body: { error } };
+    const from = first ? toStoredDate(first, format) : null;
+    const to = last ? toStoredDate(last, format) : from;
+    if (to && to < from) return { code: 400, body: { error: 'The end date is before the start date.' } };
+    text = eventDateValue({ start: from, end: to });
+  }
+  return updateProjectFile(NETWORKING_PREFIX + 'events', page.file, (content) => setInlineField(content, page.level, isNetworkingField(page), line, title, eventFieldTarget(at), text));
+}
+
+// What Fix issues would write for each of an event's own-control fields that needs it, as
+// { at, value } (at: its place in the page's fields), with the problems found. A value that
+// can't be converted is left alone and shown as an error.
+function eventFixes(entry) {
+  const fields = NETWORKING.events.fields;
+  const problems = [];
+  const fixes = [];
+  const fixable = (text, at, value) => {
+    problems.push({ text, kind: 'fixable' });
+    fixes.push({ at, value });
+  };
+  fields.forEach((spec, at) => {
+    if (!spec.kind) return;
+    const found = entry.fields.find((f) => f.label !== null && spec.match.test(f.label));
+    if (!found) return fixable(`Missing ${spec.label}`, at, spec.kind === 'yesno' ? 'No' : '');
+    const value = found.value.trim();
+    const renamed = found.label !== spec.label;
+    if (isValidEventValue(spec.kind, value)) {
+      // Rewritten on one line under its new name, keeping the value.
+      if (renamed || (value && !found.inline)) fixable(renamed ? `"${found.label}" should be called ${spec.label}` : `${spec.label} should be on the same line as its label`, at, value);
+      return;
+    }
+    if (spec.kind === 'yesno') {
+      const answer = /^(y|yes|true|x|done)$/i.test(value) ? 'Yes' : /^(n|no|false)$/i.test(value) ? 'No' : null;
+      if (answer) return fixable(`${spec.label} "${value}" will become ${answer}`, at, answer);
+      return problems.push({ text: `${spec.label} "${value}" isn't Yes or No`, kind: 'error' });
+    }
+    const old = readOldEventDate(value);
+    if (old && (spec.kind === 'range' || old.start === old.end)) {
+      const converted = eventDateValue(old);
+      return fixable(`${spec.label} "${value}" will become ${converted || 'blank'}`, at, converted);
+    }
+    problems.push({ text: `${spec.label} "${value.replace(/\s*\n\s*/g, ' ')}" isn't a date the dashboard can read. Change it on the Events page.`, kind: 'error' });
+  });
+  return { problems, fixes };
+}
+
+// Every event whose date or Yes/No fields need changing, and how many were checked.
+async function incompatibleEvents() {
+  const page = NETWORKING.events;
+  const content = await readIfExists(path.join(NETWORKING_DIR, page.file));
+  if (content === null) return { checked: 0, rows: [] };
+  const entries = parseEntries(content, page.level, isNetworkingField(page)).flatMap((s) => s.entries);
+  const rows = entries
+    .map((entry) => ({ entry, problems: eventFixes(entry).problems }))
+    .filter(({ problems }) => problems.length)
+    .map(({ entry, problems }) => ({ name: entry.title, line: entry.line, problems }));
+  return { checked: entries.length, rows };
+}
+
+// Fix issues for one event: writes each field eventFixes could work out.
+async function fixEvent(line, title) {
+  const page = NETWORKING.events;
+  const isField = isNetworkingField(page);
+  return updateProjectFile(NETWORKING_PREFIX + 'events', page.file, (content) => {
+    const entry = parseEntries(content, page.level, isField).flatMap((s) => s.entries).find((e) => e.line === line && e.title === title);
+    if (!entry) return null;
+    // Each change leaves the heading's line where it was, so the entry can be found again.
+    return eventFixes(entry).fixes.reduce((out, { at, value }) => out && setInlineField(out, page.level, isField, line, title, eventFieldTarget(at), value), content);
+  });
 }
 
 const isFolder = (full) => fs.promises.stat(full).then((s) => s.isDirectory(), () => false);
@@ -1380,98 +1576,229 @@ async function changeProjectStatus({ folder, status }) {
   return { code: 200, body: { ok: true, folder: folder.slice(0, folder.length - project.name.length) + renamed } };
 }
 
-// What the Commitments page shows, and the choices for its dropdowns.
-async function readCommitmentList() {
-  const text = await readIfExists(COMMITMENTS_FILE);
-  const commitments = text === null ? [] : parseCommitments(text);
-  const projects = await listProjects('milestone');
-  const names = projects.filter((p) => !ARCHIVED_FOLDER.test(p.name)).map((p) => projectName(p.name)).sort((a, b) => a.localeCompare(b));
+// Each entry in _Archive.md, for the Archived filter of the first directory's projects list.
+async function readArchivePage() {
+  const text = await readIfExists(ARCHIVE_FILE);
+  const entries = text === null ? [] : parseNamedEntries(text, ARCHIVE_FIELDS);
+  const [owners, leaders, projects] = await Promise.all([readOwners(), readLeaders(), listProjects('milestone')]);
   return {
-    folder: 'commitments',
-    file: path.basename(COMMITMENTS_FILE),
-    location: '_Time_Management/Commitments.md',
+    location: path.basename(ARCHIVE_FILE),
     exists: text !== null,
     dateFormat: await readDateFormat(),
-    priorities: PRIORITIES,
-    dependencyChoices: names.map((name) => ({ id: name, name })).concat(commitmentChoices(commitments)),
-    commitments: commitments.map(({ title, line, priority, fields }) => ({
+    owners: owners.map(({ id, name }) => ({ id, name })),
+    leaders: leaders.map(({ id, name }) => ({ id, name })),
+    dependencyChoices: await dependencyChoices(null, projects, entries),
+    entries: entries.map(({ title, line, fields, notes }) => ({
       title,
       line,
-      priority,
+      created: fields.created.value,
+      closed: fields.closed.value,
       timeframes: timeframeEntries(fields.timeframe.value),
       dependency: fields.dependency.value,
-      target: resolveDependency(fields.dependency.value, projects, commitments),
+      target: resolveDependency(fields.dependency.value, projects, entries),
+      owner: fields.owner.value,
+      notes,
     })),
   };
 }
 
-async function updateCommitments(transform) {
-  const content = await readIfExists(COMMITMENTS_FILE);
+// An archive entry's lines under its heading, in the order archiveProject writes them.
+const archiveLines = ({ created, closed, timeframe, dependency, owner }) => [
+  `**${ARCHIVE_FIELDS.created}**: ${created}`,
+  `**${ARCHIVE_FIELDS.closed}**: ${closed}`,
+  `**${ARCHIVE_FIELDS.timeframe}**: ${timeframe}`,
+  `**${ARCHIVE_FIELDS.dependency}**: ${dependency}`,
+  `**${ARCHIVE_FIELDS.owner}** : ${owner}`,
+];
+
+// Adds an archive entry by hand, for a project that was never in the dashboard or whose
+// record was lost. Dates arrive in the DATEFORMAT, and everything but the name can be empty.
+async function saveArchiveEntry({ owner, title, created, closed, start, end, dependency, leader }) {
+  const name = title.trim().replace(/\s+/g, ' ');
+  const error = projectTitleError(name);
+  if (error) return { code: 400, body: { error } };
+  const [owners, leaders, entries, projects] = await Promise.all([readOwners(), readLeaders(), readArchive(), listProjects('milestone')]);
+  if (!owners.some((o) => o.id === owner)) return { code: 400, body: { error: 'Choose an entity.' } };
+  if (leader && !leaders.some((l) => l.id === leader)) return { code: 400, body: { error: 'Choose an owner.' } };
+  const full = `${owner} ${name}`;
+  if (entries.some((e) => dependencyKey(e.title) === dependencyKey(full))) return { code: 409, body: { error: 'The archive already has an entry with that name.' } };
+  if (dependency && !(await dependencyChoices(null, projects, entries)).some((c) => c.id === dependency)) return { code: 400, body: { error: "That can't be chosen as a dependency." } };
+
+  const format = await readDateFormat();
+  const dateProblem = [created, closed].map((d) => d.trim()).filter(Boolean).map((d) => dateError(d, format)).find(Boolean);
+  if (dateProblem) return { code: 400, body: { error: dateProblem } };
+  if (Boolean(start.trim()) !== Boolean(end.trim())) return { code: 400, body: { error: 'Give the timeframe both a start and an end, or neither.' } };
+  const timeframeProblem = start.trim() && timeframeError(start, end, format);
+  if (timeframeProblem) return { code: 400, body: { error: timeframeProblem } };
+  const stored = (d) => (d.trim() ? toStoredDate(d.trim(), format) : '');
+
+  await appendNamedEntry(ARCHIVE_FILE, 'Archive', full, archiveLines({
+    created: stored(created),
+    closed: stored(closed),
+    timeframe: start.trim() ? `${stored(start)} to ${stored(end)}` : '',
+    dependency,
+    owner: leader,
+  }));
+  return { code: 200, body: { ok: true } };
+}
+
+// Removes an archive entry, heading and all. Null from the edit means the entry has changed.
+async function removeArchiveEntry({ line, title }) {
+  const content = await readIfExists(ARCHIVE_FILE);
+  if (content === null) return NOT_FOUND;
+  const updated = removeNamedEntry(content, ARCHIVE_FIELDS, line, title);
+  if (updated === null) return { code: 409, body: { error: 'That entry has changed in the file, so nothing was removed.' } };
+  await writeFileSafely(ARCHIVE_FILE, updated);
+  return { code: 200, body: { ok: true } };
+}
+
+// Adds an entry to the end of a file of `##` entries, creating the file with `heading` if
+// it doesn't exist yet. An empty field is written without a space after its colon.
+async function appendNamedEntry(full, heading, title, entryLines) {
+  const lines = entryLines.map((line) => line.trimEnd());
+  const existing = await readIfExists(full);
+  if (existing !== null) return writeFileSafely(full, addNamedEntry(existing, title, lines));
+  const content = addNamedEntry(`# ${heading}\n`, title, lines);
+  await fs.promises.writeFile(full, content, { encoding: 'utf8', flag: 'wx' });
+  await recordCreated(full, content);
+}
+
+// A header field's value as written, whichever way round its colon and bold are.
+const createdValue = (content) => {
+  const lines = stripComments(content);
+  const line = parseHeader(content, []).createdLine;
+  return line ? lines[line - 1].replace(/^[^:]*:\**/, '').trim() : '';
+};
+
+// Archives a project. Its Date Closed is set to today, which is enough to hide it everywhere.
+// Then, by ARCHIVEMODE, its header is copied into _Archive.md (HEADERS), so a record stays
+// once the folder is moved off this computer, or its folder is renamed to start with today's
+// date (FULL).
+async function archiveProject({ folder }) {
+  const project = (await listProjects()).find((p) => p.folder === folder);
+  if (!project) return NOT_FOUND;
+  if (isArchived(project)) return { code: 409, body: { error: 'This project is already archived.' } };
+  const mode = await readArchiveMode();
+  const today = formatDate(new Date(), STORAGE_FORMAT);
+  const renamed = `${today}_${project.name.replace(STATUS_PREFIX, '')}`;
+  const target = path.join(path.dirname(project.fullPath), renamed);
+  if (mode === 'FULL' && (await isFolder(target))) return { code: 409, body: { error: `A folder called "${renamed}" already exists, so nothing was changed.` } };
+
+  const file = primaryFile(project);
+  const result = await updateProjectFile(folder, file, (content) => setDateField(content, 'closed', today));
+  if (result.code !== 200) return result;
+
+  if (mode === 'HEADERS') {
+    const content = await readProjectFile(project, file);
+    const header = parseHeader(content, []);
+    await appendNamedEntry(ARCHIVE_FILE, 'Archive', `${folderOwner(project.name)} ${projectTitle(project.name)}`, archiveLines({
+      created: createdValue(content),
+      closed: today,
+      timeframe: header.timeframe.value,
+      dependency: header.dependency.value,
+      owner: header.leader ? header.leader.value : '',
+    }));
+    return { code: 200, body: { ok: true } };
+  }
+  try {
+    await fs.promises.rename(project.fullPath, target);
+  } catch (err) {
+    if (!['EPERM', 'EBUSY', 'EACCES', 'ENOTEMPTY', 'EEXIST'].includes(err.code)) throw err;
+    // The Date Closed already archives it, so only the folder name is left to change.
+    return { code: 200, body: { ok: true, warning: "The project is archived, but its folder is in use by another program so it couldn't be renamed. Close anything using it and rename it by hand." } };
+  }
+  return { code: 200, body: { ok: true } };
+}
+
+// ---------- the Incubator: ideas in _Incubator.md, each "## OWNERID Title" ----------
+
+// An idea's title split into its entity's ID and the rest, or null if it doesn't start with
+// an ID from Owners.csv.
+function ideaOwner(title, owners) {
+  const [id, ...rest] = title.trim().split(/\s+/);
+  const owner = owners.find((o) => o.id === id);
+  return owner && rest.length ? { owner, name: rest.join(' ') } : null;
+}
+
+// Ideas still waiting: those without an Archived or Promoted date.
+const waitingIdeas = (text) => (text === null ? [] : parseNamedEntries(text, INCUBATOR_FIELDS)).filter((e) => !e.fields.archived.value && !e.fields.promoted.value);
+
+// The projects an idea can depend on: every project that isn't archived.
+async function ideaDependencyChoices() {
+  return (await dependencyChoices(null, await listProjects('milestone'), await dependableArchive())).map((c) => c.id);
+}
+
+// What the Incubator page shows, and the choices for its forms.
+async function readIncubatorPage() {
+  const text = await readIfExists(INCUBATOR_FILE);
+  const [owners, leaders, dirs] = await Promise.all([readOwners(), readLeaders(), readProjectDirs()]);
+  return {
+    location: path.basename(INCUBATOR_FILE),
+    exists: text !== null,
+    dateFormat: await readDateFormat(),
+    owners: owners.map(({ id, name }) => ({ id, name })),
+    leaders: leaders.map(({ id, name }) => ({ id, name })),
+    directories: dirs.map((d) => d.name),
+    dependencyChoices: await ideaDependencyChoices(),
+    ideas: waitingIdeas(text).map(({ title, line, fields, notes }) => {
+      const split = ideaOwner(title, owners);
+      return { title, line, ownerId: split ? split.owner.id : '', ownerName: split ? split.owner.name : '', name: split ? split.name : title, dependency: fields.dependency.value, notes };
+    }),
+  };
+}
+
+// Runs `transform` over _Incubator.md and saves the result. Null means the idea has changed.
+async function updateIncubator(transform) {
+  const content = await readIfExists(INCUBATOR_FILE);
   if (content === null) return NOT_FOUND;
   const updated = transform(content);
-  if (updated === null) return { code: 409, body: { error: 'That commitment has changed in the file, so nothing was updated.' } };
-  if (updated !== content) await writeFileSafely(COMMITMENTS_FILE, updated);
+  if (updated === null) return { code: 409, body: { error: 'That idea has changed in the file, so nothing was updated.' } };
+  if (updated !== content) await writeFileSafely(INCUBATOR_FILE, updated);
   return { code: 200, body: { ok: true } };
 }
 
-const sameCommitment = (a, b) => a.trim().replace(/\s+/g, ' ').toLowerCase() === b.trim().replace(/\s+/g, ' ').toLowerCase();
-const DUPLICATE_COMMITMENT = { code: 409, body: { error: 'There is already a commitment with that name.' } };
-
-async function saveNewCommitment({ title }) {
-  const name = title.trim();
-  const error = lineError(name);
+// Adds an idea at the end of _Incubator.md, which is created if it's missing. Its notes are
+// kept as they're typed, but can't hold headings, which would start a new idea.
+async function saveIdea({ title, owner, dependency, notes }) {
+  const name = title.trim().replace(/\s+/g, ' ');
+  const error = projectTitleError(name);
   if (error) return { code: 400, body: { error } };
-  if ((await readCommitments()).some((c) => sameCommitment(c.title, name))) return DUPLICATE_COMMITMENT;
-  const existing = await readIfExists(COMMITMENTS_FILE);
-  if (existing !== null) return updateCommitments((content) => addCommitment(content, name));
-  await fs.promises.mkdir(TIME_MANAGEMENT_DIR, { recursive: true });
-  const content = addCommitment('# Timeline Commitments\n', name);
-  await fs.promises.writeFile(COMMITMENTS_FILE, content, 'utf8');
-  await recordCreated(COMMITMENTS_FILE, content);
+  if (!(await readOwners()).some((o) => o.id === owner)) return { code: 400, body: { error: 'Choose an entity.' } };
+  if (dependency && !(await ideaDependencyChoices()).includes(dependency)) return { code: 400, body: { error: "That project can't be chosen as a dependency." } };
+  const text = notes.replace(/\r\n?/g, '\n').trim();
+  if (/^#{1,6}\s/m.test(text)) return { code: 400, body: { error: 'Notes can\'t contain headings. Take out the # at the start of the line.' } };
+  await appendNamedEntry(INCUBATOR_FILE, 'Incubator', `${owner} ${name}`, [`**${INCUBATOR_FIELDS.dependency}**: ${dependency}`, ...(text ? ['', ...text.split('\n')] : [])]);
   return { code: 200, body: { ok: true } };
 }
 
-const deleteCommitment = ({ line, title }) => updateCommitments((content) => removeCommitment(content, line, title));
-
-async function saveCommitmentField({ line, title, field, value }) {
-  if (field === 'priority' && !PRIORITIES.includes(value)) return { code: 400, body: { error: 'Choose A, B or C.' } };
-  if (field === 'dependency' && value) {
-    const { dependencyChoices: choices } = await readCommitmentList();
-    if (sameCommitment(value, `${COMMITMENT_OWNER} ${title}`) || !choices.some((c) => c.id === value)) return { code: 400, body: { error: "That can't be chosen as a dependency." } };
-  }
-  return updateCommitments((content) => setCommitmentField(content, line, title, field, value));
+// Archive Idea: dates it as archived, which hides it, and leaves it in the file.
+function archiveIdea({ line, title }) {
+  const today = formatDate(new Date(), STORAGE_FORMAT);
+  return updateIncubator((content) => addEntryMark(content, INCUBATOR_FIELDS, line, title, INCUBATOR_FIELDS.archived, today));
 }
 
-// Sets the first timeframe, keeping any others written after it by hand.
-async function saveCommitmentTimeframe({ line, title, start, end }) {
+// Promote to Project: makes a Milestone project from the idea, with the timeframe and owner
+// asked for, then dates the idea as promoted, which hides it. The directory only needs
+// choosing when PROJECTS names more than one.
+async function promoteIdea({ line, title, start, end, leader, directory }) {
+  const text = await readIfExists(INCUBATOR_FILE);
+  const idea = waitingIdeas(text).find((e) => e.line === line && e.title === title);
+  if (!idea) return { code: 409, body: { error: 'That idea has changed in the file, so nothing was updated.' } };
+  const split = ideaOwner(title, await readOwners());
+  if (!split) return { code: 400, body: { error: "This idea's title doesn't start with an entity ID from Owners.csv. Correct it in _Incubator.md first." } };
   const format = await readDateFormat();
-  const error = timeframeError(start, end, format);
-  if (error) return { code: 400, body: { error } };
-  const entry = `${toStoredDate(start, format)} to ${toStoredDate(end, format)}`;
-  return updateCommitments((content) => {
-    const commitment = parseCommitments(content).find((c) => c.line === line && c.title === title);
-    if (!commitment) return null;
-    const entries = timeframeEntries(commitment.fields.timeframe.value);
-    entries[0] = entry;
-    return setCommitmentField(content, line, title, 'timeframe', entries.join(', '));
-  });
-}
+  const timeframeProblem = timeframeError(start, end, format);
+  if (timeframeProblem) return { code: 400, body: { error: timeframeProblem } };
+  const dirs = await readProjectDirs();
+  if (dirs.length > 1 && !dirs.some((d) => d.name === directory)) return { code: 400, body: { error: 'Choose a directory.' } };
 
-// Renames a commitment and keeps every dependency on it pointing at it.
-async function saveCommitmentName({ line, title, to }) {
-  const name = to.trim();
-  const error = lineError(name);
-  if (error) return { code: 400, body: { error } };
-  if ((await readCommitments()).some((c) => !sameCommitment(c.title, title) && sameCommitment(c.title, name))) return DUPLICATE_COMMITMENT;
-  const result = await updateCommitments((content) => renameCommitment(content, line, title, name));
+  const result = await makeProject(
+    { title: split.name, entity: split.owner.id, owner: leader, type: 'Milestone', notes: idea.notes, dir: dirs.length > 1 ? directory : undefined },
+    { 'Active Timeframe': `${toStoredDate(start, format)} to ${toStoredDate(end, format)}`, 'Project Dependency': idea.fields.dependency.value }
+  );
   if (result.code !== 200) return result;
-  const old = title.replace(/\s+/g, ' ').toLowerCase();
-  for (const project of await listProjects('milestone')) {
-    const file = primaryFile(project);
-    if (commitmentNamed(parseHeader(await readProjectFile(project, file), []).dependency.value) === old) {
-      await updateProjectFile(project.folder, file, (content) => setDependency(content, `${COMMITMENT_OWNER} ${name}`));
-    }
-  }
+  const today = formatDate(new Date(), STORAGE_FORMAT);
+  await updateIncubator((content) => addEntryMark(content, INCUBATOR_FIELDS, line, title, INCUBATOR_FIELDS.promoted, today));
   return result;
 }
 
@@ -1548,13 +1875,18 @@ async function changeProjectType({ folder, type }) {
   return result;
 }
 
-const fixCompatibility = ({ type, key, file, main, owner }) => (type === 'projects' ? fixProject(key, file, main, owner) : fixEntity(key, file));
+// An event is found by its heading's line, sent as `key`, with its title as `file`.
+const fixCompatibility = ({ type, key, file, main, owner }) => {
+  if (type === 'projects') return fixProject(key, file, main, owner);
+  if (type === 'events') return /^[1-9]\d*$/.test(key) && file ? fixEvent(Number(key), file) : { code: 400, body: { error: 'Invalid request' } };
+  return fixEntity(key, file);
+};
 
 // Non-archived projects and every entity with no Date Reviewed yet.
 async function collectToReview() {
   const projects = [];
   for (const project of await listProjects()) {
-    if (ARCHIVED_FOLDER.test(project.name)) continue;
+    if (isArchived(project)) continue;
     const file = primaryFile(project);
     if (!parseHeader(await readProjectFile(project, file), []).dates.reviewed.value) projects.push({ folder: project.folder, file });
   }
@@ -1715,9 +2047,9 @@ async function measureReport(statuses, lastReview, today, wins) {
     const content = await readProjectFile(project, primaryFile(project));
     // As on the Timeline: every Milestone project, whatever its status.
     if (!project.ongoing && scheduledBetween(content, from, today)) scheduled++;
-    if (!ARCHIVED_FOLDER.test(project.name)) liveContents.push(content);
+    if (!isArchived(project)) liveContents.push(content);
   }
-  const active = projects.filter((p) => !ARCHIVED_FOLDER.test(p.name) && p.name.startsWith('+'));
+  const active = projects.filter((p) => !isArchived(p) && p.name.startsWith('+'));
   // Only rows with a status: an untagged checkbox in a note isn't a task until it's given one.
   const open = todos.items.filter(isIncomplete);
   const ofType = (type) => countOf(open, (item) => item.type === type);
@@ -1901,7 +2233,7 @@ async function saveNewTask(body) {
 }
 
 async function saveDependency({ folder, file, name }) {
-  const choices = await dependencyChoices(folder, await listProjects('milestone'), await readCommitments());
+  const choices = await dependencyChoices(folder, await listProjects('milestone'), await dependableArchive());
   if (name && !choices.some((c) => c.id === name)) {
     return { code: 400, body: { error: "That project can't be chosen as a dependency." } };
   }
@@ -1927,7 +2259,11 @@ async function saveDate({ folder, file, field, value }) {
   return updateProjectFile(folder, file, (content) => setDateField(content, field, stored));
 }
 
-async function createProject(body) {
+const createProject = (body) => makeProject(body);
+
+// Creates a project's folder and main file. `header` holds values for other header fields,
+// such as an Active Timeframe and Project Dependency from a promoted idea.
+async function makeProject(body, header = {}) {
   const title = body.title.trim().replace(/\s+/g, ' ');
   const error = projectTitleError(title);
   if (error) return { code: 400, body: { error } };
@@ -1948,6 +2284,7 @@ async function createProject(body) {
     notes: body.notes.replace(/\r\n?/g, '\n').trim(),
     today: formatDate(new Date(), STORAGE_FORMAT),
   });
+  for (const [label, value] of Object.entries(header)) if (value) spec.content = setHeaderField(spec.content, label, value);
 
   // The same project under a different status prefix still counts as a duplicate.
   const key = (folder) => folder.replace(STATUS_PREFIX, '').toLowerCase();
@@ -2012,10 +2349,12 @@ async function saveOptions({ values }) {
     if (err.code === 'ENOENT') return { code: 404, body: { error: 'Options.csv not found.' } };
     throw err;
   }
-  const known = [...Object.keys(parseOptions(text)), ...Object.keys(SWITCH_OPTIONS)];
+  const known = [...Object.keys(parseOptions(text)), ...Object.keys(SWITCH_OPTIONS), ...Object.keys(CHOICE_OPTIONS)];
   const updates = Object.fromEntries(Object.entries(values).filter(([key]) => known.includes(key)));
   const badSwitch = Object.keys(SWITCH_OPTIONS).find((key) => key in updates && !SWITCH_VALUES.includes(updates[key]));
   if (badSwitch) return { code: 400, body: { error: `${badSwitch} needs TRUE or FALSE.` } };
+  const badChoice = Object.keys(CHOICE_OPTIONS).find((key) => key in updates && !CHOICE_OPTIONS[key].values.includes(updates[key]));
+  if (badChoice) return { code: 400, body: { error: `${badChoice} needs one of ${CHOICE_OPTIONS[badChoice].values.join(', ')}.` } };
   if ('DATEFORMAT' in updates && !isUsableDateFormat(updates.DATEFORMAT)) {
     return { code: 400, body: { error: 'DATEFORMAT needs a year (YYYY or YY), a month (MM) and a day (DD).' } };
   }
@@ -2354,16 +2693,18 @@ const isLeaderRow = isRowEdit(['name']);
 const isColourRow = (body) => typeof body.from === 'string' && typeof body.colour === 'string';
 const isReviewSubmit = (body) => typeof body.wins === 'string';
 const isStatusSwitch = ({ folder, status }) => typeof folder === 'string' && typeof status === 'string';
-const isCommitmentRow = ({ line, title }) => Number.isInteger(line) && line >= 1 && typeof title === 'string';
-const isNewCommitment = ({ title }) => typeof title === 'string';
-const isCommitmentField = (body) => isCommitmentRow(body) && ['priority', 'dependency'].includes(body.field) && typeof body.value === 'string';
-const isCommitmentTimeframe = (body) => isCommitmentRow(body) && typeof body.start === 'string' && typeof body.end === 'string';
-const isCommitmentRename = (body) => isCommitmentRow(body) && typeof body.to === 'string';
 const isPlanningEdit = (body) =>
   hasLine(body) && (typeof body.status === 'string' || body.status === null) && typeof body.text === 'string' && ['SCHEDULED', 'DEADLINE'].includes(body.kind) && typeof body.date === 'string';
 const isTypeChange = (body) => inFile(body) && typeof body.type === 'string';
+const isFolderRequest = ({ folder }) => typeof folder === 'string';
+const isIdeaRow = ({ line, title }) => Number.isInteger(line) && line >= 1 && typeof title === 'string';
+const isArchiveEntry = (body) => ['owner', 'title', 'created', 'closed', 'start', 'end', 'dependency', 'leader'].every((k) => typeof body[k] === 'string');
+const isNewIdea = (body) => ['title', 'owner', 'dependency', 'notes'].every((k) => typeof body[k] === 'string');
+const isPromotion = (body) => isIdeaRow(body) && ['start', 'end', 'leader'].every((k) => typeof body[k] === 'string') && (body.directory === undefined || typeof body.directory === 'string');
+const isEventField = (body) =>
+  Number.isInteger(body.line) && typeof body.title === 'string' && typeof body.label === 'string' && ['start', 'end', 'value'].every((k) => body[k] === undefined || typeof body[k] === 'string');
 const isCompatibilityFix = ({ type, key, file, main, owner }) =>
-  ['projects', 'entities'].includes(type) && typeof key === 'string' && [file, main, owner].every((v) => v === undefined || typeof v === 'string');
+  ['projects', 'entities', 'events'].includes(type) && typeof key === 'string' && [file, main, owner].every((v) => v === undefined || typeof v === 'string');
 const isHelpRead = ({ read }) => typeof read === 'boolean';
 const isFocusSubmit = ({ items }) =>
   Array.isArray(items) && items.every((i) => i && typeof i.folder === 'string' && typeof i.text === 'string');
@@ -2439,16 +2780,18 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/timeframe' && req.method === 'POST') return handleEdit(req, res, isTimeframeEdit, saveTimeframe);
     if (url.pathname === '/api/timeframe-change' && req.method === 'POST') return handleEdit(req, res, isTimeframeChange, changeTimeframe);
     if (url.pathname === '/api/priority' && req.method === 'POST') return handleEdit(req, res, isPriorityEdit, changePriority);
-    if (url.pathname === '/api/commitment-add' && req.method === 'POST') return handleEdit(req, res, isNewCommitment, saveNewCommitment);
-    if (url.pathname === '/api/commitment-remove' && req.method === 'POST') return handleEdit(req, res, isCommitmentRow, deleteCommitment);
-    if (url.pathname === '/api/commitment-field' && req.method === 'POST') return handleEdit(req, res, isCommitmentField, saveCommitmentField);
-    if (url.pathname === '/api/commitment-timeframe' && req.method === 'POST') return handleEdit(req, res, isCommitmentTimeframe, saveCommitmentTimeframe);
-    if (url.pathname === '/api/commitment-rename' && req.method === 'POST') return handleEdit(req, res, isCommitmentRename, saveCommitmentName);
     if (url.pathname === '/api/project-status' && req.method === 'POST') return handleEdit(req, res, isStatusSwitch, changeProjectStatus);
     if (url.pathname === '/api/file-add' && req.method === 'POST') return handleEdit(req, res, isNamedInFile, saveNewFile);
     if (url.pathname === '/api/planning' && req.method === 'POST') return handleEdit(req, res, isPlanningEdit, savePlanningDate);
     if (url.pathname === '/api/project-type' && req.method === 'POST') return handleEdit(req, res, isTypeChange, changeProjectType);
     if (url.pathname === '/api/compatibility-fix' && req.method === 'POST') return handleEdit(req, res, isCompatibilityFix, fixCompatibility);
+    if (url.pathname === '/api/project-archive' && req.method === 'POST') return handleEdit(req, res, isFolderRequest, archiveProject);
+    if (url.pathname === '/api/event-field' && req.method === 'POST') return handleEdit(req, res, isEventField, saveEventField);
+    if (url.pathname === '/api/incubator' && req.method === 'POST') return handleEdit(req, res, isNewIdea, saveIdea);
+    if (url.pathname === '/api/incubator-archive' && req.method === 'POST') return handleEdit(req, res, isIdeaRow, archiveIdea);
+    if (url.pathname === '/api/archive-entry' && req.method === 'POST') return handleEdit(req, res, isArchiveEntry, saveArchiveEntry);
+    if (url.pathname === '/api/archive-remove' && req.method === 'POST') return handleEdit(req, res, isIdeaRow, removeArchiveEntry);
+    if (url.pathname === '/api/incubator-promote' && req.method === 'POST') return handleEdit(req, res, isPromotion, promoteIdea);
     if (url.pathname === '/api/help-read' && req.method === 'POST') return handleEdit(req, res, isHelpRead, setHelpRead);
     if (url.pathname === '/api/weekly-focus' && req.method === 'POST') return handleEdit(req, res, isFocusSubmit, submitWeeklyFocus);
     if (url.pathname === '/api/weekly-review' && req.method === 'POST') return handleEdit(req, res, isReviewSubmit, submitWeeklyReview);
@@ -2493,7 +2836,7 @@ const server = http.createServer(async (req, res) => {
 
     if (url.pathname === '/api/options') {
       const options = await readOptionsWithSwitches();
-      return sendJson(res, 200, Object.entries(options).map(([key, value]) => ({ key, value, toggle: key in SWITCH_OPTIONS })));
+      return sendJson(res, 200, Object.entries(options).map(([key, value]) => ({ key, value, toggle: key in SWITCH_OPTIONS, choices: Object.hasOwn(CHOICE_OPTIONS, key) ? CHOICE_OPTIONS[key].values : undefined })));
     }
     if (url.pathname === '/api/reports') return sendJson(res, 200, await collectReports());
     if (url.pathname === '/api/catalogs') return sendJson(res, 200, await collectCatalogs());
@@ -2502,7 +2845,7 @@ const server = http.createServer(async (req, res) => {
       return catalog ? sendJson(res, 200, catalog) : sendJson(res, 404, { error: 'Catalog not found.' });
     }
     if (url.pathname === '/api/timeline') {
-      return sendJson(res, 200, { rows: await collectTimeline(), dateFormat: await readDateFormat() });
+      return sendJson(res, 200, { rows: await collectTimeline(), events: await timelineEvents(), dateFormat: await readDateFormat() });
     }
     if (url.pathname === '/api/history') {
       const file = { review: REVIEW_FILE, focus: FOCUS_FILE }[url.searchParams.get('page')];
@@ -2519,6 +2862,7 @@ const server = http.createServer(async (req, res) => {
         PMS_SHOW_ARCHIVED: showArchived,
         PMS_MULTI_USER: await readSwitch('MULTIUSER'),
         PMS_SYNC_CONFLICTS: await readSwitch('SYNCCONFLICTS'),
+        PMS_ARCHIVE_MODE: await readArchiveMode(),
         PMS_USER: await loggedInUser(req),
       };
       // JSON can hold "</script>"-like text in a name, so "<" is escaped as well.
@@ -2532,6 +2876,7 @@ const server = http.createServer(async (req, res) => {
       const type = url.searchParams.get('type');
       if (type === 'projects') return sendJson(res, 200, await incompatibleProjects());
       if (type === 'entities') return sendJson(res, 200, await incompatibleEntities());
+      if (type === 'events') return sendJson(res, 200, await incompatibleEvents());
       return sendJson(res, 404, { error: 'Page not found' });
     }
     if (url.pathname === '/api/networking') {
@@ -2549,7 +2894,8 @@ const server = http.createServer(async (req, res) => {
       const { read, body } = splitHelp(content || '');
       return sendJson(res, 200, { exists: content !== null, content: body, read, dateFormat: await readDateFormat() });
     }
-    if (url.pathname === '/api/commitments') return sendJson(res, 200, await readCommitmentList());
+    if (url.pathname === '/api/archive') return sendJson(res, 200, await readArchivePage());
+    if (url.pathname === '/api/incubator') return sendJson(res, 200, await readIncubatorPage());
     if (url.pathname === '/api/weekly-plan') return sendJson(res, 200, await collectWeeklyPlan());
     if (url.pathname === '/api/weekly-review') return sendJson(res, 200, await collectWeeklyReview());
     if (url.pathname === '/api/nav') return sendJson(res, 200, await collectNav());

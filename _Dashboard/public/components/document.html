@@ -121,8 +121,25 @@
   </div>
 </template>
 
+<!-- An event's date or Yes/No field, which has its own control rather than a text box. -->
+<template name="entry-value">
+  <div class="entry-field">
+    <dt>{{label}}</dt>
+    <dd class="entry-value{{#if invalid}} is-invalid{{/if}}"{{#if invalid}} title="Not a date the dashboard can read. Change it, or use Fix issues on Compatibility &gt; Events."{{/if}}>{{{body}}}</dd>
+  </div>
+</template>
+
+<template name="entry-date-edit"><button type="button" class="entry-date-button{{#if set}} is-set{{/if}}" data-event-date="{{label}}" title="{{action}}" aria-label="{{action}}"></button></template>
+
+<template name="entry-check"><button type="button" class="check-box{{#if on}} has-icon icon-done{{/if}}" role="checkbox" aria-checked="{{{checked}}}" data-event-check="{{label}}" aria-label="{{label}}"></button></template>
+
+<!-- Filters above the Events list, by how far each event has got. -->
+<template name="event-filters"><div class="chips event-filters" role="group" aria-label="Filter events">{{{chips}}}</div></template>
+
+<template name="event-filter"><button type="button" class="chip" data-event-filter="{{{key}}}" aria-pressed="{{{pressed}}}">{{label}} <span class="count">{{{count}}}</span></button></template>
+
 <template name="entry-card">
-  <section class="card scratch-block{{#if target}} is-target{{/if}}" data-entry="{{{index}}}">
+  <section class="card scratch-block{{#if target}} is-target{{/if}}{{#if progress}} is-{{{progress}}}{{/if}}" data-entry="{{{index}}}">
     <header class="entry-head">
       <h2 class="scratch-title"{{{attrs}}}>{{{title}}}</h2>
       <button type="button" class="row-remove" data-remove-entry title="Delete this {{noun}}" aria-label="Delete {{name}}"></button>

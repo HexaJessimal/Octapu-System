@@ -5,6 +5,11 @@
 
   const listEl = document.getElementById('list');
   const searchEl = document.getElementById('search');
+  // Archived folders are only listed, under their own filter, with ARCHIVEMODE FULL while
+  // SHOWARCHIVED is on. With HEADERS they're kept in _Archive.md, on the Archive Index page.
+  const keepsArchived = Boolean(window.PMS_SHOW_ARCHIVED) && window.PMS_ARCHIVE_MODE === 'FULL';
+  const archivedChip = document.querySelector('[data-filter="archived"]');
+  if (!keepsArchived && archivedChip) archivedChip.remove();
   const chips = Array.from(document.querySelectorAll('[data-filter]'));
 
   const STATUS_ORDER = { active: 0, inactive: 1, unknown: 2, archived: 3 };
@@ -17,7 +22,7 @@
     const params = new URLSearchParams(location.hash.slice(1));
     const filter = params.get('filter');
     return {
-      filter: ['all', 'active', 'inactive', 'archived'].includes(filter) ? filter : 'all',
+      filter: ['all', 'active', 'inactive'].concat(keepsArchived ? ['archived'] : []).includes(filter) ? filter : 'all',
       q: params.get('q') || '',
     };
   }
@@ -93,10 +98,14 @@
       directory = data.directory;
       document.getElementById('list-title').textContent = directory.name;
       document.title = directory.name + ' · Octapu System';
+      // A Date Closed archives a project whatever its folder is called.
+      const withStatus = (d) => {
+        const p = parseFolder(d.folder);
+        return d.closed && p.status !== 'archived' ? Object.assign(p, { status: 'archived', archivedOn: d.closed }) : p;
+      };
       projects = data.projects
-        .map((d) =>
-          Object.assign(parseFolder(d.folder), { files: d.files, ongoing: d.ongoing, milestones: markdown.parseMilestones(d.content).milestones })
-        )
+        .map((d) => Object.assign(withStatus(d), { files: d.files, ongoing: d.ongoing, milestones: markdown.parseMilestones(d.content).milestones }))
+        .filter((p) => keepsArchived || p.status !== 'archived')
         .sort(
           (a, b) =>
             STATUS_ORDER[a.status] - STATUS_ORDER[b.status] ||

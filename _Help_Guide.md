@@ -41,7 +41,7 @@ Select **Get started**. The dashboard creates the settings files it needs in the
 [[IMAGE#Screenshots/04-Homepage.png]]
 
 - **The tiles** along the top show your **Scheduled Projects** (those in a timeframe today), your open and inactive projects, how soon the next Review and Plan are due, and how many tasks are overdue.
-- **Timeline** charts your projects and commitments by month.
+- **Timeline** charts your projects by month, with your events and application deadlines as lines.
 - **Current plan, Due in the next 7 days, Priorities this month and Overdue tasks** sit below it.
 - **The left menu** takes you everywhere else. Review and Plan get a coloured outline when they're due.
 - **The Todos list** on the right stays on every page.
@@ -250,25 +250,20 @@ Your plan is saved in `_Time_Management/Plan.md`, and can be read back on the **
 
 [[IMAGE#Screenshots/35-CurrentFocusHighlights.png]]
 
-## Step 23: Add commitments to the timeline which are not project-specific
+## Step 23: Keep ideas in the Incubator
 
-Commitments are things that take up your time without being projects, such as a holiday or a shutdown. Open **Commitments** under Time Management and select the plus button to add one.
+The **Incubator**, near the top of the left menu, holds ideas that aren't projects yet. Select the plus button beside **New idea** and enter a title, the entity it's for, a project it depends on if any, and some notes. Ideas are kept in `_Incubator.md` in the main folder.
 
-[[IMAGE#Screenshots/36-NewCommitments.png]]
+Each idea has two buttons:
 
-On each card you can set:
+- **Promote to Project** asks when it will run and who owns it, and which projects folder to use if you have more than one. It then creates the project with your notes in it, and opens it.
+- **Archive Idea** puts the idea aside after asking.
 
-- **Priority** with the small tag: A, B or C. This sets its colour on the Timeline.
-- **Active Timeframe** with the pencil or plus button, choosing a start and end month.
-- **Project Dependency** if it relies on a project or another commitment.
-
-Double-click a name to change it. The minus button deletes a commitment after asking.
-
-[[IMAGE#Screenshots/37-Commitments.png]]
+Either way the idea leaves the page, but stays in the file.
 
 ## Step 24: View the timeline
 
-The Timeline is on the Dashboard's Overview tab. Projects are graded through the colours of their milestones, and commitments are one solid colour. A project with no milestones is shown as `N/A` in the key. Where one item depends on another, it sits underneath with an arrow joining them. Select any bar to open it.
+The Timeline is on the Dashboard's Overview tab. Projects are graded through the colours of their milestones, and a project with no milestones is shown as `N/A` in the key. The tick boxes above it show or hide **Active** and **Inactive** projects, and **Archive** ones while `SHOWARCHIVED` is ticked. Archived projects are green, the complete colour. **3 months**, **6 months** and **12 months** zoom the chart in and out. As you scroll sideways, rows with nothing within two months of the dates on screen are hidden, so the chart stays a sensible height however many years it covers. An event's application deadline is a cyan line until you've applied or it's booked. Its date is purple once it's booked, and grey until then. An event of several days has a line at each end, with a paler band between. Point at a line to see which event it is. Where one item depends on another, it sits underneath with an arrow joining them. Select any bar to open it.
 
 [[IMAGE#Screenshots/38-TimelineView.png]]
 
@@ -294,15 +289,20 @@ After saving, the name becomes a status control and the line appears in your Tod
 
 ## Step 27: Add a new lead contact
 
-Open **Leads** under Networking. Select the plus button beside **New contact** and enter a name. Then double-click any field on the card to fill it in.
+Open **Leads** in the left menu. Select the plus button beside **New contact** and enter a name. Then double-click any field on the card to fill it in.
 
 [[IMAGE#Screenshots/43-Leads.png]]
 
 ## Step 28: Add a new event
 
-Open **Events** under Networking and select the plus button beside **New event**. Enter a name, and choose which heading it goes under if you have more than one. Double-click the fields on the card to fill in the artist, date, venue, contact, details, payment and tasks.
+Open **Events** in the left menu and select the plus button beside **New event**, then enter a name. Double-click the fields on the card to fill in the artist, venue, contact, details, payment and tasks.
 
-An event moves to **Past events** at the bottom of the page once its date has gone by.
+- **Application Deadline** and **Event Date** have a plus button, or a pencil once they're set, that opens a calendar. Give an Event Date an end date too if the event runs over several days.
+- **Application Submitted** and **Booking Confirmed** are tick boxes. The card gets a light blue border once you've applied, and a purple one once it's booked, the same colours as on the Timeline.
+
+Use the filters at the top, **All**, **Not applied**, **Applied** and **Booked**, to see events at each stage.
+
+Events are listed under **Upcoming Events**, soonest first, and move to **Past Events** once their date has gone by. Headings in the file don't change this. If your events have dates you typed yourself, open **Compatibility > Events** and use **Fix issues** to turn them into dates the calendar understands.
 
 ## Step 29: Link a lead in an event and vice versa
 
@@ -332,7 +332,7 @@ A few details:
 - A name also finds a heading that adds something in brackets, so `Scott` finds `Scott (SWOLE)`.
 - A link that doesn't match anything is left as plain text.
 
-**Project Dependency** is written a little differently. It's the name of a project, or `COMMITMENT` followed by a commitment's name, such as `COMMITMENT Wintergrind Shutdown`.
+**Project Dependency** is written a little differently. It's the name of a project without its status sign or underscores, such as `LABEL Design A New Logo`.
 
 ## Step 31: View the options page
 
@@ -345,6 +345,7 @@ Open **Options** at the bottom of the left menu. The **General** tab holds:
 - `SHOWARCHIVED`: tick it to keep archived tasks visible on project and entity pages.
 - `SYNCCONFLICTS`: tick it to be warned about Syncthing conflicts, as described in Step 40.
 - `MULTIUSER`: tick it to log in and keep a Changelog of who changed what, as described in Step 40.
+- `ARCHIVEMODE`: what the **Archive** button on a project does, as described in Step 41.
 
 [[IMAGE#Screenshots/45-Options.png]]
 
@@ -378,7 +379,7 @@ The colours starting `print-` are only used when you print a generated report, d
 
 ## Step 35: Review project compatibility
 
-Under **Compatibility** in the left menu, the two pages check your entity and project files are in the format the dashboard expects. Each problem is coloured by what can be done about it:
+Under **Compatibility** in the left menu, the three pages check your entity, project and event files are in the format the dashboard expects. Each problem is coloured by what can be done about it:
 
 - **Accent colour:** a missing field, heading or entity file. Select **Fix issues** to add it automatically.
 - **Pink:** something you need to change by hand. This example is a directory listed in Options that doesn't exist yet.
@@ -388,6 +389,8 @@ Fix issues only ever adds what's missing and leaves everything else alone. Where
 
 - **Main file:** a project with no markdown file named after its title. Choose the file that should be the main one, and Fix issues renames it after the project.
 - **Owner:** a project whose Owner is missing, empty or not in your leaders. Choose who it belongs to, or leave it for now.
+
+On the **Events** page, Fix issues changes dates you typed yourself, such as `25.07.26` or `11-13.09.26`, into calendar dates. It also adds any missing Application Deadline, Event Date and tick box fields. A date with something else after it, such as a time, is listed for you to change on the Events page.
 
 [[IMAGE#Screenshots/50-ProjectCompatibility.png]]
 
@@ -404,7 +407,9 @@ Your files are organised like this:
 - `_Networking`: `Leads.md` and `Events.md`.
 - `_Catalogs`: a CSV file per catalog, named with its tag and name, such as `RLS_Record_Label_Studios.csv`. Step 39 shows how to use them.
 - `Projects`, and any other directory in `PROJECTS`: a folder per project.
-- `_Time_Management`: `Review.md`, `Plan.md` and `Commitments.md`.
+- `_Time_Management`: `Review.md` and `Plan.md`.
+- `_Incubator.md`: your ideas, from Step 23.
+- `_Archive.md`: the details of archived projects, from Step 41.
 
 A project's folder name holds its status, its entity and its title:
 
@@ -502,6 +507,15 @@ Either way, copy anything you want from the other version first. Conflict copies
 Each project, entity, Leads and Events page gets a **Changelog** tab. It lists every change made to that file through the dashboard, newest first, with who made it, which computer they used, and when. Added text is green and removed text is pink. For a changed line, the old text is shown crossed out in pink, with the new text in green below it.
 
 Changes are saved next to each file, such as `First album-change.LAPTOP.log`, with one log for each computer so that Syncthing never has two people writing to the same log. Changes are kept for twice the number of days set by `ROUNDUP`. Edits made in other apps, such as a text editor, aren't logged.
+
+## Step 41: Archive a finished project
+
+When a project is finished, select **Archive** at the top of its page and confirm. While `SHOWARCHIVED` is ticked, archived projects also appear on the Timeline in green. Its **Date Closed** is set to today, and it disappears from the Dashboard, the menu, the projects list, the Todos list and the Timeline. A project with a Date Closed always counts as archived.
+
+What else happens depends on `ARCHIVEMODE` on the **General** tab of **Options**:
+
+- **HEADERS**, the default, copies the project's dates, timeframe, dependency and owner into `_Archive.md` in the main folder, and leaves the folder alone. You can then move the folder off your computer, to a NAS say, and the record stays. Tick `SHOWARCHIVED` to see **Archive Index** in the left menu, which lists them. Its plus button adds an entry by hand, and the minus button removes one. Other projects can depend on an archived one, which shows in their Project Dependency list.
+- **FULL** renames the folder to start with today's date instead. Tick `SHOWARCHIVED` to list them under the **Archived** filter of the projects list.
 
 When you've finished the guide, tick **Mark as read** below it. The green outline around **Help Guide** in the left menu then goes away.
 
