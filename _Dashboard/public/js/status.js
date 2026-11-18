@@ -198,13 +198,15 @@
 
   const post = (url, ctrl, fields) => postJson(url, Object.assign({ folder: ctrl.dataset.folder, file: ctrl.dataset.file }, fields));
 
-  // Reloads every view, then puts keyboard focus back on the same control.
+  // Reloads every view, then puts keyboard focus back on the same control. The view stays
+  // where it was, even if the item has moved to another place in its list, such as when a
+  // new status re-sorts the Todos sidebar.
   async function reloadAndRefocus(ctrl, scope) {
     await Promise.all(listeners.map((fn) => fn()));
     const onLine = scope ? Array.from(scope.querySelectorAll('.status-control')).filter((c) => sameLine(c, ctrl)) : [];
     const again = onLine.find((c) => controlKind(c) === controlKind(ctrl)) || onLine[0];
     const button = again && again.querySelector('button:not([disabled])');
-    if (button) button.focus();
+    if (button) button.focus({ preventScroll: true });
   }
 
   async function sendEdit(ctrl, url, fields) {

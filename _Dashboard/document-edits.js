@@ -822,6 +822,12 @@ function editText(markdown, kind, line, from, to, statuses, owners) {
     if (!item || item.editText !== from) return null;
     return swapText(markdown, line, item.textAt, from, to);
   }
+  // The value of a "**Label**: value" field, such as an archive entry's. The label stays.
+  if (kind === 'value') {
+    const field = (visible[line - 1] || '').match(/^(\s*\*\*[^*]+(?:\*\*\s*:|:\*\*))\s*(.*?)\s*$/);
+    if (!field || field[2] !== from) return null;
+    return editLine(markdown, line, () => (field[1] + ' ' + to).trimEnd());
+  }
   return null;
 }
 

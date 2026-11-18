@@ -131,6 +131,7 @@ const FOCUS_FILE = path.join(TIME_MANAGEMENT_DIR, 'Plan.md');
 const ARCHIVE_FILE = path.join(ROOT_DIR, '_Archive.md');
 const INCUBATOR_FILE = path.join(ROOT_DIR, '_Incubator.md');
 const ARCHIVE_PREFIX = 'archive:'; // a Timeline row for an entry in _Archive.md
+const ARCHIVE_FOLDER = 'archive'; // how edits name _Archive.md
 const HELP_FILE = path.resolve(__dirname, '..', '_Help_Guide.md');
 const IMAGES_DIR = path.resolve(ROOT_DIR, '_Images');
 const IMAGE_TYPES = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp']);
@@ -869,6 +870,8 @@ async function changelogCutoff() {
 // The path of a project's or entity's markdown file, or null if there's no such file.
 // Folder and file must match real entries exactly, which blocks any path tricks.
 async function editableFile(folder, file) {
+  // _Archive.md, edited from the Archive Index.
+  if (folder === ARCHIVE_FOLDER) return file === path.basename(ARCHIVE_FILE) && (await readIfExists(ARCHIVE_FILE)) !== null ? ARCHIVE_FILE : null;
   if (folder.startsWith(NETWORKING_PREFIX)) {
     const page = networkingPage(folder.slice(NETWORKING_PREFIX.length));
     const full = page && page.file === file ? path.join(NETWORKING_DIR, file) : null;
@@ -1365,9 +1368,10 @@ const isFolder = (full) => fs.promises.stat(full).then((s) => s.isDirectory(), (
 const folderOwner = (name) => name.replace(STATUS_PREFIX, '').split('_')[0];
 
 // What's wrong with one of a project's files. An extra file is only held to the project
-// rules if it looks like it's meant to follow them.
+// rules if it looks like it's meant to follow them. Otherwise it's left alone, as notes and
+// other documents belong in a project's folder too.
 function projectFileProblems(project, file, content, { owners, leaders, taskLists }) {
-  if (file !== primaryFile(project) && !hasDashboardStructure(content, taskLists)) return [unknownMarkdown()];
+  if (file !== primaryFile(project) && !hasDashboardStructure(content, taskLists)) return [];
   return projectProblems(content, folderOwner(project.name), owners, leaders, taskLists, project.ongoing ? 'Ongoing' : 'Milestone');
 }
 
@@ -1585,6 +1589,11 @@ async function readArchivePage() {
   const entries = text === null ? [] : parseNamedEntries(text, ARCHIVE_FIELDS);
   const [owners, leaders, projects] = await Promise.all([readOwners(), readLeaders(), listProjects('milestone')]);
   return {
+    // Named like a document page's file, so the Raw view and double-click edits can save it.
+    folder: ARCHIVE_FOLDER,
+    file: path.basename(ARCHIVE_FILE),
+    content: text || '',
+    todos: [],
     location: path.basename(ARCHIVE_FILE),
     exists: text !== null,
     dateFormat: await readDateFormat(),
@@ -1594,6 +1603,9 @@ async function readArchivePage() {
     entries: entries.map(({ title, line, fields, notes }) => ({
       title,
       line,
+      // Each field's line and value as written, for editing. A field the entry hasn't got
+      // has no line.
+      raw: Object.fromEntries(Object.entries(fields).map(([key, f]) => [key, { line: f.line, value: f.value }])),
       created: fields.created.value,
       closed: fields.closed.value,
       timeframes: timeframeEntries(fields.timeframe.value),
@@ -2199,7 +2211,8 @@ async function isReservedBlock(folder, title) {
 
 async function saveText({ folder, file, kind, line, from, to }) {
   const text = to.trim();
-  const error = lineError(text);
+  // A field's value can be emptied; everything else needs some text.
+  const error = kind === 'value' && !text ? null : lineError(text);
   if (error) return { code: 400, body: { error } };
   if (kind === 'block' && (await isReservedBlock(folder, text))) return RESERVED_ERROR;
   const [statuses, owners] = await Promise.all([readStatuses(), readOwners()]);
@@ -2666,7 +2679,7 @@ const hasLine = (body) => inFile(body) && Number.isInteger(body.line) && body.li
 const isKeywordEdit = (body) => hasLine(body) && typeof body.to === 'string' && (typeof body.from === 'string' || body.from === null);
 const isPriorityEdit = (body) => hasLine(body) && typeof body.status === 'string' && (body.priority === null || PRIORITIES.includes(body.priority));
 const isTimeframeEdit = (body) => inFile(body) && typeof body.start === 'string' && typeof body.end === 'string';
-const EDITABLE_TEXT = ['title', 'milestone', 'block', 'todo', 'entry'];
+const EDITABLE_TEXT = ['title', 'milestone', 'block', 'todo', 'entry', 'value'];
 const isRawEdit = (body) => inFile(body) && typeof body.from === 'string' && typeof body.to === 'string';
 const isFieldEdit = (body) =>
   hasLine(body) && typeof body.from === 'string' && typeof body.to === 'string' && (body.label === null || typeof body.label === 'string');
