@@ -1,15 +1,31 @@
 // Archive Index: the entries in _Archive.md, one per project archived with ARCHIVEMODE
 // HEADERS. The Archive button on a project page adds to it, and so does the plus button
 // here, for a project archived by hand. The minus button removes an entry after asking.
+// Double-click an entry's name or a field to edit it. Raw shows and edits the whole file,
+// and Changelog appears in multi-user mode, as on the other document pages.
 (function () {
   'use strict';
-  const { status, escapeHtml, displayDate, displayDates, setDateFormat, normalText, hashReference, dependencyHref, markdown: md, component, getJson, postJson, loadError, UNREACHABLE, formDialog } = window.PMS;
+  const { status, editing, documentView, changes, setViewInAddress, escapeHtml, displayDate, displayDates, setDateFormat, normalText, hashReference, dependencyHref, markdown: md, component, getJson, postJson, loadError, UNREACHABLE, formDialog } = window.PMS;
 
   const contentEl = document.getElementById('content');
+  const toggles = Array.from(document.querySelectorAll('[data-view]'));
+  const DEFAULT_VIEW = 'index';
+  let view = changes.viewNames(['raw']).includes(new URLSearchParams(location.search).get('view')) ? new URLSearchParams(location.search).get('view') : DEFAULT_VIEW;
   let page = null;
 
+  function setView(next) {
+    editing.close();
+    view = next;
+    setViewInAddress(view, DEFAULT_VIEW);
+    draw();
+  }
+
+  toggles.forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
+
   const option = (value, label, selected) => component('option', { value, label, selected: Boolean(selected) });
-  const field = (label, value) => component('archive-field', { label, value: value || 'Not set' });
+  // A field shows its value as read, and edits the value as written in the file. A field the
+  // entry hasn't got can only be added in Raw.
+  const field = (label, value, raw) => component('archive-field', { label, value: value || 'Not set', attrs: raw && raw.line ? editing.attrs('value', raw.line, raw.value) : '' });
 
   function card(entry, index) {
     const dependency = entry.target ? component('link', { href: dependencyHref(entry.target), label: entry.dependency }) : escapeHtml(entry.dependency);
@@ -18,19 +34,28 @@
       index,
       target: normalText(entry.title) === normalText(hashReference()),
       title: md.inline(entry.title),
+      attrs: editing.attrs('block', entry.line, entry.title),
       name: entry.title,
       fields: [
-        field('Date Created', escapeHtml(displayDate(entry.created))),
-        field('Date Closed', escapeHtml(displayDate(entry.closed))),
-        field('Active Timeframe', escapeHtml(entry.timeframes.map(displayDates).join(', '))),
-        field('Project Dependency', dependency),
-        field('Owner', escapeHtml(leader ? leader.name : entry.owner)),
+        field('Date Created', escapeHtml(displayDate(entry.created)), entry.raw.created),
+        field('Date Closed', escapeHtml(displayDate(entry.closed)), entry.raw.closed),
+        field('Active Timeframe', escapeHtml(entry.timeframes.map(displayDates).join(', ')), entry.raw.timeframe),
+        field('Project Dependency', dependency, entry.raw.dependency),
+        field('Owner', escapeHtml(leader ? leader.name : entry.owner), entry.raw.owner),
       ].join(''),
       notes: entry.notes ? md.inline(entry.notes) : '',
     });
   }
 
   function draw() {
+    toggles.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === view)));
+    if (!page || editing.isOpen()) return;
+    changes.cancelChangelog();
+    if (view === 'changelog') return changes.drawChangelog(page, contentEl);
+    if (view === 'raw') {
+      contentEl.innerHTML = page.exists ? documentView.renderRaw(page) : component('empty-card', { message: page.location + " doesn't exist yet. Archiving a project creates it." });
+      return;
+    }
     // Newest first, as each one is added at the end of the file.
     const entries = page.entries.map((entry, index) => ({ entry, index })).reverse();
     const list = entries.length
@@ -86,6 +111,8 @@
     }
   }
 
+  editing.init({ project: () => page, redraw: draw });
+
   contentEl.addEventListener('click', (e) => {
     if (e.target.closest('[data-add-entry]')) return askForEntry();
     const remove = e.target.closest('[data-remove-archive]');
@@ -99,11 +126,14 @@
         status.setHeaderOptions([], [], data.dateFormat); // the date fields' placeholder
         page = data;
         draw();
+        changes.showConflicts(page);
       })
       .catch((err) => {
         contentEl.innerHTML = loadError('the archive', err);
       });
   }
 
+  // Saving an edit reloads every view.
+  status.onChange(load);
   load();
 })();

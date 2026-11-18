@@ -13,7 +13,13 @@
       <main class="wrap">
         <header class="topbar">
           <h1>Archive Index</h1>
+          <div class="toggle" role="group" aria-label="View mode">
+            <button type="button" data-view="index" aria-pressed="true">Index</button>
+            <button type="button" data-view="raw" aria-pressed="false">Raw</button>
+            <button type="button" data-view="changelog" aria-pressed="false" hidden>Changelog</button>
+          </div>
         </header>
+        <div id="conflicts"></div>
         <div id="content"></div>
       </main>
       <aside class="sidebar" id="todo-sidebar" aria-label="Todos"></aside>
@@ -25,6 +31,9 @@
     <script src="js/markdown.js"></script>
     <script src="js/status.js"></script>
     <script src="js/nav.js"></script>
+    <script src="js/edit.js"></script>
+    <script src="js/document-view.js"></script>
+    <script src="js/changes.js"></script>
     <script src="js/archive.js"></script>
     <script src="js/sidebar.js"></script>
   </body>

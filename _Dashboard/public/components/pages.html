@@ -132,7 +132,7 @@
 <template name="archive-card">
   <section class="card scratch-block{{#if target}} is-target{{/if}}" data-archive="{{{index}}}">
     <header class="entry-head">
-      <h2 class="scratch-title">{{{title}}}</h2>
+      <h2 class="scratch-title"{{{attrs}}}>{{{title}}}</h2>
       <button type="button" class="row-remove" data-remove-archive title="Remove this entry" aria-label="Remove {{name}}"></button>
     </header>
     <dl class="entry-fields">{{{fields}}}</dl>
@@ -140,7 +140,7 @@
   </section>
 </template>
 
-<template name="archive-field"><div class="entry-field"><dt>{{label}}</dt><dd>{{{value}}}</dd></div></template>
+<template name="archive-field"><div class="entry-field"><dt>{{label}}</dt><dd{{{attrs}}}>{{{value}}}</dd></div></template>
 
 <template name="legend-depends"><span><b class="legend-arrow" aria-hidden="true"></b>Depends on</span></template>
 

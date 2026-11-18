@@ -446,7 +446,7 @@ Each file then gets its own tab, on every tab of the page, with the main file fi
 
 [[IMAGE#Screenshots/54-NewMarkdownView.png]]
 
-If Compatibility lists a file you've added as **Unknown markdown**, it's only a reminder that the file doesn't use any of the dashboard's fields or headings. It still works.
+A file you add to a project doesn't need any of the dashboard's fields or headings, and Compatibility leaves it alone. In an entity's folder it's listed as **Unknown markdown**, but that's only a reminder that it doesn't use them. It still works.
 
 ## Read your report and save it
 
@@ -536,7 +536,7 @@ When a project is finished, select **Archive** at the top of its page and confir
 
 What else happens depends on `ARCHIVEMODE` on the **General** tab of **Options**:
 
-- **HEADERS**, the default, copies the project's dates, timeframe, dependency and owner into `_Archive.md` in the main folder, and leaves the folder alone. You can then move the folder off your computer, to a NAS say, and the record stays. Tick `SHOWARCHIVED` to see **Archive Index** in the left menu, which lists them. Its plus button adds an entry by hand, and the minus button removes one. Other projects can depend on an archived one, which shows in their Project Dependency list.
+- **HEADERS**, the default, copies the project's dates, timeframe, dependency and owner into `_Archive.md` in the main folder, and leaves the folder alone. You can then move the folder off your computer, to a NAS say, and the record stays. Tick `SHOWARCHIVED` to see **Archive Index** in the left menu, which lists them. Its plus button adds an entry by hand, and the minus button removes one. Double-click an entry's name or any of its details to change it, or use the **Raw** tab to edit the whole file. Other projects can depend on an archived one, which shows in their Project Dependency list.
 - **FULL** renames the folder to start with today's date instead. Tick `SHOWARCHIVED` to list them under the **Archived** filter of the projects list.
 
 [[IMAGE#Screenshots/72-ArchiveIndex.png]]
