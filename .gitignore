@@ -1,0 +1,9 @@
+# Per-computer change logs written in MULTIUSER mode. They name the computer and the people
+# who made each change, so they stay with your own copy.
+*-change.*.log
+
+# Syncthing's conflict copies and its own files.
+*.sync-conflict-*
+.stfolder/
+.stignore
+.stversions/

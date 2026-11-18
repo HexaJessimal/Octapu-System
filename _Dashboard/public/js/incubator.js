@@ -16,8 +16,8 @@
       name: idea.name,
       owner: idea.ownerName || idea.ownerId,
       dependency: idea.dependency || 'None',
-      // Shown line by line, with inline formatting, as the notes are free text.
-      notes: idea.notes ? idea.notes.split('\n').map(md.inline).join('<br>') : '',
+      // Inline formatting line by line, with the line breaks kept by the idea-notes style.
+      notes: idea.notes ? idea.notes.split('\n').map(md.inline).join('\n') : '',
     });
   }
 

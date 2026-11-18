@@ -15,6 +15,22 @@
     read = data.read;
     const guide = component('doc-article', { body: md.render(data.content) });
     contentEl.innerHTML = component('card-stack', { items: guide + component('help-read', { read, checked: String(read) }) });
+    contentEl.querySelector('.doc').classList.add('zoomable-images');
+    addContents();
+  }
+
+  // A contents list under the guide's title, linking to each ## heading. It's built from the
+  // headings as shown, so the markdown file doesn't need one, and the PDF printed from this
+  // page keeps the links.
+  function addContents() {
+    const doc = contentEl.querySelector('.doc');
+    const headings = doc ? Array.from(doc.querySelectorAll('h2[id]')) : [];
+    if (!headings.length) return;
+    const items = headings.map((h) => component('help-contents-item', { id: h.id, label: h.textContent })).join('');
+    const title = doc.querySelector('h1');
+    const box = component('help-contents', { items });
+    if (title) title.insertAdjacentHTML('afterend', box);
+    else doc.insertAdjacentHTML('afterbegin', box);
   }
 
   function load() {
@@ -25,7 +41,19 @@
       });
   }
 
+  // A screenshot opens full size in a popup. Clicking it, or the space around it, closes it
+  // again, as does Escape.
+  function openImage(img) {
+    const dialog = window.PMS.element('image-viewer', { src: img.currentSrc || img.src, alt: img.alt });
+    dialog.addEventListener('click', (e) => {
+      if (e.target === dialog) dialog.close();
+    });
+    window.PMS.openDialog(dialog);
+  }
+
   contentEl.addEventListener('click', async (e) => {
+    const img = e.target.closest('.doc img');
+    if (img) return openImage(img);
     if (!e.target.closest('[data-help-read]')) return;
     try {
       const result = await postJson('api/help-read', { read: !read });

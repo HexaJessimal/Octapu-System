@@ -16,7 +16,8 @@
       return { name: row.name, href: row.id ? 'entity.html?id=' + encodeURIComponent(row.id) : null, pill: '' };
     }
     if (!row.folder) return { name: row.name, href: null, pill: '' }; // a directory named in Options.csv
-    const project = parseFolder(row.folder);
+    // A Date Closed archives a project whatever its folder is called.
+    const project = Object.assign(parseFolder(row.folder), row.archived ? { status: 'archived' } : {});
     return {
       name: project.title,
       href: 'project.html?folder=' + encodeURIComponent(row.folder),

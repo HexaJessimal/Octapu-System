@@ -44,7 +44,31 @@
 
   // Left out of the saved file: what only works inside the dashboard (hover layers, menus, and
   // add, drag and collapse buttons), and the table of every report, which stays on the tab.
-  const LEFT_OUT = '.chart-tip, .chart-crosshair, .chart-hit, .report-actions, .add-button, .status-caret, .check-caret, [data-drag], .collapse-button, .report-table';
+  const LEFT_OUT = '.chart-tip, .chart-crosshair, .chart-hit, .report-actions, .add-button, .status-caret, .check-caret, [data-drag], .collapse-button, .report-table, .gantt-toolbar, .gantt-none';
+
+  // The Timeline hides rows away from the months on screen, so for the copy it shows every
+  // row and redraws its arrows, then goes back. That needs the Overview laid out, so a
+  // hidden Overview is laid out unseen while the copy is made.
+  function overviewCopy() {
+    const panel = panels.overview;
+    const wasHidden = panel.hidden;
+    if (wasHidden) {
+      panel.style.visibility = 'hidden';
+      panel.style.position = 'absolute';
+      panel.hidden = false;
+    }
+    window.dispatchEvent(new Event('pms:report-start'));
+    try {
+      return staticCopy(panel);
+    } finally {
+      window.dispatchEvent(new Event('pms:report-end'));
+      if (wasHidden) {
+        panel.hidden = true;
+        panel.style.visibility = '';
+        panel.style.position = '';
+      }
+    }
+  }
 
   // A tab as it looks now, made static: links lose their address, as the pages they point to
   // aren't in the file.
@@ -69,7 +93,7 @@
         title: 'Octapu System report',
         generated: displayDate(today),
         stylesheet: 'data:text/css;charset=utf-8,' + encodeURIComponent((await withIcons(css, sheet)) + '\n' + colours),
-        overview: staticCopy(panels.overview),
+        overview: overviewCopy(),
         report: staticCopy(panels.report),
       });
       const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));

@@ -250,7 +250,7 @@ function stripComments(markdown) {
 const LINE_OPENER = /^(?:\s+|>\s*|#{1,6}\s+|[-*+]\s+|\d+[.)]\s+|\[[ xX/-]\](?:\s+|$)|\*\*|__|\*(?=\S)|_(?=\S))/;
 
 // Matches any of `names` at the start of a string. Case-sensitive and whole-word, so
-// "Jessie has…" and "HOME_DIR" are not keywords. Returns null if there are no names.
+// "Alex has…" and "HOME_DIR" are not keywords. Returns null if there are no names.
 function keywordRegex(names) {
   if (!names.length) return null;
   const alternatives = [...names]

@@ -2,7 +2,7 @@
 // Each edit checks the text it replaces is still there, and returns null if it isn't.
 'use strict';
 
-const { PLANNING_LINE, setPlanningDate, PRIORITIES, stripComments, titleIndex, findField, setHeaderField, editLine, insertLine, createMatcher, scanLines, parseHeader } = require('./todos');
+const { PLANNING_LINE, setPlanningDate, stripComments, titleIndex, findField, setHeaderField, editLine, insertLine, createMatcher, scanLines, parseHeader } = require('./todos');
 
 const HEADER_FIELD = /^\s*\*\*[^*]+\*\*\s*:/;
 // Project files also write these with the colon inside the bold. Other files keep such lines

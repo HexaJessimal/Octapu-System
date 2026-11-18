@@ -97,10 +97,10 @@
     });
     // [text](url)
     s = s.replace(/\[([^\]]+)\]\(((?:[^()\s]|\([^()\s]*\))+)\)/g, (_, label, url) =>
-      hold(component('md-link', { href: safeUrl(url), label: formatEmphasis(global.PMS.displayDates(label)) }))
+      hold(component('md-link', { href: safeUrl(url), external: !safeUrl(url).startsWith('#'), label: formatEmphasis(global.PMS.displayDates(label)) }))
     );
     // bare URLs
-    s = s.replace(/\bhttps?:\/\/[^\s<]+[^\s<.,;:!?)'"\]]/g, (url) => hold(component('md-link', { href: url, label: url })));
+    s = s.replace(/\bhttps?:\/\/[^\s<]+[^\s<.,;:!?)'"\]]/g, (url) => hold(component('md-link', { href: url, external: true, label: url })));
     // [!info], as used to start a callout
     s = s.replace(/\[!info\]/gi, () => hold(component('md-info')));
     if (status) {

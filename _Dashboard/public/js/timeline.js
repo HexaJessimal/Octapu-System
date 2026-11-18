@@ -264,13 +264,25 @@
     let shown = 0;
     scroller.querySelectorAll('.gantt-project').forEach((el) => {
       const row = drawnRows[Number(el.dataset.row)];
-      const near = row.bars.some((bar) => bar.last >= first && bar.first <= last);
+      const near = showEverything || row.bars.some((bar) => bar.last >= first && bar.first <= last);
       el.hidden = !near;
       if (near) shown++;
     });
     document.getElementById('gantt-none').hidden = shown > 0 || !drawnRows.length;
     drawArrows(drawnRows);
   }
+
+  // Generate report copies the chart as it looks, so it asks for every row (and its arrows)
+  // while it makes the copy, then for the usual view again.
+  let showEverything = false;
+  window.addEventListener('pms:report-start', () => {
+    showEverything = true;
+    showNearbyRows();
+  });
+  window.addEventListener('pms:report-end', () => {
+    showEverything = false;
+    showNearbyRows();
+  });
 
   let pending = false;
   function onScroll() {

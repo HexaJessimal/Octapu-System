@@ -6,7 +6,8 @@
 
 <template name="md-code"><code>{{{code}}}</code></template>
 
-<template name="md-link"><a href="{{{href}}}" target="_blank" rel="noopener noreferrer">{{{label}}}</a></template>
+<!-- Links to elsewhere on the page, such as the Help Guide's headings, stay in the same tab. -->
+<template name="md-link"><a href="{{{href}}}"{{#if external}} target="_blank" rel="noopener noreferrer"{{/if}}>{{{label}}}</a></template>
 
 <template name="md-info"><span class="info-icon" role="img" aria-label="Info"></span></template>
 

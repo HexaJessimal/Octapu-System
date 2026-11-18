@@ -115,6 +115,7 @@ const DEVICE = cleanDevice(os.hostname());
 const requestContext = new AsyncLocalStorage();
 const USER_COOKIE = 'pms_user';
 
+const VERSION = '0.5';
 const HOST = process.env.PMS_HOST || '127.0.0.1';
 const PORT = Number(process.env.PMS_PORT) || 4173;
 
@@ -1252,6 +1253,8 @@ function saveNewEntry(body) {
   const page = pageOfFolder(body.folder);
   if (!page) return NOT_FOUND;
   if (page.section && !page.section.test(body.section)) return { code: 400, body: { error: 'Invalid request' } };
+  // An entry goes under a `##` heading, so a file with none can't take one yet.
+  if (!body.section) return { code: 400, body: { error: `${page.file} needs a ## heading to add ${page.noun}s under.` } };
   // Fields with their own controls start on one line, with Yes/No ones set to No.
   const labels = page.fields.map((f) => (f.kind ? { line: f.kind === 'yesno' ? `**${f.label}**: No` : `**${f.label}**:` } : f.label));
   return addNamed(body, body.title, (content, text) => addEntry(content, page.level, body.section, text, labels));
@@ -1385,7 +1388,7 @@ async function incompatibleProjects() {
       // main file's row offers the folder's files to choose from.
       const missing = file === main && missingMainFile(project);
       if (missing) problems.unshift(missing);
-      if (problems.length) rows.push({ folder, directory, file, additional: file !== main, files: missing && missing.kind === 'fixable' ? project.files : undefined, problems });
+      if (problems.length) rows.push({ folder, directory, file, additional: file !== main, archived: isArchived(project), files: missing && missing.kind === 'fixable' ? project.files : undefined, problems });
     }
   }
   for (const dir of parseProjectDirs(await readOptions())) {
@@ -1683,6 +1686,11 @@ async function archiveProject({ folder }) {
   const renamed = `${today}_${project.name.replace(STATUS_PREFIX, '')}`;
   const target = path.join(path.dirname(project.fullPath), renamed);
   if (mode === 'FULL' && (await isFolder(target))) return { code: 409, body: { error: `A folder called "${renamed}" already exists, so nothing was changed.` } };
+  // Two entries with one title would leave dependencies on it pointing at the first.
+  const entryTitle = `${folderOwner(project.name)} ${projectTitle(project.name)}`;
+  if (mode === 'HEADERS' && (await readArchive()).some((e) => dependencyKey(e.title) === dependencyKey(entryTitle))) {
+    return { code: 409, body: { error: `_Archive.md already has an entry called "${entryTitle}", so nothing was changed. Remove or rename it on the Archive Index first.` } };
+  }
 
   const file = primaryFile(project);
   const result = await updateProjectFile(folder, file, (content) => setDateField(content, 'closed', today));
@@ -1691,7 +1699,7 @@ async function archiveProject({ folder }) {
   if (mode === 'HEADERS') {
     const content = await readProjectFile(project, file);
     const header = parseHeader(content, []);
-    await appendNamedEntry(ARCHIVE_FILE, 'Archive', `${folderOwner(project.name)} ${projectTitle(project.name)}`, archiveLines({
+    await appendNamedEntry(ARCHIVE_FILE, 'Archive', entryTitle, archiveLines({
       created: createdValue(content),
       closed: today,
       timeframe: header.timeframe.value,
@@ -2697,10 +2705,11 @@ const isPlanningEdit = (body) =>
   hasLine(body) && (typeof body.status === 'string' || body.status === null) && typeof body.text === 'string' && ['SCHEDULED', 'DEADLINE'].includes(body.kind) && typeof body.date === 'string';
 const isTypeChange = (body) => inFile(body) && typeof body.type === 'string';
 const isFolderRequest = ({ folder }) => typeof folder === 'string';
-const isIdeaRow = ({ line, title }) => Number.isInteger(line) && line >= 1 && typeof title === 'string';
+// An entry in _Incubator.md or _Archive.md, found by its heading's line and title.
+const isNamedEntryRow = ({ line, title }) => Number.isInteger(line) && line >= 1 && typeof title === 'string';
 const isArchiveEntry = (body) => ['owner', 'title', 'created', 'closed', 'start', 'end', 'dependency', 'leader'].every((k) => typeof body[k] === 'string');
 const isNewIdea = (body) => ['title', 'owner', 'dependency', 'notes'].every((k) => typeof body[k] === 'string');
-const isPromotion = (body) => isIdeaRow(body) && ['start', 'end', 'leader'].every((k) => typeof body[k] === 'string') && (body.directory === undefined || typeof body.directory === 'string');
+const isPromotion = (body) => isNamedEntryRow(body) && ['start', 'end', 'leader'].every((k) => typeof body[k] === 'string') && (body.directory === undefined || typeof body.directory === 'string');
 const isEventField = (body) =>
   Number.isInteger(body.line) && typeof body.title === 'string' && typeof body.label === 'string' && ['start', 'end', 'value'].every((k) => body[k] === undefined || typeof body[k] === 'string');
 const isCompatibilityFix = ({ type, key, file, main, owner }) =>
@@ -2788,9 +2797,9 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/project-archive' && req.method === 'POST') return handleEdit(req, res, isFolderRequest, archiveProject);
     if (url.pathname === '/api/event-field' && req.method === 'POST') return handleEdit(req, res, isEventField, saveEventField);
     if (url.pathname === '/api/incubator' && req.method === 'POST') return handleEdit(req, res, isNewIdea, saveIdea);
-    if (url.pathname === '/api/incubator-archive' && req.method === 'POST') return handleEdit(req, res, isIdeaRow, archiveIdea);
+    if (url.pathname === '/api/incubator-archive' && req.method === 'POST') return handleEdit(req, res, isNamedEntryRow, archiveIdea);
     if (url.pathname === '/api/archive-entry' && req.method === 'POST') return handleEdit(req, res, isArchiveEntry, saveArchiveEntry);
-    if (url.pathname === '/api/archive-remove' && req.method === 'POST') return handleEdit(req, res, isIdeaRow, removeArchiveEntry);
+    if (url.pathname === '/api/archive-remove' && req.method === 'POST') return handleEdit(req, res, isNamedEntryRow, removeArchiveEntry);
     if (url.pathname === '/api/incubator-promote' && req.method === 'POST') return handleEdit(req, res, isPromotion, promoteIdea);
     if (url.pathname === '/api/help-read' && req.method === 'POST') return handleEdit(req, res, isHelpRead, setHelpRead);
     if (url.pathname === '/api/weekly-focus' && req.method === 'POST') return handleEdit(req, res, isFocusSubmit, submitWeeklyFocus);
@@ -2980,7 +2989,7 @@ createMissingFolders()
   .catch((err) => console.error('Could not create the starting folders:', err.message))
   .finally(() => {
     server.listen(PORT, HOST, () => {
-      console.log(`Octapu System Dashboard running at http://${HOST}:${PORT}`);
+      console.log(`Octapu System ${VERSION} running at http://${HOST}:${PORT}`);
       console.log(`Reading projects from the directories named in ${OPTIONS_FILE}`);
     });
   });

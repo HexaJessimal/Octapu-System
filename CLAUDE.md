@@ -8,12 +8,12 @@ The README is the user-facing reference. Its sections on file layout, code organ
 - `node _Dashboard/server.js` → http://127.0.0.1:4173 (`PMS_PORT`, `PMS_HOST` env vars). No `npm install`; there is no package.json.
 - There's no test suite. Verify by running the server and exercising the page or API (curl the `/api/*` routes; POSTs need `Content-Type: application/json` and a matching `Origin`).
 - The repo *is* the user's live data. Test against a copy (e.g. `tar` the folder, minus `.git`, into the scratchpad and run there on another `PMS_PORT`), so edits, change logs and conflict files don't land in real files.
-- Platform: the user works on Windows (Git Bash + PowerShell). Python is **not** installed; use node for scripts.
+- Developed on Windows (Git Bash + PowerShell). Python isn't assumed; use node for scripts.
 
 ## Hard rules / conventions
 - **Zero dependencies.** Node built-ins only on the server, plain browser JS (IIFE per file, `'use strict'`) on the client. No build step, no frameworks, no CDN.
 - **Data folders vs app**: `_Entities/`, `Projects/` (and any other dir named in `PROJECTS`), `_Networking/`, `_Time_Management/`, `_Catalogs/`, `_Labels/`, `_Images/`, `_Help_Guide.md`, `_Incubator.md`, `_Archive.md` are user data. `_Dashboard/` is the app. `_Dashboard/defaults/` holds the shipped Help Guide, screenshots, logo and colours, which are copied in only if missing.
-- **Help Guide is duplicated**: `_Help_Guide.md` (root, the user's copy, which has a "Mark as read" tick) and `_Dashboard/defaults/_Help_Guide.md`. Doc changes go in both. Update README too.
+- **Help Guide is duplicated**: `_Help_Guide.md` (root, the user's copy, which has a "Mark as read" tick) and `_Dashboard/defaults/_Help_Guide.md`. Doc changes go in both. Update README too. Screenshots live in `_Dashboard/defaults/Screenshots/` and `_Images/Screenshots/` (same names). They were last made (2026-11) by driving headless Chrome over the DevTools protocol from a throwaway node script against a seeded scratch copy, with `os.hostname` overridden so no real computer name shows. `HelpGuide.pdf` in the root is printed from the rendered help page the same way (Chrome `Page.printToPDF`: logo/title header, faint logo watermark, no sidebars or Mark as read). Regenerate it whenever the guide or its screenshots change. The guide's headings have no step numbers: the help page builds a numbered contents list from its `##` headings (`addContents` in `js/help.js`), and cross-references are `[Heading](#slug)` links (slug as `markdown.js` `slug()`). `md-link` only opens a new tab for links that don't start with `#`.
 - Comments are short, plain English, explaining *why*. Match the existing style; the user cares about tidy, readable code.
 - User-visible text uses British spelling (colour, organise).
 
@@ -38,9 +38,10 @@ The README is the user-facing reference. Its sections on file layout, code organ
 - **HTML only in templates**: `public/components/*.html` `<template name="…">`. Use `{{x}}` for escaped values, `{{{x}}}` for raw HTML and `{{#if x}}…{{else}}…{{/if}}` for optional markup. Newlines and indentation are stripped. Render with `PMS.component(name, data)`.
 - Document pages (`project.html`, `entity.html`, `networking.html`) share `js/document-view.js`. Each has a `[data-view]` toggle (Overview/List, Scratchpad, Raw, Changelog) and a `draw()` that renders the current view into `#content`. The loaded doc object carries `folder` and `file`.
 - `js/changes.js` (`PMS.changes`) provides the Syncthing conflict warning (`#conflicts` above `#content`) and the Changelog view for those pages.
-- `js/timeline.js`: zoom (3/6/12 months, `pms.timeline.zoom`) sets `--gantt-month` from the scroller width; `showNearbyRows` hides rows with no bar within 2 months of the months on screen, on scroll, and arrows only join visible rows. `.gantt-row[hidden]` needs its own display:none.
+- `js/timeline.js`: zoom (3/6/12 months, `pms.timeline.zoom`) sets `--gantt-month` from the scroller width; `showNearbyRows` hides rows with no bar within 2 months of the months on screen, on scroll, and arrows only join visible rows.
 - `js/nav.js` is the left menu, which shows the logged-in user and Log out when MULTIUSER is on. `js/status.js` holds the status controls plus `status.refresh()` / `status.onChange()` for reloading after edits.
-- Styling: `public/css/style.css`, using CSS variables (`--green`, `--pink`, `--orange`, `--yellow`, `--accent`, `--surface`, `--border`, `--text-soft`, …).
+- Styling: `public/css/style.css`, using CSS variables (`--green`, `--pink`, `--orange`, `--yellow`, `--accent`, `--surface`, `--border`, `--text-soft`, …). A global `[hidden] { display: none !important }` means the hidden attribute always wins over a rule that sets display.
+- Generate report (`js/dashboard.js`) clones the Overview; it fires `pms:report-start`/`pms:report-end` so the Timeline shows every row (and redraws arrows) for the copy.
 
 ## Multi-user and Syncthing (added 2026-11)
 - NAS read/write modes were considered and **rejected**: Syncthing handles sharing files between machines. Don't reintroduce network-path options.

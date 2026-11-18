@@ -70,7 +70,8 @@
     draw();
   }
 
-  const passes = (entry) => filter === 'all' || entry.progress === filter;
+  // Leads have no progress, so the filter only applies on the Events page.
+  const passes = (entry) => page !== 'events' || filter === 'all' || entry.progress === filter;
 
   function filterChips() {
     const all = doc.sections.flatMap((s) => s.entries).concat(doc.past);

@@ -1,5 +1,7 @@
 # Octapu System Dashboard
 
+Version 0.5
+
 A small, self-contained dashboard for the markdown-driven project management system in this folder. Markdown files are the source of truth, so you can keep editing them in any text editor. The dashboard only changes them when you make an edit in it.
 
 - **No build step.** There's nothing to compile or bundle.
@@ -106,7 +108,7 @@ The sidebar on the left appears on every page:
 - **Leads** and **Events:** described under Networking below.
 - **Compatibility:** `Entities`, `Projects` and `Events`, described below.
 - **Options:** tabs for general settings (`_Labels/Options.csv`), statuses, leaders and colours, described below.
-- **Help Guide:** a step by step guide to the dashboard, from `_Help_Guide.md` in the main folder. Edit that file and refresh to change it. Until it's marked as read, the menu link has a green outline. The **Mark as read** checkbox below the guide is the `- [ ] Mark as read` line at the bottom of the file, which ticking it changes. If the line is missing, ticking the box adds it.
+- **Help Guide:** a step by step guide to the dashboard, from `_Help_Guide.md` in the main folder, with a numbered contents list under its title linking to each `##` heading. A link written as `[text](#heading-name)` goes to a heading on the same page, and stays in the same tab. Select a screenshot to see it full size in a popup, and select it again, or press Escape, to close it. Edit that file and refresh to change it. Until it's marked as read, the menu link has a green outline. The **Mark as read** checkbox below the guide is the `- [ ] Mark as read` line at the bottom of the file, which ticking it changes. If the line is missing, ticking the box adds it.
 
 ### Overview tab
 
@@ -181,7 +183,7 @@ The **Report** tab draws the file:
 
 Point at or tab to a chart to show a line across it at that review, with every value it shows. The charts take their colours from `_Labels/Colours.csv`, matching what each colour means elsewhere: green for done, orange for assigned, yellow for waiting, grey for unassigned and pink for overdue.
 
-**Generate report** saves a single HTML file, named with today's date, holding the Overview and Report tabs as they look at that moment. The table of every report stays on the tab and isn't included. The styles and icons are inside it, so it opens in any browser with the dashboard closed, and can be emailed or kept. Links, menus, hover readouts and the add, drag and collapse buttons are left out, as they only work inside the dashboard. Printing it, including to PDF, uses dark text on white, from the `print-` colours in `_Labels/Colours.csv`, and shows the whole Timeline.
+**Generate report** saves a single HTML file, named with today's date, holding the Overview and Report tabs as they look at that moment. The table of every report stays on the tab and isn't included. The styles and icons are inside it, so it opens in any browser with the dashboard closed, and can be emailed or kept. Links, menus, hover readouts, the add, drag and collapse buttons, and the Timeline's tick boxes and zoom buttons are left out, as they only work inside the dashboard. The Timeline in the file shows every row, not only those near the months on screen. Printing it, including to PDF, uses dark text on white, from the `print-` colours in `_Labels/Colours.csv`, and shows the whole Timeline.
 
 ### Archiving a project
 
@@ -292,6 +294,40 @@ Octapu doesn't copy files between computers. Keep the folder in sync with Syncth
 
 - **`SYNCCONFLICTS`**: when Syncthing keeps two versions of a file, it names the other one like `Plan.sync-conflict-20261117-101500-ABCDEF7.md`. With this on, a **Sync conflict** box at the top of the project, entity, Leads or Events page shows how the two differ. **Keep current** deletes the copy. **Use this version** saves the copy over the file, then deletes the copy. Conflict copies are never listed as project or entity files.
 - **`MULTIUSER`**: each page asks you to log in first, by choosing your name from `_Labels/Leaders.csv`. Your choice is kept in a browser cookie, and **Log out** sits at the bottom of the left menu. There are no passwords, because this identifies who made a change rather than securing anything. Every markdown change made through the dashboard is added to a log next to the file, named `<file name>-change.<computer name>.log`. The computer name is the server's hostname. There's one log per computer, so Syncthing never sees two machines writing the same log. Each log entry has the time, user and computer, then one line per changed line: `+` added, `-` removed, `~-` changed from and `~+` changed to, each with its line number. Entries older than twice `ROUNDUP` days are removed whenever the log is written. The **Changelog** tab on project, entity, Leads and Events pages merges every computer's log for that file, newest first. Changes made in other apps aren't logged.
+
+##### Recommended Syncthing setup
+
+The system works best combined with Syncthing, especially with `ARCHIVEMODE` set to `HEADERS`. Our recommended setup keeps the whole Octapu-System folder on a NAS drive or local server, shared as the primary **Send & Receive** folder, with these ignore patterns set on the NAS only (Syncthing's **Ignore Patterns** tab, saved as `.stignore`). Syncthing never sends an ignored file, so each computer only ever receives the files the patterns allow, without needing patterns of its own. Don't add the patterns to the computers as well, and connect each computer to the NAS rather than to each other, as computers sharing directly would sync everything between them.
+
+Sync every file of active projects, but only the markdown files of inactive ones, to save local disk space. These two lines need repeating for each project directory if `PROJECTS` names more than one:
+
+```
+!/Projects/+*
+!/Projects/-**.md
+```
+
+Include all the system's own files and folders, which all start with an underscore:
+
+```
+!/_*
+```
+
+Finally, ignore everything else:
+
+```
+*
+```
+
+The order matters, because Syncthing uses the first pattern that matches, so keep `*` last. The whole file:
+
+```
+!/Projects/+*
+!/Projects/-**.md
+!/_*
+*
+```
+
+Once a project's header has been archived (the **Archive** button in `HEADERS` mode), rename its folder **on the NAS** from `+OWNER_ProjectTitle` to `YYYY-MM-DD_OWNER_ProjectTitle`, using the archive date. The NAS then ignores it, so the computers delete their copies and the NAS keeps the folder. Don't rename it on a computer: the NAS would receive the old folder's deletion but ignore the new name, and lose the project.
 
 **Statuses** and **Leaders** list `_Labels/Status.csv` and `_Labels/Leaders.csv`. Double-click a value to change it, use the plus button to add a row, and the minus button at the end of a row to delete it after confirming. If a file doesn't exist, adding the first row creates it. Any other rows or columns in the files are kept.
 
@@ -494,6 +530,7 @@ Changes you make to the markdown files or the CSV appear when you refresh the br
 
 ```
 _Help_Guide.md         the step by step guide shown in the dashboard
+HelpGuide.pdf          the same guide as a PDF, to read or print without the dashboard
 _Incubator.md          ideas for projects
 _Archive.md            the headers of archived projects (ARCHIVEMODE HEADERS)
 _Images/               pictures for [[IMAGE#...]] links, and the logo
@@ -516,6 +553,7 @@ _Dashboard/
     weekly-review.html Review page
     weekly-plan.html   Plan page
     incubator.html     Incubator page
+    archive.html       Archive Index page
     networking.html    Leads and Events pages
     compatibility.html Compatibility pages
     help.html          Help Guide
@@ -538,6 +576,7 @@ _Dashboard/
     js/home.js         Overview tab
     js/dashboard.js    Dashboard tabs and Generate report
     js/incubator.js    Incubator page
+    js/archive.js      Archive Index page
     js/help.js         Help Guide page
     js/list.js         projects list logic
     js/catalog-list.js All catalogs, and New catalog
