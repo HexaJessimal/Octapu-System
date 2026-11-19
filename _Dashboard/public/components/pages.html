@@ -14,6 +14,7 @@
       {{{checkbox}}}
       {{{control}}}
       <a class="todo-project" href="{{{href}}}">{{label}}</a>
+      {{{menu}}}
     </div>
     {{#if text}}<div class="todo-text">{{{text}}}</div>{{/if}}
     <div class="todo-dates"><span class="{{{late}}}"><b>{{kind}}</b> {{date}} ({{when}})</span></div>
@@ -122,6 +123,13 @@
 <!-- An event of several days: a line at each end and a band between them. -->
 <template name="gantt-span"><div class="gantt-span is-{{{kind}}}" style="--from:{{{from}}};--to:{{{to}}}" title="{{title}}"></div></template>
 
+<!-- A catalog release on the Timeline, with its cover and name shown on hover. -->
+<template name="gantt-release">
+  <div class="gantt-mark is-release" style="--at:{{{at}}}">
+    <span class="release-card">{{#if image}}<img src="{{image}}" alt="" loading="lazy">{{/if}}<span class="release-name">{{title}}</span><span class="release-date">{{date}}</span></span>
+  </div>
+</template>
+
 <template name="legend-line"><span><b class="legend-line is-{{{kind}}}" aria-hidden="true"></b>{{label}}</span></template>
 
 <template name="legend-archived"><span><i class="legend-archived"></i>Archived</span></template>
@@ -190,8 +198,44 @@
   </section>
 </template>
 
+<!-- The agenda from _Time_Management/AgendaItems.csv. Each tick box sends the row's index and
+     item, so a row changed in the file isn't ticked by mistake. -->
+<template name="agenda-check">
+  <button type="button" class="check-box{{#if checked}} has-icon icon-done{{/if}}" role="checkbox" aria-checked="{{#if checked}}true{{else}}false{{/if}}" aria-label="Done" data-agenda-check="{{{index}}}" data-item="{{item}}"></button>
+</template>
+
+<template name="agenda-card">
+  <section class="card review-box review-box-agenda{{#if checked}} is-checked{{/if}}">
+    <header>
+      {{{check}}}
+      <h2>{{title}}</h2>
+      {{#if count}}<span class="nav-count nav-count-agenda">{{{count}}}</span>{{/if}}
+    </header>
+    {{{body}}}
+  </section>
+</template>
+
+<template name="agenda-entry">
+  <li{{#if done}} class="is-reviewed"{{/if}}>
+    <a href="{{href}}" data-review="{{{index}}}">{{name}}</a>
+    {{#if meta}}<div class="review-meta">{{meta}}</div>{{/if}}
+  </li>
+</template>
+
+<template name="agenda-link">
+  <li>
+    <a href="{{href}}">{{label}}</a>
+    {{#if meta}}<div class="review-meta">{{meta}}</div>{{/if}}
+  </li>
+</template>
+
+<template name="agenda-text-item">
+  <li class="agenda-text{{#if checked}} is-checked{{/if}}">{{{check}}}<div class="todo-text">{{{text}}}</div></li>
+</template>
+
 <template name="review-page">
   <div class="milestones review-queue" id="review-queue">{{{queue}}}</div>
+  <div class="milestones review-queue agenda" id="agenda"{{#if hideAgenda}} hidden{{/if}}>{{{agenda}}}</div>
   <p class="review-since">{{since}}</p>
   {{{done}}}
   <form class="card review-form" id="review-form">
@@ -230,6 +274,7 @@
       {{{checkbox}}}
       {{{control}}}
       {{#if removable}}<button type="button" class="plain-button focus-remove" data-focus-remove="{{{index}}}">Remove</button>{{/if}}
+      {{{menu}}}
     </div>
     <div class="todo-text">{{{text}}}</div>
     <div class="review-meta">{{milestone}}</div>
@@ -322,6 +367,7 @@
     <h2 class="section-title">{{title}}</h2>
     {{#if canAdd}}<button type="button" class="add-button" data-add-row title="Add a {{noun}}" aria-label="Add a {{noun}}"></button>{{/if}}
   </div>
+  {{#if note}}<p class="label-note">{{note}}</p>{{/if}}
   {{{body}}}
 </template>
 

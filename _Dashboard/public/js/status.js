@@ -141,6 +141,17 @@
   }
 
   // Date Reviewed / Date Closed: a plus when empty, a pencil once set.
+  // The Reviewed box's value: the date (or "Not yet"), a note while it's flagged, and the flag.
+  function reviewedValue(doc) {
+    const value = doc.dates.reviewed.value;
+    const on = Boolean(doc.flagged);
+    return (
+      (value ? global.PMS.markdown.inline(value) : 'Not yet') +
+      component('control-review-flag', { attrs: documentAttrs(doc, 'flag', ''), on, pressed: String(on), action: on ? 'Remove the flag for review' : 'Flag for review' }) +
+      (on ? component('review-flagged') : '')
+    );
+  }
+
   function dateControl(project, field, label) {
     const value = project.dates[field].value;
     return component('control-date', {
@@ -175,6 +186,42 @@
     });
   }
 
+  // The grey menu at the end of a task row: Cancel and Delete everywhere, plus, where they
+  // make sense, moving the task to another milestone, making it a milestone, and giving it a
+  // linked Scratchpad block. `where` says which: { milestone: { line, title } } for a task in
+  // a Milestone project's milestone, and { blockable: true } on project and entity pages.
+  function rowMenu(item, where = {}) {
+    if (item.mark === null && !item.status) return '';
+    return component('control-row-menu', {
+      attrs: dataAttrs(item),
+      inMilestone: Boolean(where.milestone),
+      milestoneLine: where.milestone ? where.milestone.line : '',
+      blockable: Boolean(where.blockable) && !/\[\[/.test(item.editText || ''),
+    });
+  }
+
+  // The milestones on the page, for Move to another milestone.
+  let milestones = [];
+  function setMilestones(list) {
+    milestones = list;
+  }
+
+  function rowMenuItems(ctrl) {
+    let items = '';
+    if (ctrl.dataset.inMilestone === 'true') {
+      const others = milestones.filter((m) => String(m.line) !== ctrl.dataset.milestoneLine);
+      if (others.length) {
+        items += component('status-menu-type', { type: 'Move to' });
+        items += others.map((m) => component('status-menu-item', { attr: 'row-move', value: m.line, current: false, label: m.title })).join('');
+        items += component('status-menu-divider');
+      }
+      items += component('status-menu-item', { attr: 'row-promote', value: 'yes', current: false, label: 'Promote to new milestone' });
+    }
+    if (ctrl.dataset.blockable === 'true') items += component('status-menu-item', { attr: 'row-block', value: 'yes', current: false, label: 'Create linked Scratchpad block' });
+    if (items) items += component('status-menu-divider');
+    return items + component('row-menu-actions', { cancelled: ctrl.dataset.cancelled === 'true' });
+  }
+
   function toast(message) {
     const el = element('toast', { message });
     document.body.appendChild(el);
@@ -193,7 +240,7 @@
   }
 
   function controlKind(el) {
-    return ['check', 'priority', 'leader', 'owner', 'date', 'dependency', 'timeframe'].find((k) => el.matches('.' + k + '-control')) || 'status';
+    return ['check', 'priority', 'leader', 'owner', 'date', 'dependency', 'timeframe', 'milestone-menu', 'row-menu', 'review-flag'].find((k) => el.matches('.' + k + '-control')) || 'status';
   }
 
   const post = (url, ctrl, fields) => postJson(url, Object.assign({ folder: ctrl.dataset.folder, file: ctrl.dataset.file }, fields));
@@ -323,21 +370,21 @@
     sendEdit(ctrl, 'api/timeframe-change', { index: Number(ctrl.dataset.index), from: ctrl.dataset.status, remove: true });
   }
 
-  function statusMenu(current, cancelled) {
-    return statusOptions(current) + component('status-menu-actions', { cancelled });
+  function statusMenu(current) {
+    return statusOptions(current) + component('status-menu-actions');
   }
 
+  // Each status shows its type's icon and colour rather than a heading per type, with a thin
+  // line between the types.
   function statusOptions(current) {
     return types
-      .map(
-        (type) =>
-          component('status-menu-type', { type }) +
-          statuses
-            .filter((s) => s.type === type)
-            .map((s) => component('status-menu-item', { attr: 'to', value: s.name, current: s.name === current, label: s.name }))
-            .join('')
+      .map((type) =>
+        statuses
+          .filter((s) => s.type === type)
+          .map((s) => component('status-menu-status', { icon: type.toLowerCase(), value: s.name, current: s.name === current, label: s.name }))
+          .join('')
       )
-      .join('');
+      .join(component('status-menu-divider'));
   }
 
   function priorityMenu(current) {
@@ -408,7 +455,13 @@
 
   const readField = (form, name) => form.querySelector('[name="' + name + '"]').value.trim();
 
+  // The project page handles its milestone menu's choices.
+  let milestoneAction = () => {};
+  const onMilestoneAction = (fn) => (milestoneAction = fn);
+
   function buildMenu(caret, ctrl) {
+    if (caret.matches('.milestone-menu-button')) return menuPanel(component('milestone-menu-actions'));
+    if (caret.matches('.row-menu-button')) return menuPanel(rowMenuItems(ctrl));
     if (caret.matches('.dependency-edit')) return menuPanel(dependencyMenu(ctrl.dataset.status));
     if (caret.matches('.date-edit')) {
       const label = ctrl.dataset.label;
@@ -434,7 +487,7 @@
     if (caret.matches('.type-button')) return menuPanel(labelMenu(projectTypes.map((t) => ({ id: t, name: t })), 'project-type', ctrl.dataset.status));
     if (caret.matches('.leader-button')) return menuPanel(labelMenu(leaders, 'leader', ctrl.dataset.status));
     if (caret.matches('.owner-button')) return menuPanel(labelMenu(owners, 'owner', ctrl.dataset.status));
-    return menuPanel(statusMenu(ctrl.dataset.status, ctrl.dataset.cancelled === 'true'));
+    return menuPanel(statusMenu(ctrl.dataset.status));
   }
 
   function openMenu(caret, built) {
@@ -484,9 +537,21 @@
       else if (choice.dataset.projectType) sendEdit(ctrl, 'api/project-type', { type: choice.dataset.projectType });
       else if (choice.dataset.owner) sendEdit(ctrl, 'api/owner', { from: ctrl.dataset.status || null, to: choice.dataset.owner });
       else if (choice.dataset.leader) sendEdit(ctrl, 'api/leader', { from: ctrl.dataset.status, to: choice.dataset.leader });
+      else if (choice.dataset.milestone) milestoneAction(ctrl, choice.dataset.milestone);
       else if (choice.dataset.row) rowAction(ctrl, choice.dataset.row);
+      else if (choice.dataset.rowMove) {
+        const to = milestones.find((m) => String(m.line) === choice.dataset.rowMove);
+        if (to) sendEdit(ctrl, 'api/row-move', { status: ctrl.dataset.status || null, text: ctrl.dataset.text, toLine: to.line, toTitle: to.title });
+      } else if (choice.dataset.rowPromote) sendEdit(ctrl, 'api/row-promote', { status: ctrl.dataset.status || null, text: ctrl.dataset.text });
+      else if (choice.dataset.rowBlock) sendEdit(ctrl, 'api/row-block', { status: ctrl.dataset.status || null, text: ctrl.dataset.text });
       else if (choice.dataset.dependency !== undefined) sendEdit(ctrl, 'api/dependency', { name: choice.dataset.dependency });
       else change(ctrl, choice.dataset.to);
+      return;
+    }
+    const flag = target.closest('.review-flag-button');
+    if (flag) {
+      closeMenu(false);
+      sendEdit(flag.closest('.status-control'), 'api/review-flag', { on: flag.getAttribute('aria-pressed') !== 'true' });
       return;
     }
     const removeButton = target.closest('.timeframe-remove');
@@ -495,7 +560,7 @@
       removeTimeframe(removeButton.closest('.status-control'));
       return;
     }
-    const caret = target.closest('.status-caret, .priority-button, .owner-button, .timeframe-add') || target.closest('.project-status-button');
+    const caret = target.closest('.status-caret, .priority-button, .owner-button, .timeframe-add, .row-menu-button') || target.closest('.project-status-button');
     if (caret) {
       const wasOpen = menu && menu.caret === caret;
       closeMenu(false);
@@ -540,5 +605,5 @@
     true
   );
 
-  global.PMS.status = { itemLink, setStatuses, setHeaderOptions, onChange, refresh, toast, confirmDelete, control, checkbox, dateInput, ownerControl, leaderControl, projectStatusControl, projectTypeControl, timeframeControl, timeframeEntryControl, dateControl, dependencyControl };
+  global.PMS.status = { itemLink, setStatuses, setHeaderOptions, onChange, refresh, toast, confirmDelete, control, checkbox, rowMenu, setMilestones, onMilestoneAction, reviewedValue, dateInput, ownerControl, leaderControl, projectStatusControl, projectTypeControl, timeframeControl, timeframeEntryControl, dateControl, dependencyControl };
 })(window);

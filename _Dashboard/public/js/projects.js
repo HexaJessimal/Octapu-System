@@ -192,7 +192,7 @@
     const query = new URLSearchParams(location.search);
     if (view === defaultView) query.delete('view');
     else query.set('view', view);
-    history.replaceState(null, '', '?' + query.toString());
+    history.replaceState(null, '', '?' + query.toString() + location.hash);
   }
 
   function clearSelection() {

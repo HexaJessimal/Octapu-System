@@ -226,6 +226,7 @@
       note: HIGHLIGHT_NOTES[item.highlight],
       checkbox: item.mark === null ? '' : status.checkbox(item),
       control: status.control(item),
+      menu: status.rowMenu(item), // Cancel and Delete only, here
       href,
       location: item.file + ', line ' + item.line,
       label,

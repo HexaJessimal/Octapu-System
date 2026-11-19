@@ -121,5 +121,11 @@
   global.PMS.milestoneControls = {
     isCollapsed: (title) => collapsed.has(title) || closedOnLoad.has(title),
     closeFinished: (milestones) => milestones.filter((m) => m.state === 'done').forEach((m) => closedOnLoad.add(m.title)),
+    // Opens a milestone, as when a link goes to it.
+    expand: (title) => {
+      collapsed.delete(title);
+      closedOnLoad.delete(title);
+      saveCollapsed();
+    },
   };
 })(window);

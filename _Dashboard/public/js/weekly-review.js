@@ -1,4 +1,4 @@
-// Review: done items since the last review, and the form that logs the wins.
+// Review: the agenda, done items since the last review, and the form that logs the wins.
 (function () {
   'use strict';
   const { parseFolder, displayDate, setDateFormat, markdown: md, status, component, element, getJson, postJson, loadError, showFormError, UNREACHABLE, entityHref, openDialog } = window.PMS;
@@ -31,14 +31,73 @@
     return reviewBox('Projects to review', data.projects, 'projects') + reviewBox('Entities to review', data.entities, 'entities');
   }
 
-  // Redraws only the two boxes, so wins being typed below aren't lost.
+  // ---------- the agenda (AgendaItems.csv) ----------
+
+  const agendaCheck = (row) => component('agenda-check', { index: row.index, item: row.item, checked: row.checked });
+
+  // A project or entity on a rule card. Reviewed since the last logged review shows as done.
+  function agendaEntry(entry) {
+    toReview.push(entry);
+    const reviewed = entry.reviewed ? 'Reviewed ' + displayDate(entry.reviewed) : 'Not reviewed yet';
+    return component('agenda-entry', {
+      href: pageOf(entry),
+      index: toReview.length - 1,
+      name: nameOf(entry),
+      done: entry.done,
+      meta: [detailOf(entry), reviewed].filter(Boolean).join(' · '),
+    });
+  }
+
+  // A page to look at, such as an event, a catalog or the Dashboard, with its date or a note.
+  function agendaLink(link) {
+    const date = link.date ? displayDate(link.date) + (link.end && link.end !== link.date ? ' to ' + displayDate(link.end) : '') : '';
+    return component('agenda-link', { href: link.href, label: link.label, meta: date || link.meta || '' });
+  }
+
+  // The number shows how many have been reviewed, or how many links there are.
+  function agendaCard(card) {
+    const rows = card.entries.map(agendaEntry).concat(card.links.map(agendaLink));
+    let body = component('no-tasks', { message: card.error || 'Nothing to review.' });
+    if (!card.error && rows.length) body = component('review-items', { items: rows.join('') });
+    const done = card.entries.filter((e) => e.done).length;
+    const count = card.error ? '' : card.entries.length ? done + '/' + card.entries.length : String(card.links.length);
+    return component('agenda-card', { check: agendaCheck(card), checked: card.checked, title: card.title, count, body });
+  }
+
+  // Text items share one card. They're markdown, so [[LABEL]] links work as anywhere else.
+  function agendaText(rows) {
+    if (!rows.length) return '';
+    const items = rows.map((row) => component('agenda-text-item', { check: agendaCheck(row), checked: row.checked, text: md.inline(row.item) })).join('');
+    return component('agenda-card', { check: '', checked: false, title: 'Additional Agenda Items', count: '', body: component('review-items', { items }) });
+  }
+
+  // Must follow reviewBoxes, as the rule cards' rows carry on its data-review numbering.
+  const agendaHtml = (agenda) => agenda.cards.map(agendaCard).join('') + agendaText(agenda.text);
+
+  // Redraws only the boxes and the agenda, so wins being typed below aren't lost.
   function refreshReviewBoxes() {
     return getJson('api/weekly-review')
       .then((data) => {
         const queue = contentEl.querySelector('#review-queue');
+        const agenda = contentEl.querySelector('#agenda');
         if (queue) queue.innerHTML = reviewBoxes(data.toReview);
+        if (agenda) {
+          agenda.innerHTML = agendaHtml(data.agenda);
+          agenda.hidden = !agenda.innerHTML;
+        }
       })
       .catch(() => {});
+  }
+
+  async function toggleAgenda(box) {
+    try {
+      const checked = box.getAttribute('aria-checked') !== 'true';
+      const result = await postJson('api/agenda-check', { index: Number(box.dataset.agendaCheck), item: box.dataset.item, checked });
+      if (!result.ok) status.toast(result.error || 'Could not tick that.');
+    } catch (_) {
+      status.toast(UNREACHABLE);
+    }
+    refreshReviewBoxes();
   }
 
   function openReview(entry) {
@@ -75,8 +134,12 @@
     groups = data.groups;
     const since = data.lastReview ? 'Done since the last review on ' + displayDate(data.lastReview) + '.' : 'No reviews logged yet, so this is everything done so far.';
     const count = data.totalDone + (data.totalDone === 1 ? ' done item' : ' done items');
+    const queue = reviewBoxes(data.toReview);
+    const agenda = agendaHtml(data.agenda);
     contentEl.innerHTML = component('review-page', {
-      queue: reviewBoxes(data.toReview),
+      queue,
+      agenda,
+      hideAgenda: !agenda,
       since,
       done: groups.length ? component('card-stack', { items: groups.map(box).join('') }) : component('empty-card', { message: 'Nothing done since the last review.' }),
       count,
@@ -85,6 +148,8 @@
   }
 
   contentEl.addEventListener('click', (e) => {
+    const check = e.target.closest('[data-agenda-check]');
+    if (check) return toggleAgenda(check);
     const link = e.target.closest('[data-review]');
     if (link) {
       if (e.ctrlKey || e.metaKey || e.shiftKey) return; // opening it in a new tab still works

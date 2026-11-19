@@ -71,13 +71,17 @@
     const file = m[1].trim().replace(/\.md$/i, '').toLowerCase();
     const heading = (m[2] || '').trim();
     const page = file ? (LINKABLE_FILES.includes(file) ? file : null) : heading && currentNetworkingPage;
-    // Anything starting with an owner's id goes to that owner's page. The list comes from
-    // _Labels/Owners.csv, by way of the api/owner-tags.js script each page loads first.
+    // A project's name ("OWNERID Title") goes to that project. It's checked before owners, as
+    // it starts with one. The lists come from the api/owner-tags.js script each page loads.
+    const name = unescape(m[1]).trim().replace(/\s+/g, ' ').toLowerCase();
+    const project = !page && name ? (global.PMS_PROJECTS || {})[name] : null;
+    // Anything else starting with an owner's id goes to that owner's page.
     const firstWord = unescape(m[1].trim().split(/\s+/)[0]);
-    const owner = !page && (global.PMS_OWNER_IDS || []).includes(firstWord) ? firstWord : null;
-    if (!page && !owner) return null;
+    const owner = !page && !project && (global.PMS_OWNER_IDS || []).includes(firstWord) ? firstWord : null;
+    if (!page && !project && !owner) return null;
     const hash = heading ? '#' + encodeURIComponent(unescape(heading)) : '';
-    const href = (page ? 'networking.html?page=' + page : 'entity.html?id=' + encodeURIComponent(owner)) + hash;
+    const target = page ? 'networking.html?page=' + page : project ? 'project.html?folder=' + encodeURIComponent(project) : 'entity.html?id=' + encodeURIComponent(owner);
+    const href = target + hash;
     return component('md-wikilink', { href, label: m[3] ? m[3].trim() : heading || m[1].trim() });
   }
 
@@ -228,6 +232,7 @@
     if (scanned && ctx.checkbox) body += ctx.checkbox(scanned);
     else if (it.task !== null) body += component('md-check', { label: it.task ? '[done]' : '[open]' });
     body += component('md-item-text', { attrs: scanned && ctx.editAttrs ? ctx.editAttrs(scanned) : '', text: lineInline(it.text, it.no, ctx) });
+    if (scanned && ctx.rowMenu) body += ctx.rowMenu(scanned);
     for (const c of it.cont) {
       body += RE.meta.test(c.text)
         ? component('md-item-meta', { text: global.PMS.displayDates(esc(c.text)) })
@@ -249,6 +254,7 @@
   // opts.badge:       builds the HTML control for an item's status
   // opts.checkbox:    builds the HTML control for an item's checkbox
   // opts.editAttrs:   builds attributes that make an item's text editable
+  // opts.rowMenu:     builds the grey menu at the end of a task's row
   // opts.lineNumbers: source line number of each line in `md`, when md is an excerpt
   // opts.titleLine, opts.titleHtml: replaces the contents of the page title
   // opts.lineHtml:    { line, html } replaces a paragraph line with HTML
@@ -262,6 +268,7 @@
       badge: o.badge,
       checkbox: o.checkbox,
       editAttrs: o.editAttrs,
+      rowMenu: o.rowMenu,
       titleLine: o.titleLine,
       titleHtml: o.titleHtml,
       lineHtml: o.lineHtml || {},

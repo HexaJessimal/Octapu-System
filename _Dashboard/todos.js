@@ -482,7 +482,8 @@ const TIMEFRAME_FIELD = /^\s*\*\*\s*Active Timeframe\s*\*\*\s*:/i;
 const CREATED_FIELD = /^\s*\*\*\s*(?:Date\s+)?Created\s*(?:\*\*\s*:|:\s*\*\*)/i;
 const PROJECT_TYPES = ['Milestone', 'Ongoing'];
 const DATE_FIELDS = { reviewed: 'Date Reviewed', closed: 'Date Closed' };
-const HEADER_FIELD_ORDER = ['Date Created', 'Date Reviewed', 'Date Closed', 'Active Timeframe', 'Project Dependency'];
+const FLAG_FIELD = 'Flagged for Review';
+const HEADER_FIELD_ORDER = ['Date Created', 'Date Reviewed', FLAG_FIELD, 'Date Closed', 'Active Timeframe', 'Project Dependency'];
 
 // Finds a "**Label**: value" line. `at` is where the value starts.
 function findField(lines, label) {
@@ -536,6 +537,7 @@ function parseHeader(markdown, owners) {
   }
   const dependency = findField(lines, 'Project Dependency');
   const type = findField(lines, 'Project Type');
+  const flag = findField(lines, FLAG_FIELD);
   return {
     title,
     timeframe: { line: timeframe === -1 ? null : timeframe + 1, anchor, value, entries: timeframeEntries(value) },
@@ -543,6 +545,8 @@ function parseHeader(markdown, owners) {
     createdLine: created === -1 ? null : created + 1,
     dates,
     dependency: dependency ? { line: dependency.line, value: dependency.value } : { line: null, value: '' },
+    // Flagged for review whatever its Date Reviewed says, until it's next reviewed.
+    flagged: Boolean(flag && /^yes$/i.test(flag.value.trim())),
     // `known` is the value as spelled in PROJECT_TYPES, or null if it isn't one of them.
     projectType: type && type.value.trim()
       ? { line: type.line, value: type.value.trim(), known: PROJECT_TYPES.find((t) => t.toLowerCase() === type.value.trim().toLowerCase()) || null }
@@ -571,6 +575,17 @@ function setHeaderField(markdown, label, value) {
   const anchor = earlier.map((l) => findField(lines, l)).find(Boolean);
   const title = titleIndex(lines);
   return insertLine(markdown, anchor ? anchor.line : title === -1 ? null : title + 1, `**${label}**: ${value}`);
+}
+
+// Adds "**Flagged for Review**: Yes" under Date Reviewed, or takes the line away.
+function setReviewFlag(markdown, on) {
+  const field = findField(stripComments(markdown), FLAG_FIELD);
+  if (on) return setHeaderField(markdown, FLAG_FIELD, 'Yes');
+  if (!field) return markdown;
+  const bom = markdown.startsWith('﻿') ? '﻿' : '';
+  const parts = markdown.slice(bom.length).split(/(\r\n?|\n)/); // text, ending, text, ending…
+  parts.splice((field.line - 1) * 2, 2);
+  return bom + parts.join('');
 }
 
 // Sets the value of the Owner field. Returns null if the field has changed.
@@ -921,6 +936,64 @@ function editLeaderCsv(csvText, { action, from, name }) {
   });
 }
 
+// ---------- review agenda (_Time_Management/AgendaItems.csv) ----------
+
+const AGENDA_TYPES = ['text', 'rule'];
+// The REVIEW_ALL groups that aren't project directories. They win over a directory of the same name.
+const AGENDA_GROUPS = ['Entities', 'Tentacles', 'Active', 'Inactive', 'Scheduled', 'Deadlines', 'Bookings', 'Incubator', 'Catalogs'];
+
+// The agenda's rows as { type, item, checked }. Blank rows are skipped, as editCsv drops them,
+// so a row's place in this list is the index used to edit it.
+function parseAgenda(csvText) {
+  const rows = parseCsv(csvText);
+  if (!rows.length) return [];
+  const header = rows[0].map((h) => h.trim().toLowerCase());
+  const cell = (row, name) => (row[header.indexOf(name)] || '').trim();
+  return rows
+    .slice(1)
+    .filter((row) => row.some((c) => c.trim()))
+    .map((row) => ({ type: cell(row, 'type').toLowerCase(), item: cell(row, 'item'), checked: cell(row, 'checked').toLowerCase() === 'true' }));
+}
+
+// A rule item: [[REVIEW|ID]], [[REVIEW|ID#Project Title]] or [[REVIEW_ALL|Group]] (with
+// Tentacles#ID for one entity's tentacles). Returns null if it isn't one of those.
+function parseAgendaRule(item) {
+  const m = item.trim().match(/^\[\[\s*(REVIEW_ALL|REVIEW)\s*\|([^#\]]*)(?:#([^\]]*))?\]\]$/i);
+  if (!m) return null;
+  const name = m[2].trim();
+  const after = (m[3] || '').trim();
+  if (!name) return null;
+  if (m[1].toUpperCase() === 'REVIEW') return { kind: 'review', owner: name, project: after };
+  const group = AGENDA_GROUPS.find((g) => g.toLowerCase() === name.toLowerCase()) || name;
+  return { kind: 'all', group, entity: after };
+}
+
+// Adds, changes or deletes a row of AgendaItems.csv. Items can repeat, so a row is found by
+// its `index` and only changed if its Item is still `fromItem`.
+function editAgendaCsv(csvText, { action, index, fromItem, type, item, checked }) {
+  return editCsv(csvText, ['type', 'item', 'checked'], (rows, col) => {
+    const at = action === 'add' ? -1 : index;
+    if (action !== 'add' && (!rows[at] || rows[at][col.item].trim() !== fromItem)) return STALE_ROW;
+    if (action === 'delete') {
+      rows.splice(at, 1);
+      return null;
+    }
+    const cleanType = type.trim().toLowerCase();
+    const cleanItem = item.trim();
+    if (!AGENDA_TYPES.includes(cleanType)) return 'Choose text or rule.';
+    if (!cleanItem) return 'Enter an item.';
+    if (cleanType === 'rule' && !parseAgendaRule(cleanItem)) return 'A rule is written [[REVIEW|ID]], [[REVIEW|ID#Project Title]] or [[REVIEW_ALL|Group]].';
+    if (action === 'add') rows.push(rows.length ? rows[0].map(() => '') : Object.values(col).map(() => ''));
+    const row = rows[action === 'add' ? rows.length - 1 : at];
+    row[col.type] = cleanType;
+    row[col.item] = cleanItem;
+    // The Options page leaves Checked alone, and a new row starts unticked.
+    if (checked !== undefined) row[col.checked] = String(checked).trim().toLowerCase() === 'true' ? 'true' : 'false';
+    else if (action === 'add') row[col.checked] = 'false';
+    return null;
+  });
+}
+
 // Every <template name="..."> in a component file, as { name: source }. Line breaks and
 // the indentation after them are only for reading, so they're dropped.
 function parseComponents(html) {
@@ -935,6 +1008,10 @@ module.exports = {
   STATUS_TYPES,
   editStatusCsv,
   editLeaderCsv,
+  AGENDA_GROUPS,
+  parseAgenda,
+  parseAgendaRule,
+  editAgendaCsv,
   PRIORITIES,
   PLANNING_LINE,
   withDefaultStatuses,
@@ -964,6 +1041,7 @@ module.exports = {
   setOwner,
   setLeader,
   setDateField,
+  setReviewFlag,
   setDependency,
   dateError,
   formatDate,

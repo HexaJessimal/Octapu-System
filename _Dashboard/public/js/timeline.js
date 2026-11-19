@@ -176,11 +176,14 @@
   // ---------- which rows are shown ----------
 
   // Archived projects only come from the server while SHOWARCHIVED is on, so only then is
-  // there anything for the Archive box to hide.
+  // there anything for the Archive box to hide. The last three are lines rather than rows.
   const KINDS = [
     { kind: 'active', label: 'Active' },
     { kind: 'inactive', label: 'Inactive' },
     { kind: 'archive', label: 'Archive' },
+    { kind: 'deadlines', label: 'Deadlines' },
+    { kind: 'bookings', label: 'Bookings' },
+    { kind: 'releases', label: 'Releases' },
   ].filter(({ kind }) => kind !== 'archive' || window.PMS_SHOW_ARCHIVED);
   const HIDDEN_KEY = 'pms.timeline.hidden';
   function readHidden() {
@@ -302,7 +305,7 @@
     showNearbyRows();
   });
 
-  // ---------- event lines ----------
+  // ---------- event and release lines ----------
 
   // Where a YYYY-MM-DD date falls, in months from the chart's first month: its month, plus
   // how far through that month it is. `after` places it at the end of the day instead.
@@ -327,7 +330,8 @@
         const marks = [];
         const kind = e.booked ? 'event' : 'unbooked';
         const note = e.booked ? '' : ' (not booked)';
-        if (e.deadline) marks.push(component('gantt-mark', { kind: 'deadline', at: monthPosition(e.deadline, start).toFixed(4), title: e.title + ': application deadline ' + show(e.deadline) }));
+        if (e.deadline && !hidden.has('deadlines')) marks.push(component('gantt-mark', { kind: 'deadline', at: monthPosition(e.deadline, start).toFixed(4), title: e.title + ': application deadline ' + show(e.deadline) }));
+        if (hidden.has('bookings')) return marks;
         if (e.start && e.end !== e.start) {
           marks.push(component('gantt-span', { kind, from: monthPosition(e.start, start).toFixed(4), to: monthPosition(e.end, start, true).toFixed(4), title: e.title + ': ' + show(e.start) + ' – ' + show(e.end) + note }));
         } else if (e.start) {
@@ -335,6 +339,13 @@
         }
         return marks;
       })
+      .join('');
+  }
+
+  // A white line on each catalog release's day, with its cover on hover.
+  function releaseMarks(releases, start) {
+    return releases
+      .map((r) => component('gantt-release', { at: monthPosition(r.date, start).toFixed(4), title: r.title, date: window.PMS.displayDate(r.date), image: r.image }))
       .join('');
   }
 
@@ -354,8 +365,9 @@
       .sort((a, b) => a.earliest - b.earliest);
     const rows = orderByDependency(byDate);
     const events = data.events || [];
+    const releases = hidden.has('releases') ? [] : data.releases || [];
 
-    if (!rows.length && !events.length) {
+    if (!rows.length && !events.length && !releases.length) {
       contentEl.innerHTML = toggles() + component('gantt-empty', { warnings: warnings(shownRows) });
       return;
     }
@@ -363,7 +375,7 @@
     const today = new Date();
     const now = today.getFullYear() * 12 + today.getMonth();
     const allBars = rows.flatMap((row) => row.bars);
-    const eventMonths = events.flatMap((e) => [e.start, e.end, e.deadline].filter(Boolean).map(monthOfDate));
+    const eventMonths = events.flatMap((e) => [e.start, e.end, e.deadline].filter(Boolean)).concat(releases.map((r) => r.date)).map(monthOfDate);
     const start = Math.min(now, ...allBars.map((b) => b.first), ...eventMonths) - 1;
     const end = Math.max(now, ...allBars.map((b) => b.last), ...eventMonths) + 1;
 
@@ -379,6 +391,7 @@
       component('legend-line', { kind: 'deadline', label: 'Application deadline' }),
       component('legend-line', { kind: 'event', label: 'Booked event' }),
       component('legend-line', { kind: 'unbooked', label: 'Event not booked' }),
+      component('legend-line', { kind: 'release', label: 'Release' }),
     ];
     contentEl.innerHTML =
       toggles() +
@@ -386,7 +399,7 @@
         warnings: warnings(shownRows),
         months: end - start + 1,
         rows: headerRows(start, end, now) + rows.map((row, i) => projectRow(row, i, start, end, now)).join(''),
-        marks: eventMarks(events, start),
+        marks: eventMarks(events, start) + releaseMarks(releases, start),
         legend: component('legend', { items: legend.join('') }),
       });
 
@@ -421,6 +434,15 @@
     else hidden.add(kind);
     saveHidden();
     render(lastData);
+  });
+
+  const RELEASE_CARD_ROOM = 175; // px: the card's width (see .release-card) and a margin
+  // A release's card opens to the left of its line when there's no room on the right.
+  contentEl.addEventListener('mouseover', (e) => {
+    const mark = e.target.closest('.gantt-mark.is-release');
+    const scroller = mark && scrollerEl();
+    if (!scroller) return;
+    mark.classList.toggle('is-flipped', mark.getBoundingClientRect().right + RELEASE_CARD_ROOM > scroller.getBoundingClientRect().right);
   });
 
   function load() {
