@@ -74,6 +74,7 @@
     return component('plan-focus-row', {
       checkbox: row.mark === null ? '' : status.checkbox(row),
       control: row.status ? status.control(row) : '',
+      menu: status.rowMenu(row),
       removable: !row.assigned,
       index,
       text: md.inline(row.editText),

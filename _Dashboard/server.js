@@ -30,6 +30,7 @@ const {
   setOwner,
   setLeader,
   setDateField,
+  setReviewFlag,
   setDependency,
   dateError,
   formatDate,
@@ -56,6 +57,10 @@ const {
   cleanName,
   stripComments,
   setHeaderField,
+  AGENDA_GROUPS,
+  parseAgenda,
+  parseAgendaRule,
+  editAgendaCsv,
 } = require('./todos');
 
 const {
@@ -66,6 +71,11 @@ const {
   addMilestone,
   addMilestoneItem,
   removeMilestone,
+  moveRow,
+  promoteRow,
+  linkRowToBlock,
+  finishMilestone,
+  milestoneBody,
   moveMilestone,
   milestoneRows,
   lastReviewDate,
@@ -125,6 +135,8 @@ const ROOT_DIR = path.resolve(__dirname, '..');
 const ENTITY_DIR = path.resolve(ROOT_DIR, '_Entities');
 const TIME_MANAGEMENT_DIR = path.resolve(ROOT_DIR, '_Time_Management');
 const REVIEW_FILE = path.join(TIME_MANAGEMENT_DIR, 'Review.md');
+const AGENDA_FILE = path.join(TIME_MANAGEMENT_DIR, 'AgendaItems.csv');
+const AGENDA_HEADER = 'Type,Item,Checked';
 const REPORTS_FILE = path.join(ENTITY_DIR, 'Reports.md'); // a report is added with each review
 const FOCUS_FILE = path.join(TIME_MANAGEMENT_DIR, 'Plan.md');
 // Archived projects' headers (ARCHIVEMODE HEADERS) and ideas not yet made into projects.
@@ -269,6 +281,7 @@ async function listMarkdown(dir) {
 function projectDirError(name) {
   if (/[\\/:*?"<>|]/.test(name) || name.startsWith('.')) return `"${name}" needs to be the name of a single folder directly inside the Octapu-System folder.`;
   if (RESERVED_DIRS.has(name.toLowerCase())) return `"${name}" is already used by the dashboard, so it can't hold projects.`;
+  if (AGENDA_GROUPS.some((g) => g.toLowerCase() === name.toLowerCase())) return `"${name}" is a review agenda group, so it can't be a project directory.`;
   return null;
 }
 
@@ -363,9 +376,9 @@ async function readProject(folder, requestedFile) {
   const content = await readProjectFile(project, file);
   const [statuses, owners, leaders, dateFormat] = await Promise.all([readStatuses(), readOwners(), readLeaders(), readDateFormat()]);
   const todos = scanLines(content, createMatcher(statuses)).map((t) => Object.assign(t, { folder, file }));
-  const { title, timeframe, leader, dates, dependency } = parseHeader(content, owners);
+  const { title, timeframe, leader, dates, dependency, flagged } = parseHeader(content, owners);
   const blocks = parseBlocks(content);
-  const details = { folder, directory, ongoing, archived: isArchived(project), projectTypes: PROJECT_TYPES, file, files: project.files, content, statuses, todos, owners, leaders, dateFormat, title, timeframe, leader, dates, dependency };
+  const details = { folder, directory, ongoing, archived: isArchived(project), projectTypes: PROJECT_TYPES, file, files: project.files, content, statuses, todos, owners, leaders, dateFormat, title, timeframe, leader, dates, dependency, flagged };
   if (ongoing) return Object.assign(details, splitTaskLists(blocks, await readTaskLists()), { dependencyOptions: [] });
   const planned = projects.filter((p) => !p.ongoing);
   const archive = await dependableArchive();
@@ -636,6 +649,32 @@ async function timelineEvents() {
     .filter((e) => e.start || e.deadline);
 }
 
+// Every catalog record with a Release date, for the Timeline. A cover in the Image column,
+// written [[IMAGE#path]], becomes its address under images/.
+async function timelineReleases() {
+  const catalogs = await listCatalogs();
+  const column = (columns, name) => columns.findIndex((c) => c.toLowerCase() === name);
+  const lists = await Promise.all(
+    catalogs.map(async (catalog) => {
+      const { columns, rows } = parseCatalog(await readCatalogFile(catalog));
+      const [date, title, image, number] = ['release date', 'title', 'image', 'catalog #'].map((name) => column(columns, name));
+      if (date === -1) return [];
+      return rows.flatMap((row) => {
+        const day = (parseEventDate(row[date], false) || {}).start;
+        if (!day) return [];
+        const cover = image === -1 ? null : row[image].match(/^\[\[IMAGE#([^\]|]+)(?:\|[^\]]*)?\]\]$/);
+        return [{
+          title: (title !== -1 && row[title].trim()) || (number !== -1 && row[number].trim()) || 'Release',
+          date: day,
+          image: cover ? 'images/' + cover[1].trim().split('/').map(encodeURIComponent).join('/') : null,
+          catalog: catalog.name,
+        }];
+      });
+    })
+  );
+  return lists.flat();
+}
+
 // The name of the logo in _Images/, whatever capitals it's written with, or null.
 async function findLogo() {
   try {
@@ -661,6 +700,7 @@ async function collectNav() {
       (await readProjectDirs()).map(async (d) => ({ name: d.name, projects: (await listDirectory(d)).filter((p) => !p.closed).map((p) => p.folder) }))
     ),
     roundup: {
+      doneToReview: (await doneSinceReview(await readStatuses(), await readLastReview())).length,
       projectsToReview: toReview.projects.length,
       entitiesToReview: toReview.entities.length,
       review: await daysSinceLastEntry(REVIEW_FILE),
@@ -1902,33 +1942,219 @@ const fixCompatibility = ({ type, key, file, main, owner }) => {
   return fixEntity(key, file);
 };
 
-// Non-archived projects and every entity with no Date Reviewed yet.
+// Projects and entities never reviewed, or flagged for review.
+const wantsReview = (content) => {
+  const { dates, flagged } = parseHeader(content, []);
+  return !dates.reviewed.value || flagged;
+};
+
+// An entity as the Review page lists it, with its main file's content, or null if it has no file.
+async function entityEntry(owners, owner) {
+  const place = entityPlace(owners, owner.id);
+  const files = place ? await entityFiles(place.dir) : [];
+  if (!files.length) return null;
+  const file = primaryEntityFile(owner, files);
+  const content = await fs.promises.readFile(path.join(place.dir, file), 'utf8');
+  const parent = place.chain.length > 1 ? owners.find((o) => o.id === owner.parent).name : null;
+  return { entry: { folder: ENTITY_PREFIX + owner.id, file, id: owner.id, root: place.chain[0], name: owner.name, parentName: parent }, content };
+}
+
 async function collectToReview() {
   const projects = [];
   for (const project of await listProjects()) {
     if (isArchived(project)) continue;
     const file = primaryFile(project);
-    if (!parseHeader(await readProjectFile(project, file), []).dates.reviewed.value) projects.push({ folder: project.folder, file });
+    if (wantsReview(await readProjectFile(project, file))) projects.push({ folder: project.folder, file });
   }
   const owners = await readOwners();
   const entities = [];
   for (const owner of owners) {
-    const place = entityPlace(owners, owner.id);
-    const files = place ? await entityFiles(place.dir) : [];
-    if (!files.length) continue;
-    const file = primaryEntityFile(owner, files);
-    const content = await fs.promises.readFile(path.join(place.dir, file), 'utf8');
-    if (parseHeader(content, []).dates.reviewed.value) continue;
-    const parent = place.chain.length > 1 ? owners.find((o) => o.id === owner.parent).name : null;
-    entities.push({ folder: ENTITY_PREFIX + owner.id, file, id: owner.id, root: place.chain[0], name: owner.name, parentName: parent });
+    const found = await entityEntry(owners, owner);
+    if (found && wantsReview(found.content)) entities.push(found.entry);
   }
   return { projects, entities };
 }
 
+// ---------- review agenda ----------
+
+const readAgenda = async () => {
+  const text = await readIfExists(AGENDA_FILE);
+  return { exists: text !== null, rows: text === null ? [] : parseAgenda(text) };
+};
+
+// The one REVIEW target that isn't an entity or a project: the Dashboard's Overview.
+const AGENDA_PAGE = 'Dashboard';
+const isAgendaPage = (rule) => !rule.project && rule.owner.toLowerCase() === AGENDA_PAGE.toLowerCase();
+
+// The Agenda tab's rows, with what each rule's dropdown can offer after the pipe.
+async function readAgendaTable() {
+  const [agenda, owners, dirs, projects] = await Promise.all([readAgenda(), readOwners(), readProjectDirs(), listProjects()]);
+  const option = (value, label) => ({ value, label: label || value });
+  // A project's name is its owner's ID then its title, so the ID is the first word.
+  const projectOptions = projects
+    .filter((p) => !isArchived(p))
+    .map((p) => projectName(p.name).split(' '))
+    .map(([id, ...title]) => option(id + '#' + title.join(' '), id + ' ' + title.join(' ')))
+    .sort((a, b) => a.label.localeCompare(b.label));
+  const parents = owners.filter((o) => owners.some((child) => child.parent === o.id));
+  return Object.assign(agenda, {
+    choices: {
+      REVIEW: [option(AGENDA_PAGE), ...owners.map((o) => option(o.id, o.id + ' (' + o.name + ')')), ...projectOptions],
+      REVIEW_ALL: [
+        ...['Entities', 'Tentacles'].map((g) => option(g)),
+        ...parents.map((o) => option('Tentacles#' + o.id, 'Tentacles of ' + o.id)),
+        ...dirs.map((d) => option(d.name, d.name + ' (projects directory)')),
+        ...AGENDA_GROUPS.filter((g) => !['Entities', 'Tentacles'].includes(g)).map((g) => option(g)),
+      ],
+    },
+  });
+}
+
+// The heading of a REVIEW_ALL card.
+function agendaAllTitle(rule, owners) {
+  const entity = rule.entity && owners.find((o) => o.id === rule.entity);
+  if (rule.group === 'Tentacles') return entity ? 'Review All Tentacles of ' + entity.name : 'Review All Tentacles';
+  const nouns = {
+    Entities: 'Entities',
+    Active: 'Active Projects',
+    Inactive: 'Inactive Projects',
+    Scheduled: 'Scheduled Projects',
+    Deadlines: 'Application Deadlines',
+    Bookings: 'Upcoming Bookings',
+    Incubator: 'Incubator Ideas',
+    Catalogs: 'Catalogs',
+  };
+  return 'Review All ' + (nouns[rule.group] || rule.group);
+}
+
+// What one rule lists: { title, entries } (projects and entities to mark as reviewed),
+// { title, links } (pages to look at, with an optional date or note) or { title, error }.
+// `live` is every non-archived project with its main file's content.
+async function agendaCard(rule, { owners, live, dirs, events, today }) {
+  const eventLink = (title, date, end) => ({ label: title, href: 'networking.html?page=events#' + encodeURIComponent(title), date, end: end || null });
+  if (rule.kind === 'review' && isAgendaPage(rule)) return { title: 'Review Dashboard', links: [{ label: 'Dashboard', href: 'home.html' }] };
+  const projectEntry = ({ project, file, content }) => ({ entry: { folder: project.folder, file }, content });
+  const entityEntries = async (list) => (await Promise.all(list.map((o) => entityEntry(owners, o)))).filter(Boolean);
+  if (rule.kind === 'review') {
+    const owner = owners.find((o) => o.id === rule.owner);
+    if (!rule.project) {
+      const found = owner && (await entityEntry(owners, owner));
+      if (found) return { title: 'Review Entity: ' + owner.name, entries: [found] };
+      return { title: 'Review Entity: ' + rule.owner, error: "Can't find an entity called " + rule.owner + '.' };
+    }
+    // Matched as a Project Dependency is: the owner's ID and the title, ignoring case and spacing.
+    const key = dependencyKey(rule.owner + ' ' + rule.project);
+    const match = live.find(({ project }) => dependencyKey(projectName(project.name)) === key);
+    if (match) return { title: 'Review Project: ' + rule.project, entries: [projectEntry(match)] };
+    return { title: 'Review Project: ' + rule.project, error: "Can't find a project called " + rule.owner + ' ' + rule.project + '.' };
+  }
+  const title = agendaAllTitle(rule, owners);
+  switch (rule.group) {
+    case 'Entities':
+      return { title, entries: await entityEntries(owners.filter((o) => !o.parent)) };
+    case 'Tentacles': {
+      if (rule.entity && !owners.some((o) => o.id === rule.entity)) return { title, error: "Can't find an entity called " + rule.entity + '.' };
+      // Anything with a parent, or only those somewhere under the named entity.
+      const under = (o) => o.parent && (!rule.entity || (ownerChain(owners, o.id) || []).slice(0, -1).includes(rule.entity));
+      return { title, entries: await entityEntries(owners.filter(under)) };
+    }
+    case 'Active':
+    case 'Inactive': {
+      const prefix = rule.group === 'Active' ? '+' : '-';
+      return { title, entries: live.filter(({ project }) => project.name.startsWith(prefix)).map(projectEntry) };
+    }
+    case 'Scheduled':
+      return { title, entries: live.filter(({ project, content }) => !project.ongoing && runningTimeframes(content, today).length).map(projectEntry) };
+    case 'Deadlines':
+      return { title, links: events.filter((e) => e.deadline && e.deadline >= today).map((e) => eventLink(e.title, e.deadline)) };
+    case 'Bookings':
+      return { title, links: events.filter((e) => e.booked && (e.end || e.start) >= today).map((e) => eventLink(e.title, e.start, e.end)) };
+    case 'Incubator':
+      return { title, links: waitingIdeas(await readIfExists(INCUBATOR_FILE)).map((idea) => ({ label: idea.title, href: 'incubator.html' })) };
+    case 'Catalogs':
+      return {
+        title,
+        links: (await collectCatalogs()).catalogs.map((c) => ({ label: c.name, href: 'catalog.html?file=' + encodeURIComponent(c.file), meta: c.count + (c.count === 1 ? ' record' : ' records') })),
+      };
+    default: {
+      const dir = dirs.find((d) => d.name.toLowerCase() === rule.group.toLowerCase());
+      if (!dir) return { title, error: `"${rule.group}" isn't a review group or a project directory. Use one of ` + AGENDA_GROUPS.concat(dirs.map((d) => d.name)).join(', ') + '.' };
+      // The first directory's projects have no prefix, so they're the ones in no other directory.
+      const inDir = ({ project }) => (dir.prefix ? project.folder.startsWith(dir.prefix) : !dirs.some((d) => d.prefix && project.folder.startsWith(d.prefix)));
+      return { title: 'Review All ' + dir.name, entries: live.filter(inDir).map(projectEntry) };
+    }
+  }
+}
+
+// The agenda as the Review page shows it: text items in one list, and a card per rule. Each
+// project and entity says when it was last reviewed, and whether that was since the last
+// logged review.
+async function collectAgenda(lastReview) {
+  const { exists, rows } = await readAgenda();
+  const indexed = rows.map((row, index) => Object.assign({ index }, row));
+  const text = indexed.filter((row) => row.type !== 'rule');
+  const rules = indexed.filter((row) => row.type === 'rule');
+  if (!rules.length) return { exists, text, cards: [] };
+
+  const today = formatDate(new Date(), STORAGE_FORMAT);
+  const [owners, dirs, events, projects] = await Promise.all([readOwners(), readProjectDirs(), timelineEvents(), listProjects()]);
+  const live = [];
+  for (const project of projects.filter((p) => !isArchived(p))) {
+    const file = primaryFile(project);
+    live.push({ project, file, content: await readProjectFile(project, file) });
+  }
+  const context = { owners, live, dirs, events, today };
+  const cards = [];
+  for (const row of rules) {
+    const rule = parseAgendaRule(row.item);
+    const card = rule ? await agendaCard(rule, context) : { title: row.item, error: "This rule can't be read." };
+    const entries = (card.entries || []).map(({ entry, content }) => {
+      const reviewed = parseHeader(content, []).dates.reviewed.value || '';
+      return Object.assign({}, entry, { reviewed, done: Boolean(reviewed) && (!lastReview || reviewed >= lastReview) });
+    });
+    cards.push(Object.assign(row, { title: card.title, error: card.error || null, entries, links: card.links || [] }));
+  }
+  return { exists, text, cards };
+}
+
+const isAgendaRow = (body) =>
+  ['add', 'update', 'delete'].includes(body.action) &&
+  (body.action === 'add' || (Number.isInteger(body.index) && body.index >= 0 && typeof body.fromItem === 'string')) &&
+  (body.action === 'delete' || ['type', 'item'].every((field) => typeof body[field] === 'string')) &&
+  (body.checked === undefined || typeof body.checked === 'string');
+const isAgendaCheck = (body) => Number.isInteger(body.index) && body.index >= 0 && typeof body.item === 'string' && typeof body.checked === 'boolean';
+
+const saveAgendaRow = (body) => editLabelFile(AGENDA_FILE, AGENDA_HEADER, editAgendaCsv, body);
+
+// Ticks or unticks an item on the Review page, leaving its type and text as they are.
+async function checkAgendaItem({ index, item, checked }) {
+  const row = (await readAgenda()).rows[index];
+  if (!row || row.item !== item) return { code: 409, body: { error: 'That agenda item has changed in the file, so nothing was updated.' } };
+  return saveAgendaRow({ action: 'update', index, fromItem: item, type: row.type, item, checked: String(checked) });
+}
+
+// Logging a review starts the next agenda with nothing ticked.
+async function uncheckAgenda() {
+  const text = await readIfExists(AGENDA_FILE);
+  if (text === null) return;
+  const rows = parseAgenda(text);
+  let after = text;
+  for (const [index, row] of rows.entries()) {
+    if (!row.checked) continue;
+    const result = editAgendaCsv(after, { action: 'update', index, fromItem: row.item, type: row.type, item: row.item, checked: 'false' });
+    if (result.error) return;
+    after = result.text;
+  }
+  if (after !== text) await writeFileSafely(AGENDA_FILE, after);
+}
+
+// Reviewing also takes away any Flagged for Review.
 function markReviewed({ folder, file }) {
   const today = formatDate(new Date(), STORAGE_FORMAT);
-  return updateProjectFile(folder, file, (content) => setDateField(content, 'reviewed', today));
+  return updateProjectFile(folder, file, (content) => setReviewFlag(setDateField(content, 'reviewed', today), false));
 }
+
+const flagForReview = ({ folder, file, on }) => updateProjectFile(folder, file, (content) => setReviewFlag(content, on));
 
 // Every markdown file of every entity and tentacle.
 async function allEntityFiles() {
@@ -1998,6 +2224,9 @@ const readLastReview = async () => {
 };
 
 // DONE type items closed since the last review, grouped by status in CSV order.
+// The DONE type items the Review page lists, and the menu counts beside Review.
+const doneSinceReview = async (statuses, lastReview) => (await doneItems(statuses)).filter(({ closed }) => closedSince(closed, lastReview));
+
 async function collectWeeklyReview() {
   const statuses = await readStatuses();
   const lastReview = await readLastReview();
@@ -2014,6 +2243,7 @@ async function collectWeeklyReview() {
     archiveTo: statuses.find((s) => s.type === 'ARCHIVED').name,
     groups: doneStatuses.filter((s) => groups.get(s.name).length).map((s) => ({ status: s.name, items: groups.get(s.name) })),
     toReview: await collectToReview(),
+    agenda: await collectAgenda(lastReview),
     dateFormat: await readDateFormat(),
   };
 }
@@ -2156,6 +2386,8 @@ async function submitWeeklyReview({ wins }) {
     for (const change of written) await (change.before === null ? fs.promises.unlink(change.full) : writeFileSafely(change.full, change.before)).catch(() => {});
     throw err;
   }
+  // Last, as a failure here only leaves the ticks in place.
+  await uncheckAgenda().catch(() => {});
   return { code: 200, body: { ok: true, archived, archivedTo: target } };
 }
 
@@ -2271,6 +2503,72 @@ async function changeRow({ folder, file, line, status, text, action }) {
   return updateProjectFile(folder, file, (content) => apply(content, line, status, text, statuses));
 }
 
+// ---------- the task row menu and the milestone menu ----------
+
+async function moveTask({ folder, file, line, status, text, toLine, toTitle }) {
+  const statuses = await readStatuses();
+  return updateProjectFile(folder, file, (content) => moveRow(content, line, status, text, toLine, toTitle, statuses));
+}
+
+async function promoteTask({ folder, file, line, status, text }) {
+  const title = text.replace(/~~/g, '').trim();
+  const error = lineError(title) || (/[#[\]|]/.test(title) ? "A milestone's name can't contain # [ ] or |." : null);
+  if (error) return { code: 400, body: { error } };
+  const statuses = await readStatuses();
+  return updateProjectFile(folder, file, (content) => promoteRow(content, line, status, text, statuses));
+}
+
+// What a link from inside `folder` names it by: a project's name, or an entity's ID.
+async function linkTarget(folder) {
+  if (folder.startsWith(ENTITY_PREFIX)) return folder.slice(ENTITY_PREFIX.length);
+  const project = (await listProjects()).find((p) => p.folder === folder);
+  return project ? projectName(project.name) : null;
+}
+
+// Create linked Scratchpad block: a "## <task text>" block, with the task's text made into a
+// link to it. Not for text that's already a link, or that couldn't be one.
+async function linkTaskToBlock({ folder, file, line, status, text }) {
+  const title = text.trim();
+  if (/[#[\]|]/.test(title)) return { code: 400, body: { error: "A task whose text has # [ ] or | in it can't link to a block." } };
+  const target = await linkTarget(folder);
+  if (!target) return { code: 400, body: { error: 'Linked blocks are only for project and entity pages.' } };
+  const full = await editableFile(folder, file);
+  if (!full) return NOT_FOUND;
+  const existing = parseBlocks(await fs.promises.readFile(full, 'utf8')).some((b) => b.title !== null && b.title.trim().toLowerCase() === title.toLowerCase());
+  if (existing) return { code: 409, body: { error: `There's already a block called "${title}".` } };
+  const statuses = await readStatuses();
+  return updateProjectFile(folder, file, (content) => linkRowToBlock(content, line, status, text, target, statuses));
+}
+
+// Mark all as done: every open task in the milestone moves to the first DONE status.
+async function finishWholeMilestone({ folder, file, line, title }) {
+  const statuses = await readStatuses();
+  const done = (statuses.find((s) => s.type === 'DONE') || {}).name;
+  if (!done) return { code: 400, body: { error: 'Status.csv has no DONE status.' } };
+  return updateProjectFile(folder, file, (content) => finishMilestone(content, line, title, done, statuses, new Date()));
+}
+
+// Promote to new project: a Milestone project named after the milestone, in the same
+// directory, for the same entity and owner, depending on this project. Its tasks go under
+// "### Milestone 1", and the milestone leaves this project.
+async function promoteMilestone({ folder, file, line, title }) {
+  const project = (await listProjects()).find((p) => p.folder === folder);
+  if (!project || file !== primaryFile(project)) return { code: 400, body: { error: "Only a project's main file can promote a milestone." } };
+  const content = await readProjectFile(project, file);
+  const body = milestoneBody(content, line, title);
+  if (body === null) return { code: 409, body: { error: 'That milestone has changed in the file, so nothing was updated.' } };
+  const leader = parseHeader(content, []).leader;
+  if (!leader || !leader.value) return { code: 400, body: { error: "Choose this project's Owner first, so the new project has one too." } };
+  const made = await makeProject(
+    { title, entity: folderOwner(project.name), owner: leader.value, type: 'Milestone', notes: '', dir: project.directory },
+    { 'Project Dependency': projectName(project.name) },
+    ['### Milestone 1', ...body]
+  );
+  if (made.code !== 200) return made;
+  const removed = await updateProjectFile(folder, file, (text) => removeMilestone(text, line, title));
+  return removed.code === 200 ? made : removed;
+}
+
 async function saveDate({ folder, file, field, value }) {
   const date = value.trim();
   const format = await readDateFormat();
@@ -2283,8 +2581,9 @@ async function saveDate({ folder, file, field, value }) {
 const createProject = (body) => makeProject(body);
 
 // Creates a project's folder and main file. `header` holds values for other header fields,
-// such as an Active Timeframe and Project Dependency from a promoted idea.
-async function makeProject(body, header = {}) {
+// such as an Active Timeframe and Project Dependency from a promoted idea, and `milestones`
+// any lines to put under ## Milestones, as a promoted milestone has.
+async function makeProject(body, header = {}, milestones = []) {
   const title = body.title.trim().replace(/\s+/g, ' ');
   const error = projectTitleError(title);
   if (error) return { code: 400, body: { error } };
@@ -2306,6 +2605,7 @@ async function makeProject(body, header = {}) {
     today: formatDate(new Date(), STORAGE_FORMAT),
   });
   for (const [label, value] of Object.entries(header)) if (value) spec.content = setHeaderField(spec.content, label, value);
+  if (milestones.length) spec.content = spec.content.replace(/## Milestones\n?$/, '## Milestones\n' + milestones.join('\n') + '\n');
 
   // The same project under a different status prefix still counts as a duplicate.
   const key = (folder) => folder.replace(STATUS_PREFIX, '').toLowerCase();
@@ -2350,7 +2650,7 @@ async function editLabelFile(file, header, edit, body) {
   const result = edit(existing && existing.trim() ? existing : `${header}\r\n`, body);
   if (result.error) return { code: 400, body: { error: result.error } };
   if (existing === null) {
-    await fs.promises.mkdir(LABELS_DIR, { recursive: true });
+    await fs.promises.mkdir(path.dirname(file), { recursive: true });
     await fs.promises.writeFile(file, result.text, 'utf8');
   } else {
     await writeFileSafely(file, result.text);
@@ -2674,6 +2974,7 @@ async function settleConflict({ folder, file, name, action }) {
 }
 
 const inFile = ({ folder, file }) => typeof folder === 'string' && typeof file === 'string';
+const isReviewFlag = (body) => inFile(body) && typeof body.on === 'boolean';
 const hasLine = (body) => inFile(body) && Number.isInteger(body.line) && body.line >= 1;
 // `from` is null for an untagged checkbox, or a title with no owner.
 const isKeywordEdit = (body) => hasLine(body) && typeof body.to === 'string' && (typeof body.from === 'string' || body.from === null);
@@ -2696,6 +2997,8 @@ const isCatalogRow = (body) =>
       (body.action === 'delete' || (typeof body.column === 'string' && typeof body.to === 'string'))));
 // Deleting an entry or a milestone: the line its heading is on, and the heading's text.
 const isHeadingRemoval = (body) => hasLine(body) && typeof body.title === 'string';
+const isTaskRow = (body) => hasLine(body) && (typeof body.status === 'string' || body.status === null) && typeof body.text === 'string';
+const isTaskMove = (body) => isTaskRow(body) && Number.isInteger(body.toLine) && body.toLine >= 1 && typeof body.toTitle === 'string';
 const isTextEdit = (body) => hasLine(body) && EDITABLE_TEXT.includes(body.kind) && typeof body.from === 'string' && typeof body.to === 'string';
 // `line` is null for the untitled text before a file's first heading.
 const isBodyEdit = (body) =>
@@ -2827,9 +3130,16 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/catalogs' && req.method === 'POST') return handleEdit(req, res, isNewCatalog, createCatalog);
     if (url.pathname === '/api/catalog-row' && req.method === 'POST') return handleEdit(req, res, isCatalogRow, saveCatalogRow);
     if (url.pathname === '/api/milestone-remove' && req.method === 'POST') return handleEdit(req, res, isHeadingRemoval, deleteMilestone);
+    if (url.pathname === '/api/milestone-done' && req.method === 'POST') return handleEdit(req, res, isHeadingRemoval, finishWholeMilestone);
+    if (url.pathname === '/api/milestone-promote' && req.method === 'POST') return handleEdit(req, res, isHeadingRemoval, promoteMilestone);
+    if (url.pathname === '/api/row-move' && req.method === 'POST') return handleEdit(req, res, isTaskMove, moveTask);
+    if (url.pathname === '/api/row-promote' && req.method === 'POST') return handleEdit(req, res, isTaskRow, promoteTask);
+    if (url.pathname === '/api/row-block' && req.method === 'POST') return handleEdit(req, res, isTaskRow, linkTaskToBlock);
     if (url.pathname === '/api/milestone-item' && req.method === 'POST') return handleEdit(req, res, isNewItem, saveNewItem);
     if (url.pathname === '/api/status-table' && req.method === 'POST') return handleEdit(req, res, isStatusRow, saveStatusRow);
     if (url.pathname === '/api/leader-table' && req.method === 'POST') return handleEdit(req, res, isLeaderRow, saveLeaderRow);
+    if (url.pathname === '/api/agenda-table' && req.method === 'POST') return handleEdit(req, res, isAgendaRow, saveAgendaRow);
+    if (url.pathname === '/api/agenda-check' && req.method === 'POST') return handleEdit(req, res, isAgendaCheck, checkAgendaItem);
     if (url.pathname === '/api/colour-table' && req.method === 'POST') return handleEdit(req, res, isColourRow, saveColourRow);
     if (url.pathname === '/api/task' && req.method === 'POST') return handleEdit(req, res, isNewTask, saveNewTask);
     if (url.pathname === '/api/entities' && req.method === 'POST') return handleEdit(req, res, isNewEntity, createEntity);
@@ -2838,6 +3148,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/entry-add' && req.method === 'POST') return handleEdit(req, res, isNewEntry, saveNewEntry);
     if (url.pathname === '/api/entry-remove' && req.method === 'POST') return handleEdit(req, res, isHeadingRemoval, deleteEntry);
     if (url.pathname === '/api/mark-reviewed' && req.method === 'POST') return handleEdit(req, res, inFile, markReviewed);
+    if (url.pathname === '/api/review-flag' && req.method === 'POST') return handleEdit(req, res, isReviewFlag, flagForReview);
     if (url.pathname === '/api/date' && req.method === 'POST') return handleEdit(req, res, isDateEdit, saveDate);
     if (url.pathname === '/api/projects' && req.method === 'POST') return handleEdit(req, res, isNewProject, createProject);
     if (url.pathname === '/api/options' && req.method === 'POST') return handleEdit(req, res, isOptionsEdit, saveOptions);
@@ -2867,7 +3178,7 @@ const server = http.createServer(async (req, res) => {
       return catalog ? sendJson(res, 200, catalog) : sendJson(res, 404, { error: 'Catalog not found.' });
     }
     if (url.pathname === '/api/timeline') {
-      return sendJson(res, 200, { rows: await collectTimeline(), events: await timelineEvents(), dateFormat: await readDateFormat() });
+      return sendJson(res, 200, { rows: await collectTimeline(), events: await timelineEvents(), releases: await timelineReleases(), dateFormat: await readDateFormat() });
     }
     if (url.pathname === '/api/history') {
       const file = { review: REVIEW_FILE, focus: FOCUS_FILE }[url.searchParams.get('page')];
@@ -2880,6 +3191,8 @@ const server = http.createServer(async (req, res) => {
       const showArchived = await readShowArchived();
       const flags = {
         PMS_OWNER_IDS: ids,
+        // [[OWNERID Title]] links go to that project. Keyed as dependencyKey does.
+        PMS_PROJECTS: Object.fromEntries((await listProjects()).filter((p) => !isArchived(p)).map((p) => [dependencyKey(projectName(p.name)), p.folder])),
         PMS_ARCHIVED_STATUSES: archived,
         PMS_SHOW_ARCHIVED: showArchived,
         PMS_MULTI_USER: await readSwitch('MULTIUSER'),
@@ -2908,6 +3221,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/setup') return sendJson(res, 200, await setupState());
     if (url.pathname === '/api/status-table') return sendJson(res, 200, await readStatusTable());
     if (url.pathname === '/api/leader-table') return sendJson(res, 200, await readLeaderTable());
+    if (url.pathname === '/api/agenda-table') return sendJson(res, 200, await readAgendaTable());
     if (url.pathname === '/api/colour-table') return sendJson(res, 200, await readColourTable());
     if (url.pathname === '/api/colours.css') return send(res, 200, coloursStylesheet((await readColourTable()).rows), MIME['.css']);
     if (url.pathname === '/api/home') return sendJson(res, 200, await collectHome());

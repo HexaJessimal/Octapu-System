@@ -32,6 +32,7 @@
     return component('home-task', {
       checkbox: item.mark === null ? '' : status.checkbox(item),
       control: item.status ? status.control(item) : '',
+      menu: status.rowMenu(item),
       href,
       label,
       text: item.editText ? markdown.inline(item.editText) : '',

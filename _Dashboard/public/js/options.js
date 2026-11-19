@@ -1,4 +1,4 @@
-// Options page: an edit form for _Labels/Options.csv, plus the Statuses, Leaders and Colours tabs.
+// Options page: an edit form for _Labels/Options.csv, plus the Statuses, Leaders, Colours and Agenda tabs.
 (function () {
   'use strict';
   const { labelTables, component, getJson, postJson, loadError, UNREACHABLE } = window.PMS;
@@ -10,11 +10,13 @@
     statuses: document.getElementById('statuses-panel'),
     leaders: document.getElementById('leaders-panel'),
     colours: document.getElementById('colours-panel'),
+    agenda: document.getElementById('agenda-panel'),
   };
   const tables = {
     statuses: labelTables.create('statuses', panels.statuses),
     leaders: labelTables.create('leaders', panels.leaders),
     colours: labelTables.create('colours', panels.colours),
+    agenda: labelTables.create('agenda', panels.agenda),
   };
 
   function show(tab) {

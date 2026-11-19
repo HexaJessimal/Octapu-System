@@ -97,7 +97,9 @@
       <div class="ms-actions">
         <span class="ms-count">{{counts}}</span>
         {{{add}}}
-        <button type="button" class="row-remove" data-remove-milestone title="Delete this milestone" aria-label="Delete the milestone {{title}}"></button>
+        <span class="status-control milestone-menu-control" data-line="{{{line}}}" data-title="{{title}}">
+          <button type="button" class="row-menu-button milestone-menu-button" aria-haspopup="menu" aria-expanded="false" title="More for this milestone" aria-label="More for the milestone {{title}}"></button>
+        </span>
       </div>
     </header>
     <div class="ms-body">{{{body}}}</div>

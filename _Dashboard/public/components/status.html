@@ -53,6 +53,16 @@
   </span>
 </template>
 
+<!-- The flag on the Reviewed box: puts the project or entity on the Review page until it's
+     next reviewed. -->
+<template name="control-review-flag">
+  <span class="status-control review-flag-control" {{{attrs}}}>
+    <button type="button" class="review-flag-button{{#if on}} is-on{{/if}}" aria-pressed="{{{pressed}}}" title="{{action}}" aria-label="{{action}}"></button>
+  </span>
+</template>
+
+<template name="review-flagged"><span class="review-flagged">Flagged for review</span></template>
+
 <template name="control-priority">
   <span class="status-control priority-control" {{{attrs}}} data-priority="{{{value}}}">
     <button type="button" class="priority-button prio {{{className}}}" aria-haspopup="menu" aria-expanded="false" title="Priority" aria-label="Priority: {{{describe}}}">{{{value}}}</button>
@@ -73,9 +83,32 @@
   <div class="status-menu-sep" role="separator"></div>
   <button type="button" role="menuitem" data-plan="SCHEDULED">Schedule</button>
   <button type="button" role="menuitem" data-plan="DEADLINE">Deadline</button>
+</template>
+
+<!-- The grey menu at the end of a task row. -->
+<template name="control-row-menu">
+  <span class="status-control row-menu-control" {{{attrs}}}{{#if inMilestone}} data-in-milestone="true" data-milestone-line="{{{milestoneLine}}}"{{/if}}{{#if blockable}} data-blockable="true"{{/if}}>
+    <button type="button" class="row-menu-button" aria-haspopup="menu" aria-expanded="false" title="More for this task" aria-label="More for this task"></button>
+  </span>
+</template>
+
+<template name="row-menu-actions">
   <button type="button" role="menuitem" data-row="cancel"{{#if cancelled}} disabled{{/if}}>Cancel</button>
   <button type="button" role="menuitem" class="is-danger" data-row="delete">Delete</button>
 </template>
+
+<!-- The grey menu on a milestone's header. -->
+<template name="milestone-menu-actions">
+  <button type="button" role="menuitem" data-milestone="promote">Promote to new project</button>
+  <button type="button" role="menuitem" data-milestone="done">Mark all as done</button>
+  <div class="status-menu-sep is-thin" role="separator"></div>
+  <button type="button" role="menuitem" class="is-danger" data-milestone="delete">Delete</button>
+</template>
+
+<!-- A status in the status menu, with its type's icon and colour. -->
+<template name="status-menu-status"><button type="button" role="menuitem" class="status-menu-status icon-{{{icon}}}" data-to="{{value}}"{{#if current}} disabled aria-current="true"{{/if}}><span class="status-menu-icon" aria-hidden="true"></span>{{label}}</button></template>
+
+<template name="status-menu-divider"><div class="status-menu-sep is-thin" role="separator"></div></template>
 
 <template name="status-menu-type"><div class="status-menu-type">{{type}}</div></template>
 

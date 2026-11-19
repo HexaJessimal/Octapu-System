@@ -2,7 +2,7 @@
 // Each edit checks the text it replaces is still there, and returns null if it isn't.
 'use strict';
 
-const { PLANNING_LINE, setPlanningDate, stripComments, titleIndex, findField, setHeaderField, editLine, insertLine, createMatcher, scanLines, parseHeader } = require('./todos');
+const { PLANNING_LINE, setPlanningDate, stripComments, titleIndex, findField, setHeaderField, editLine, insertLine, createMatcher, scanLines, parseHeader, moveToStatus } = require('./todos');
 
 const HEADER_FIELD = /^\s*\*\*[^*]+\*\*\s*:/;
 // Project files also write these with the colon inside the bold. Other files keep such lines
@@ -623,6 +623,110 @@ function removeMilestone(markdown, line, title) {
   return removeLines(markdown, line, lastContentLine(rawLines(markdown), line, found.section.end));
 }
 
+// ----- moving tasks between milestones, and making them into milestones or blocks -----
+
+const indentOf = (line) => line.match(/^\s*/)[0].replace(/\t/g, '    ').length;
+
+// Takes `width` columns of leading whitespace off a line, so moved rows line up again.
+function dedent(line, width) {
+  let cut = 0;
+  let col = 0;
+  while (cut < line.length && col < width && /\s/.test(line[cut])) {
+    col += line[cut] === '\t' ? 4 : 1;
+    cut++;
+  }
+  return line.slice(cut);
+}
+
+// The 1-based lines a task takes up: its own, then everything indented under it, such as
+// its planning lines and subtasks.
+function rowExtent(visible, line) {
+  const own = indentOf(visible[line - 1]);
+  let last = line;
+  for (let i = line; i < visible.length; i++) {
+    if (isBlank(visible[i])) continue;
+    if (indentOf(visible[i]) <= own || SECTION_HEADING.test(visible[i]) || /^#{3,6}\s/.test(visible[i])) break;
+    last = i + 1;
+  }
+  return { first: line, last, own };
+}
+
+// Where a milestone's last line is, as a 0-based index of the line after it.
+function milestoneEnd(visible, found) {
+  for (let i = found.idx + 1; i < found.section.end; i++) if (/^###\s/.test(visible[i])) return i;
+  return found.section.end;
+}
+
+// Moves a task, and everything under it, to the end of another milestone. Returns null if
+// the task or the milestone has changed.
+function moveRow(markdown, line, status, text, toLine, toTitle, statuses) {
+  if (!findRow(markdown, line, status, text, statuses)) return null;
+  const visible = stripComments(markdown);
+  const target = milestoneAt(visible, toLine, toTitle);
+  if (!target) return null;
+  const { first, last, own } = rowExtent(visible, line);
+  const raw = rawLines(markdown);
+  const moved = raw.slice(first - 1, last).map((l) => dedent(l, own));
+  const at = lastContentLine(raw, toLine, milestoneEnd(visible, target));
+  if (at >= first && at <= last) return null; // can't move a task into itself
+  if (at < first) return removeLines(insertLine(markdown, at, moved), first + moved.length, last + moved.length);
+  return insertLine(removeLines(markdown, first, last), at - moved.length, moved);
+}
+
+// Makes a task into a new milestone at the end of the Milestones section, named after its
+// text. Its subtasks become the milestone's tasks; its own dates are dropped.
+function promoteRow(markdown, line, status, text, statuses) {
+  const item = findRow(markdown, line, status, text, statuses);
+  if (!item) return null;
+  const visible = stripComments(markdown);
+  const { first, last } = rowExtent(visible, line);
+  const raw = rawLines(markdown);
+  let from = first; // past the task's own planning lines
+  while (from < last && PLANNING_LINE.test(visible[from])) from++;
+  const children = raw.slice(from, last);
+  const width = Math.min(...children.filter((l) => !isBlank(l)).map(indentOf), Infinity);
+  const title = item.editText.replace(/~~/g, '').trim();
+  let out = addMilestone(removeLines(markdown, first, last), title);
+  if (!children.length) return out;
+  const after = stripComments(out);
+  const heading = after.map((l, i) => (l.trim() === `### ${title}` ? i + 1 : 0)).filter(Boolean).pop();
+  return insertLine(out, heading, children.map((l) => dedent(l, width === Infinity ? 0 : width)));
+}
+
+// Adds a "## <task text>" Scratchpad block and makes the task's text a link to it. `target`
+// is what the link names: the project's name, or the entity's ID.
+function linkRowToBlock(markdown, line, status, text, target, statuses) {
+  const item = findRow(markdown, line, status, text, statuses);
+  if (!item) return null;
+  const title = item.editText.trim();
+  const linked = swapText(markdown, line, item.textAt, item.editText, `[[${target}#${title}|${title}]]`);
+  return addBlock(linked, title);
+}
+
+// Moves every open task in a milestone to `done`, from the bottom up so each CLOSED line
+// that's added doesn't move the rows still to do.
+function finishMilestone(markdown, line, title, done, statuses, now) {
+  const visible = stripComments(markdown);
+  const found = milestoneAt(visible, line, title);
+  if (!found) return null;
+  const end = milestoneEnd(visible, found);
+  const typeOf = (name) => (statuses.find((s) => s.name === name) || {}).type;
+  const rows = scanLines(markdown, createMatcher(statuses))
+    .filter((i) => i.line > line && i.line <= end && (i.mark !== null || i.status) && !i.cancelled && !['DONE', 'ARCHIVED'].includes(typeOf(i.status)))
+    .sort((a, b) => b.line - a.line);
+  return rows.reduce((out, row) => (out === null ? null : moveToStatus(out, row.line, row.status || null, done, statuses, now)), markdown);
+}
+
+// A milestone's tasks, as written, for a project made from it.
+function milestoneBody(markdown, line, title) {
+  const visible = stripComments(markdown);
+  const found = milestoneAt(visible, line, title);
+  if (!found) return null;
+  const raw = rawLines(markdown);
+  const end = lastContentLine(raw, line + 1, milestoneEnd(visible, found));
+  return end ? raw.slice(line, end) : [];
+}
+
 // Moves the milestone at position `from` to position `to`. `titles` is the order the page
 // was showing. The blank lines between milestones stay where they are.
 function moveMilestone(markdown, titles, from, to) {
@@ -840,6 +944,11 @@ module.exports = {
   addMilestoneItem,
   removeMilestone,
   moveMilestone,
+  moveRow,
+  promoteRow,
+  linkRowToBlock,
+  finishMilestone,
+  milestoneBody,
   milestoneRows,
   lastReviewDate,
   parseFocus,

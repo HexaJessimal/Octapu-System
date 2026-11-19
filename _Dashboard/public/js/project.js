@@ -2,7 +2,7 @@
 // in multi-user mode, Changelog.
 (function () {
   'use strict';
-  const { parseFolder, STATE_LABELS, progressLegend, escapeHtml, markdown: md, status, editing, milestoneControls, documentView, changes, component, readJson, setViewInAddress, UNREACHABLE } = window.PMS;
+  const { parseFolder, STATE_LABELS, progressLegend, escapeHtml, markdown: md, status, editing, milestoneControls, documentView, changes, component, readJson, setViewInAddress, normalText, hashReference, UNREACHABLE } = window.PMS;
   const { addButton, progressMeter, fact, titleSpan } = documentView;
 
   const DEFAULT_VIEW = 'overview';
@@ -51,7 +51,7 @@
 
   editing.init({ project: () => project, redraw: draw });
 
-  const renderOptions = (lineNumbers) => documentView.renderOptions(project, lineNumbers);
+  const renderOptions = (lineNumbers, where) => documentView.renderOptions(project, lineNumbers, where);
   const renderScratchpad = () => documentView.renderScratchpad(project);
 
   // In the Raw view a double-click always edits the whole file, so the title isn't editable.
@@ -74,7 +74,7 @@
 
   function factValue(v, kind) {
     if (kind === 'owner' && project.leader) return status.leaderControl(project);
-    if (kind === 'reviewed' && !v) return 'Not yet';
+    if (kind === 'reviewed') return status.reviewedValue(project);
     const value = v ? md.inline(v) : '';
     if (kind === 'closed') return value + status.dateControl(project, 'closed', 'Date Closed');
     if (kind === 'dependency') {
@@ -105,6 +105,7 @@
     const info = parseFolder(project.folder);
     const meta = md.parseMeta(project.content);
     const ms = md.parseMilestones(project.content);
+    status.setMilestones(ms.milestones.map((m) => ({ line: m.firstLine - 1, title: m.title })));
 
     // ----- key details -----
     const owner = meta.fields.owner || info.owner;
@@ -123,7 +124,7 @@
     // Any other **Key**: value fields in the file also appear here.
     meta.order.forEach((key) => {
       const k = key.toLowerCase();
-      if (!['owner', 'date created', 'created', 'date reviewed', 'date closed', 'active timeframe', 'project dependency', 'project type'].includes(k)) facts.push([key, meta.fields[k]]);
+      if (!['owner', 'date created', 'created', 'date reviewed', 'date closed', 'active timeframe', 'project dependency', 'project type', 'flagged for review'].includes(k)) facts.push([key, meta.fields[k]]);
     });
 
     if (project.ongoing) {
@@ -157,7 +158,9 @@
   }
 
   function milestoneCard(m, i) {
-    const options = Object.assign(renderOptions(m.body.split('\n').map((_, k) => m.firstLine + k)), {
+    // Tasks in a milestone can be moved to another or promoted to their own.
+    const where = { milestone: { line: m.firstLine - 1, title: m.title } };
+    const options = Object.assign(renderOptions(m.body.split('\n').map((_, k) => m.firstLine + k), where), {
       editAttrs: (item) => editing.attrs('todo', item.line, item.editText),
     });
     const body = md.render(m.body, options);
@@ -173,27 +176,34 @@
       heading: md.inline(m.title),
       counts: STATE_LABELS[m.state] + (m.total ? ' · ' + m.done + ' / ' + m.total : '') + (m.cancelled ? ' · ' + m.cancelled + ' cancelled' : ''),
       add: addButton('item', 'Add a checkbox', { line: headingLine, title: m.title }),
+      line: headingLine,
       body: body.trim() ? component('doc-body', { body }) : component('no-tasks', { message: m.total ? 'Milestone complete' : 'No tasks yet.' }),
     });
   }
 
-  // The minus button on a milestone deletes it, and everything under it, after asking.
-  async function removeMilestone(card) {
-    const title = card.dataset.title;
-    if (!(await status.confirmDelete(title, 'Delete this milestone and everything in it?'))) return;
+  // The grey menu on a milestone. Promoting makes a new project from it, depending on this
+  // one, then opens it. Deleting removes the milestone and everything under it, after asking.
+  const MILESTONE_ACTIONS = {
+    promote: { url: 'api/milestone-promote', ask: 'Its tasks move to a new project, named after it, which depends on this one.', heading: 'Promote this milestone?', button: 'Promote' },
+    done: { url: 'api/milestone-done' },
+    delete: { url: 'api/milestone-remove', ask: null, heading: 'Delete this milestone and everything in it?', button: 'Delete' },
+  };
+
+  async function milestoneAction(ctrl, action) {
+    const { url, ask, heading, button } = MILESTONE_ACTIONS[action];
+    const title = ctrl.dataset.title;
+    if (heading && !(await status.confirmDelete(ask || title, heading, button))) return;
     try {
-      const result = await editing.post('api/milestone-remove', { line: Number(card.querySelector('h3').dataset.line), title });
-      if (!result.ok) status.toast(result.error || 'Could not delete that.');
+      const result = await editing.post(url, { line: Number(ctrl.dataset.line), title });
+      if (!result.ok) status.toast(result.error || 'Could not save that change.');
+      else if (action === 'promote') return location.assign('project.html?folder=' + encodeURIComponent(result.body.folder));
       await status.refresh();
     } catch (_) {
       status.toast(UNREACHABLE);
     }
   }
 
-  document.addEventListener('click', (e) => {
-    const remove = e.target.closest('[data-remove-milestone]');
-    if (remove) removeMilestone(remove.closest('.milestone'));
-  });
+  status.onMilestoneAction(milestoneAction);
 
   // Archiving sets Date Closed, which hides the project everywhere, then either copies its
   // header into _Archive.md or renames its folder, depending on ARCHIVEMODE.
@@ -221,6 +231,33 @@
   }
 
   archiveEl.addEventListener('click', archiveProject);
+
+  // Opens the heading named after the # in the address, as a [[OWNERID Title#Heading]] link
+  // asks: a milestone or task list on the Overview, or a block on the Scratchpad.
+  function goToTarget() {
+    if (!project || !location.hash) return;
+    const reference = hashReference();
+    const wanted = normalText(reference);
+    editing.close();
+    const milestone = project.ongoing ? null : md.parseMilestones(project.content).milestones.find((m) => normalText(m.title) === wanted);
+    const list = project.ongoing ? project.taskLists.findIndex((l) => normalText(l.name) === wanted) : -1;
+    const block = (project.blocks || []).findIndex((b) => b.title !== null && normalText(b.title) === wanted);
+    if (!milestone && list === -1 && block === -1) return status.toast('No heading called "' + reference + '" in ' + project.title.rest + '.');
+    if (milestone) milestoneControls.expand(milestone.title);
+    setView(block !== -1 && !milestone && list === -1 ? 'scratchpad' : 'overview');
+    const target = milestone
+      ? Array.from(contentEl.querySelectorAll('.milestone')).find((card) => card.dataset.title === milestone.title)
+      : list !== -1
+        ? contentEl.querySelector('#task-list-' + list)
+        : contentEl.querySelectorAll('.scratch-block')[block];
+    if (target) {
+      target.classList.add('is-target');
+      target.scrollIntoView({ block: 'start' });
+    }
+  }
+
+  window.addEventListener('hashchange', goToTarget);
+  let firstLoad = true;
 
   function showError(msg) {
     titleEl.textContent = 'Project not found';
@@ -250,6 +287,8 @@
           typeEl.innerHTML = status.projectTypeControl(project);
           archiveEl.hidden = Boolean(project.archived);
           draw();
+          if (firstLoad) goToTarget();
+          firstLoad = false;
           changes.showConflicts(project);
         })
         .catch((err) => showError(err.message));

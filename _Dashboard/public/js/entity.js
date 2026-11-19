@@ -47,15 +47,14 @@
     const meta = md.parseMeta(org.content);
     const tasks = documentView.taskRows(org);
     const done = tasks.filter((t) => t.mark === 'x').length;
-    const reviewed = org.dates.reviewed.value;
     const created = meta.fields['date created'] || meta.fields.created;
-    const known = ['owner', 'date created', 'created', 'date reviewed', 'date closed'];
+    const known = ['owner', 'date created', 'created', 'date reviewed', 'date closed', 'flagged for review'];
     return component('summary-card', {
       title: org.title ? titleSpan(org, true) : window.PMS.escapeHtml(org.name),
       facts:
         (org.leader ? fact('Owner', status.leaderControl(org), 'fact-full') : '') +
         fact('Created', created ? md.inline(created) : '') +
-        fact('Reviewed', reviewed ? md.inline(reviewed) : 'Not yet') +
+        fact('Reviewed', status.reviewedValue(org)) +
         fact('Incomplete tasks', String(tasks.length - done)) +
         fact('Parent', org.parentId ? component('link', { href: tabHref(org.parentId), label: org.parentName }) : 'None (top level)') +
         meta.order.filter((key) => !known.includes(key.toLowerCase())).map((key) => fact(key, md.inline(meta.fields[key.toLowerCase()]))).join(''),

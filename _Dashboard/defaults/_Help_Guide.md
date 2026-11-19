@@ -72,7 +72,7 @@ Each task you add appears in the Tasks box. The summary above it shows how many 
 
 ## Assign a task to yourself and select a priority
 
-A new task has no status yet. Select the small caret beside its circle and choose a status. Your name is one of the statuses, in the **ASSIGNED** group.
+A new task has no status yet. Select the small caret beside its circle and choose a status. Your name is one of the statuses. Each one shows its type's symbol and colour: an empty circle for unassigned, a person for assigned, a half circle for waiting, a tick for done and a filled circle for archived.
 
 [[IMAGE#Screenshots/08-AssignTask.png]]
 
@@ -169,7 +169,7 @@ Select the plus button beside **Milestones**. A blank milestone opens, ready to 
 
 [[IMAGE#Screenshots/24-NewMilestone.png]]
 
-Each milestone appears as a coloured block in the progress bar and as its own card below. Use the plus button on a card to add tasks to it, the same way. The minus button deletes the milestone and its tasks after asking. The drag handle reorders cards, and the small arrow collapses them.
+Each milestone appears as a coloured block in the progress bar and as its own card below. Use the plus button on a card to add tasks to it, the same way. The grey button beside it opens the milestone menu, described in [Use the task and milestone menus](#use-the-task-and-milestone-menus). The drag handle reorders cards, and the small arrow collapses them.
 
 The colours show progress: green is complete, yellow is in progress, orange is not started and pink is unplanned, meaning it has no tasks yet.
 
@@ -199,17 +199,23 @@ Before reviewing, finish a task or two so there's something to report.
 
 [[IMAGE#Screenshots/29-SecondTaskComplete.png]]
 
-Under **Time Management** in the left menu, Review and Plan are outlined when they're due. The two numbers beside Review are how many projects and how many entities are waiting to be reviewed.
+Under **Time Management** in the left menu, Review and Plan are outlined when they're due. Beside Review, the green circle counts the tasks finished since the last review, and the next two numbers are how many projects and how many entities are waiting to be reviewed.
 
 [[IMAGE#Screenshots/30-TimeManagement.png]]
 
-Open **Review**. The top boxes list every project and entity that hasn't been reviewed yet.
+Open **Review**. The top boxes list every project and entity that hasn't been reviewed yet, or that has been flagged for review.
+
+To flag one, select the flag in the **Reviewed** box at the top of its page. It turns orange and says **Flagged for review**, and the page is listed on Review whatever its review date. Reviewing it again updates the date and takes the flag away. Select the flag again to take it away yourself.
+
+[[IMAGE#Screenshots/81-FlagForReview.png]]
 
 [[IMAGE#Screenshots/31-Review.png]]
 
 Select one to open it in an overlay, where you can read and edit it as normal. Select **Mark as reviewed and close** when you're done, or **Close** to leave it on the list.
 
 [[IMAGE#Screenshots/32-ReviewAndClose.png]]
+
+Below those boxes are the cards from your review agenda, if you've set one up. See [Set up a review agenda](#set-up-a-review-agenda).
 
 ## Document your wins for this period
 
@@ -265,7 +271,7 @@ Either way the idea leaves the page, but stays in the file.
 
 ## View the timeline
 
-The Timeline is on the Dashboard's Overview tab. Projects are graded through the colours of their milestones, and a project with no milestones is shown as `N/A` in the key. The tick boxes above it show or hide **Active** and **Inactive** projects, and **Archive** ones while `SHOWARCHIVED` is ticked. Archived projects are green, the complete colour. **3 months**, **6 months** and **12 months** zoom the chart in and out. As you scroll sideways, rows with nothing within two months of the dates on screen are hidden, so the chart stays a sensible height however many years it covers. An event's application deadline is a cyan line until you've applied or it's booked. Its date is purple once it's booked, and grey until then. An event of several days has a line at each end, with a paler band between. Point at a line to see which event it is. Where one item depends on another, it sits underneath with an arrow joining them. Select any bar to open it.
+The Timeline is on the Dashboard's Overview tab. Projects are graded through the colours of their milestones, and a project with no milestones is shown as `N/A` in the key. The tick boxes above it show or hide **Active** and **Inactive** projects, **Archive** ones while `SHOWARCHIVED` is ticked, and the **Deadlines**, **Bookings** and **Releases** lines. Archived projects are green, the complete colour. **3 months**, **6 months** and **12 months** zoom the chart in and out. As you scroll sideways, rows with nothing within two months of the dates on screen are hidden, so the chart stays a sensible height however many years it covers. An event's application deadline is a cyan line until you've applied or it's booked. Its date is purple once it's booked, and grey until then. An event of several days has a line at each end, with a paler band between. Point at a line to see which event it is. Every record in a catalog with a **Release date** is a white line on that day. Point at it to see its cover, title and date. Where one item depends on another, it sits underneath with an arrow joining them. Select any bar to open it.
 
 [[IMAGE#Screenshots/38-TimelineView.png]]
 
@@ -333,6 +339,8 @@ These work anywhere you can write notes:
 - `[[ID]]` opens that entity's page, for example `[[LABEL]]`.
 - `[[ID#Tasks]]` opens that entity's task list. Use any heading from `TASKLISTS`.
 - `[[ID#Any other heading]]` opens that entity's Scratchpad at that section.
+- `[[ID Project Title]]` opens that project, for example `[[LABEL Design A New Logo]]`. It's the project's name, as used for a Project Dependency.
+- `[[ID Project Title#Milestone]]` opens the project's Overview at that milestone, and `[[ID Project Title#Any other heading]]` opens its Scratchpad at that section.
 - `[[IMAGE#Screenshots/01-RunServer.png]]` shows an image from the `_Images` folder.
 - `[the text to show](https://example.com)` links to a website, and a web address written out in full becomes a link by itself.
 
@@ -386,6 +394,40 @@ The **Colours** tab lists every colour the dashboard uses and what it's for. Dou
 The colours starting `print-` are only used when you print a generated report, described in [Read your report and save it](#read-your-report-and-save-it), so it comes out as dark text on white paper.
 
 [[IMAGE#Screenshots/49-CustomColours.png]]
+
+## Set up a review agenda
+
+The **Agenda** tab on the Options page lists the things you want to go through at every review. Use the plus button to add one, double-click a value to change it, and the minus button to delete one.
+
+Choose a **Type** for each item. A **text** item is a reminder, such as `Contacts & events roundup`, typed into **Item**. Text items are all listed together on one card called **Additional Agenda Items**, and links like `[[LABEL]]` work in them.
+
+**REVIEW** and **REVIEW_ALL** are rules, and each gets a card of its own. For these, **Item** is a dropdown of what to review. With **REVIEW** it lists:
+
+- **Dashboard**, a link to the Dashboard's Overview.
+- Each entity and tentacle, by its ID.
+- Each project, by its entity's ID and its title.
+
+With **REVIEW_ALL** it lists:
+
+- **Entities**: every top-level entity.
+- **Tentacles**: every tentacle, or **Tentacles of LABEL** for only those under LABEL.
+- Each projects directory from your options, such as **Projects**: every project in it.
+- **Active** and **Inactive**: every active or inactive project.
+- **Scheduled**: the projects with a timeframe running today.
+- **Deadlines**: the events still waiting for an application, with their deadlines.
+- **Bookings**: the upcoming events that are booked.
+- **Incubator**: the ideas waiting in the Incubator.
+- **Catalogs**: each catalog, with how many records it holds.
+
+Changing the Type of a rule picks the first item in its new list, which you can then change.
+
+[[IMAGE#Screenshots/84-AgendaOptions.png]]
+
+On the Review page, each project or entity on a card opens in the same overlay, with **Mark as reviewed and close**. Ones reviewed since your last logged review are dimmed and show the date, so you can see how far you've got. Everything else is a link: events to their entry on the Events page, ideas to the Incubator, catalogs to their table, and Dashboard to the Overview.
+
+Each card, and each text item, has a tick box to mark it done. The ticks are saved in the file's **Checked** column, which isn't shown on the Agenda tab, and they're all cleared when you submit the review.
+
+[[IMAGE#Screenshots/85-AgendaReview.png]]
 
 ## Review project compatibility
 
@@ -499,7 +541,7 @@ To add records, select the plus button beside the table. A blank record opens wi
 
 [[IMAGE#Screenshots/62-CatalogAdd.png]]
 
-To show a picture, put it in the `_Images` folder and write its name in double square brackets, such as `[[IMAGE#Logo.png]]` for your logo. Type dates the same way as everywhere else.
+To show a picture, put it in the `_Images` folder and write its name in double square brackets, such as `[[IMAGE#Logo.png]]` for your logo. Type dates the same way as everywhere else. Each **Release date** is shown on the Timeline, with the record's picture when you point at it.
 
 Each catalog is saved as a spreadsheet file in the `_Catalogs` folder, so you can also open it in any spreadsheet program. Columns you add there appear in the dashboard too.
 
@@ -586,14 +628,31 @@ When one project can't start until another is finished, select the plus button b
 
 The dependency then shows as a link on the Overview. On the Timeline the project sits under the one it depends on, with an arrow joining them. Use the pencil to change it, or choose **None** to remove it.
 
-## Cancel or delete a task
+## Use the task and milestone menus
 
-The caret beside a task's status opens the menu used in [Assign a task to yourself and select a priority](#assign-a-task-to-yourself-and-select-a-priority). At the bottom are two more choices:
+Every task has a grey button at the end of its row, in documents and in the Todos sidebar. It opens the task's menu:
 
 - **Cancel** strikes the task through and unticks it. It stays in the file but drops off the Todos list and out of your progress counts.
 - **Delete** removes the line from the file, after asking.
 
 [[IMAGE#Screenshots/76-CancelDelete.png]]
+
+A task in a Milestone project's milestone has more choices:
+
+- **Move to** lists the project's other milestones. The task moves to the end of the one you choose, with any subtasks under it.
+- **Promote to new milestone** turns the task into a milestone of its own, at the end of the list. Its subtasks become the new milestone's tasks.
+
+On project and entity pages, **Create linked Scratchpad block** adds a Scratchpad block named after the task, and turns the task's text into a link to it. It isn't offered once that block exists.
+
+[[IMAGE#Screenshots/82-TaskMenu.png]]
+
+The grey button at the top of each milestone card opens the milestone's menu:
+
+- **Promote to new project** makes a new Milestone project named after the milestone, with the same entity and owner, and today as its Date Created. Its tasks go under a milestone called **Milestone 1**, and the new project depends on this one. The milestone is then taken out of this project, and the new project opens.
+- **Mark all as done** gives every open task in the milestone the first done status.
+- **Delete** removes the milestone and everything in it, after asking.
+
+[[IMAGE#Screenshots/83-MilestoneMenu.png]]
 
 ## Add an info note
 

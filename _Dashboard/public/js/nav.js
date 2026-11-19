@@ -98,6 +98,7 @@
       roundup.projectsToReview === undefined
         ? []
         : [
+            { value: roundup.doneToReview, className: 'nav-count-done', label: 'Done since the last review' },
             { value: roundup.projectsToReview, className: 'nav-count-projects', label: 'Projects to review' },
             { value: roundup.entitiesToReview, className: 'nav-count-entities', label: 'Entities to review' },
           ];

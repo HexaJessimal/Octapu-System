@@ -107,25 +107,39 @@ The sidebar on the left appears on every page:
 - **Catalogs:** **All catalogs**, then each catalog by name, described below.
 - **Leads** and **Events:** described under Networking below.
 - **Compatibility:** `Entities`, `Projects` and `Events`, described below.
-- **Options:** tabs for general settings (`_Labels/Options.csv`), statuses, leaders and colours, described below.
+- **Options:** tabs for general settings (`_Labels/Options.csv`), statuses, leaders, colours and the review agenda, described below.
 - **Help Guide:** a step by step guide to the dashboard, from `_Help_Guide.md` in the main folder, with a numbered contents list under its title linking to each `##` heading. A link written as `[text](#heading-name)` goes to a heading on the same page, and stays in the same tab. Select a screenshot to see it full size in a popup, and select it again, or press Escape, to close it. Edit that file and refresh to change it. Until it's marked as read, the menu link has a green outline. The **Mark as read** checkbox below the guide is the `- [ ] Mark as read` line at the bottom of the file, which ticking it changes. If the line is missing, ticking the box adds it.
 
 ### Overview tab
 
 - **Tiles:** **Scheduled Projects**, the number of projects in a timeframe today, comes first. Then **Open projects** and **Inactive projects**, the number of active and inactive projects across every project directory, how many days until the next Review and Plan are due, and the number of overdue tasks. Review and Plan use the `ROUNDUP` number of days from `_Labels/Options.csv`.
-- **Timeline:** a Gantt chart that scrolls sideways, with one bar per timeframe in each project's `Active Timeframe`, accurate to the month. Each bar is graded through the project's milestones from left to right, using the same colours as the milestone progress bar. A project with no milestones is `N/A` in the key. Tick boxes above the chart show or hide **Active** and **Inactive** projects, and are remembered in the browser. While `SHOWARCHIVED` is on, archived projects are charted too, in the complete colour, `green`, with an **Archive** box to hide them. An event's Application Deadline is a cyan line until it's been applied for or booked. Its Event Date is a purple line once it's booked, and grey before that. An event of several days has a line at each end, with a paler band between. Point at a line to see the event. Timeframes that aren't written as `YYYY-MM-DD` are listed above the chart. **3 months**, **6 months** and **12 months** set how many months fit across the chart, and the choice is remembered in the browser. It opens at 6, with last month at the left. A row only shows while one of its timeframes is within two months of the months on screen, so scrolling sideways shows and hides rows and the chart only grows as tall as the stretch of time being looked at. If nothing is near, a line above the chart says so. Arrows are only drawn between rows on screen. A chart taller than 12 rows scrolls up and down, with the year and month headings staying in view.
+- **Timeline:** a Gantt chart that scrolls sideways, with one bar per timeframe in each project's `Active Timeframe`, accurate to the month. Each bar is graded through the project's milestones from left to right, using the same colours as the milestone progress bar. A project with no milestones is `N/A` in the key. Tick boxes above the chart show or hide **Active** and **Inactive** projects and the **Deadlines**, **Bookings** and **Releases** lines, and are remembered in the browser. While `SHOWARCHIVED` is on, archived projects are charted too, in the complete colour, `green`, with an **Archive** box to hide them. An event's Application Deadline is a cyan line until it's been applied for or booked. Its Event Date is a purple line once it's booked, and grey before that. An event of several days has a line at each end, with a paler band between. Point at a line to see the event. Each catalog record with a readable `Release date` is a line in the `text` colour (white on the dark theme). Pointing at it shows a card with the record's `Image` (an `[[IMAGE#...]]` value), `Title` and date, opening to the left near the chart's right edge. Timeframes that aren't written as `YYYY-MM-DD` are listed above the chart. **3 months**, **6 months** and **12 months** set how many months fit across the chart, and the choice is remembered in the browser. It opens at 6, with last month at the left. A row only shows while one of its timeframes is within two months of the months on screen, so scrolling sideways shows and hides rows and the chart only grows as tall as the stretch of time being looked at. If nothing is near, a line above the chart says so. Arrows are only drawn between rows on screen. A chart taller than 12 rows scrolls up and down, with the year and month headings staying in view.
 - **Current plan** shows the newest entry in `_Time_Management/Plan.md`, while it's less than `ROUNDUP` days old. After that it links to the Plan page instead.
 - **Due in the next 7 days** and **Overdue tasks** list open tasks with a `DEADLINE` or `SCHEDULED` date, from every non-archived project and every entity, soonest first. If a task has both, the deadline counts. Finished, archived and cancelled tasks are left out, and today counts as due, not overdue. Its status can be changed right there.
 - **Priorities this month** lists Milestone projects with a timeframe that includes today, and their progress.
 
 ### Review
 
-**Projects to review** and **Entities to review** list every non-archived project and every entity with no `Date Reviewed`. A link opens that page in an overlay, where it can still be edited. **Mark as reviewed and close** sets `Date Reviewed` to today, and **Close** leaves it on the list. This is the only way to set the date in the dashboard, and project and entity pages show it read-only. The two numbers beside Review in the menu count these lists: cyan for projects and purple for entities.
+**Projects to review** and **Entities to review** list every non-archived project and every entity with no `Date Reviewed`, or with `**Flagged for Review**: Yes`. The flag button in the Reviewed box on a project or entity Overview adds that line under Date Reviewed, or takes it away. A link opens that page in an overlay, where it can still be edited. **Mark as reviewed and close** sets `Date Reviewed` to today and removes any Flagged for Review line, and **Close** leaves it on the list. This is the only way to set the date in the dashboard, and project and entity pages show it read-only. Beside Review in the menu, a green circle counts the items in **Done since the last review**, below, and the next two numbers count these lists: cyan for projects and purple for entities.
 
 Lists every `DONE` type item in non-archived projects, Ongoing ones included, in entities and tentacles, and under a Leads contact or an Events entry, that was closed since the last review, with one box per status. Reviews are logged in `_Time_Management/Review.md`, newest first, under a `## YYYY-MM-DD` heading, and the latest heading sets the date of the last review.
 
 - **Add to wins** adds that box's items to the wins text as bullet points, and removes the box.
 - **Submit** logs the wins under today's date and moves every `DONE` type item in all of those to the first `ARCHIVED` status, including any closed before the last review. The text can't be empty. It also adds a report to `_Entities/Reports.md`, described under **Report tab**. If any file can't be written, the ones already changed are put back.
+
+#### Review agenda
+
+Below the two boxes are cards from `_Time_Management/AgendaItems.csv`, edited on the Options page's **Agenda** tab. Its columns are `Type,Item,Checked`, and spaces around a value are ignored.
+
+- **`text`** items are listed together, in file order, on an **Additional Agenda Items** card, rendered as markdown so links work.
+- **`rule`** items each get a card, in file order:
+  - `[[REVIEW|Dashboard]]` links to the Dashboard's Overview ("Review Dashboard"). It's checked before entity IDs, ignoring case, so an entity with the ID `DASHBOARD` can't be reviewed on its own.
+  - `[[REVIEW|ID]]` lists one entity or tentacle ("Review Entity: <name>").
+  - `[[REVIEW|ID#Title]]` lists one non-archived project, matched as a Project Dependency is: the owner ID and title, ignoring case and spacing ("Review Project: <title>").
+  - `[[REVIEW_ALL|Group]]` lists a group ("Review All …"). Groups are `Entities` (top-level), `Tentacles` (every owner with a parent) or `Tentacles#ID` (every owner under that one, at any depth), `Active`, `Inactive`, `Scheduled` (planned projects with an Active Timeframe running today), `Deadlines` (events not yet applied for or booked, with an Application Deadline from today on), `Bookings` (booked events not yet over), `Incubator` (ideas with no Archived or Promoted date, linking to the Incubator), `Catalogs` (each catalog with its record count, linking to its table), or a `PROJECTS` directory name (every non-archived project in it). Group names ignore case, and win over a directory of the same name, so a `PROJECTS` directory can't be called one.
+  - A rule that can't be read, or names something that doesn't exist, still gets its card, saying what's wrong.
+- Projects and entities on a card open the same overlay as the boxes above. Each shows its `Date Reviewed`, and is dimmed when that's on or after the last review's date. The card's number counts those out of its total. Other rows are links, with a date or note: events to their entry on the Events page, ideas to the Incubator, catalogs to their table. Those cards' number counts the links.
+- **`Checked`** is `true` or `false`, and a new row starts `false`. The tick box on each card and each text item sets it, and submitting the review sets every row back to `false`. The Agenda tab doesn't show it, and its edits leave it as it is. Saving checks the row is still the one shown, by its place and item, so a file edited elsewhere isn't overwritten.
 
 Both Review and Plan have a **History** tab, showing their log file as one card per date.
 
@@ -278,6 +292,8 @@ A reference in double square brackets becomes a link wherever it appears in the 
 
 A reference starting with an `id` from `_Labels/Owners.csv` links to that owner's page. `[[FISTING]]` opens its Overview, `[[FISTING#Tasks]]` goes to that task list on the Overview if `Tasks` is in `TASKLISTS`, and any other heading, such as `[[OCTAPU#Dates of Note]]`, opens its Scratchpad at that section. If the heading isn't found, the page opens and shows a short message. IDs are case-sensitive, so `FISTING` links and `Fisting` doesn't. The list of IDs is re-read each time a page loads.
 
+A reference that is a project's name, its owner ID and title as used for a Project Dependency, links to that project. It's checked before owner IDs, and capitals and extra spaces don't matter. `[[LABEL Design A New Logo]]` opens its Overview, a milestone heading such as `[[LABEL Design A New Logo#Final Proof]]` (or a task list on an Ongoing project) opens the Overview with that card expanded, scrolled to and outlined, and any other heading opens its Scratchpad at that block. Archived projects aren't linked.
+
 `[[IMAGE#Screenshots/01-RunServer.png]]` shows that picture from the `_Images` folder, kept to a size that fits the page. It can be `.png`, `.jpg`, `.gif` or `.webp`.
 
 Any other reference stays as plain text.
@@ -335,6 +351,8 @@ Once a project's header has been archived (the **Archive** button in `HEADERS` m
 - **Next status** offers every status, including defaults for any type with no row of its own. `Automatic` leaves it blank, which moves to the first status of the next type. Renaming a status updates any `Next` pointing to it, and deleting one clears them.
 - **Leader tags** can't be edited. A tag is `#` followed by the name with any punctuation removed, and it changes with the name.
 
+**Agenda** lists `_Time_Management/AgendaItems.csv`, edited in the same way, and creates it with its first row. **Type** is `text`, `REVIEW` or `REVIEW_ALL`: a rule `[[REVIEW|LABEL]]` is shown as the type `REVIEW` and the item `LABEL`, and saved back in that form. For a rule, **Item** is a dropdown of every target the type allows: `Dashboard`, each owner ID and each non-archived project (`ID#Title`) for `REVIEW`, and each group, `Tentacles#ID` for each owner with tentacles, and each `PROJECTS` directory for `REVIEW_ALL`. A target that no longer exists stays in its row's dropdown. Changing a rule's type picks the first target of the new type, and changing it to `text` keeps the target as the text. The Checked column isn't shown.
+
 **Colours** lists every colour on the dashboard, from `_Labels/Colours.csv`, with what each is used for. The list is kept short, so one colour often has several uses, and changing it changes all of them. Double-click a colour to change it. It takes a 6 character hex value, with or without the `#`, and the new colour shows straight away. Paler tints of a colour, such as the current month on the Timeline, are worked out from it. Status and priority tags use the same colours everywhere, including on highlighted items in the Todos sidebar. The `print-` colours are only used when a generated report is printed.
 
 You can also edit the file by hand and refresh the page. The `Name` of each row is how the stylesheet finds it, so it needs to stay as it is. A row that's missing, or whose value isn't a 6 character hex value, uses the built-in colour from `public/css/style.css`. Pale page backgrounds may leave parts the browser draws itself, such as scrollbars and dropdown lists, dark, because the dashboard declares a dark colour scheme.
@@ -387,7 +405,10 @@ Projects with `**Project Type:** Ongoing` use the same folder names, status pref
 
   - a card for each milestone.
   - plus buttons to add a milestone, or a checkbox to a milestone. See **Adding with a plus button** below.
-  - a minus button on each milestone, which deletes it after asking. Its heading and everything under it go, up to the next milestone. Nothing else in the file changes.
+  - a grey menu button on each milestone:
+    - **Promote to new project** creates a Milestone project in the same directory, titled after the milestone, with the same entity and `**Owner**`, today's Date Created and a Project Dependency on this project. The milestone's lines go under `### Milestone 1`. The milestone is then removed from this file and the new project opens. It needs this project's main file and Owner, and a project with that entity and title mustn't exist.
+    - **Mark all as done** moves every open, uncancelled row in the milestone to the first `DONE` status, adding `CLOSED` stamps as a status change does.
+    - **Delete** removes it after asking. Its heading and everything under it go, up to the next milestone. Nothing else in the file changes.
   - an arrow to collapse each milestone, remembered in your browser, and a dotted handle to reorder them. Green milestones start collapsed each time the page loads. Drag the handle, or focus it and press the up and down arrow keys. Reordering moves the milestone in the file.
 - **Scratchpad** shows everything in the file except the header fields and the Milestones section, as one block per `#` or `##` heading. The plus button adds a block at the end of the file. A block can't be called `Notes` or `Milestones`.
 - **Raw** shows the whole markdown file, nicely rendered, on project, entity, Leads and Events pages. Double-click it to edit the file's markdown in one text box. Ctrl+Enter saves and Escape cancels. If the file has changed since the page loaded, nothing is saved. A project or entity folder with more than one markdown file gets a tab for each file above the content, on every tab of the page, with the main file first. The plus button at the end of that row adds a new file, with the fields and headings a project file needs, and opens it.
@@ -456,11 +477,19 @@ Every highlighted status, in the sidebar and on project pages, has a name and a 
 - **Click the caret** to pick any status from the CSV.
 - **Click the name** to move to the next status. That's the status in the CSV's `Next` column, or if that's blank, the first status of the next type: `UNASSIGNED` → `ASSIGNED` → `DONE` → `ARCHIVED`, with `WAITING` also moving to `DONE`. The last status of the sequence has nowhere to go, so its name can't be clicked.
 
-The dropdown also has these options at the bottom:
+The dropdown lists the statuses without type headings. Each shows its type's icon and colour, with a thin line between types. At the bottom:
 
 - **Schedule** and **Deadline** ask for a date and add a `SCHEDULED: <2026-08-13 Thu>` or `DEADLINE: <2026-08-20 Thu>` line below the row, shown under the todo. Choosing one again changes the date, and clearing the date removes it. Every date field has a calendar button, or you can type the date in your `DATEFORMAT`.
+
+### The task menu
+
+Every task row, on document pages and in the Todos sidebar, ends with a grey menu button:
+
 - **Cancel** strikes the whole row through, status included, and unticks its checkbox: `- [ ] ~~JESSIE Book the venue~~`. It then drops off the todo list and out of milestone progress.
 - **Delete** asks you to confirm, then removes the row and any `CLOSED`, `SCHEDULED` or `DEADLINE` lines directly below it. Rows nested under it are kept.
+- **Move to** (tasks in a Milestone project's milestone) lists the other milestones. The row, the rows nested under it and their planning lines move to the end of the chosen milestone, de-indented to the top level.
+- **Promote to new milestone** (the same tasks) removes the row and its own planning lines, adds a `###` milestone named after its text at the end of `## Milestones`, and puts the rows nested under it there, de-indented.
+- **Create linked Scratchpad block** (project and entity pages) adds a `## <task text>` block at the end of the file and rewrites the task's text as `[[<project name or entity ID>#<text>|<text>]]`. It's hidden when that block already exists or the text holds a `[[` link, and refused if the text contains `#`, `|`, `[` or `]`.
 
 If the line has changed in the file since the page loaded, nothing is written. You'll see a message and the page will refresh.
 
@@ -480,7 +509,7 @@ The top of each project file follows this pattern:
 ```
 
 - **Title:** the first `#` heading is the page title, and it's never listed as a todo. If it starts with an `id` from `_Labels/Owners.csv`, the dashboard shows that owner's `Name` with a dropdown for choosing another. The file keeps the `id`.
-- **Date Reviewed:** a single date, shown read-only and set from the Review page.
+- **Date Reviewed:** a single date, shown read-only and set from the Review page. The flag button beside it adds `**Flagged for Review**: Yes` on the next line, which puts the project on the Review page until it's next reviewed. Selecting it again removes the line.
 - **Date Closed:** a single date, in the `DATEFORMAT` set in `_Labels/Options.csv`. Click the plus to add one or the pencil to change it. Saving an empty box clears the date.
 - **Active Timeframe:** empty by default. Click the plus button next to it and choose a start and end month and year. A timeframe always runs from the first day of its start month to the last day of its end month, and is stored as full dates. Each new timeframe is added to the end of the line, separated by a comma. If a file doesn't have the line yet, the first timeframe adds it below `Date Created`. The Overview tab lists the timeframes one per row, each with a pencil to change its dates and a cross to delete it. The file keeps them on the single comma-separated line.
 - **Project Dependency:** empty by default. On the Overview tab, the plus button lists every project that isn't archived, apart from this one and any that already depend on it. With `ARCHIVEMODE` set to `HEADERS`, the entries in `_Archive.md` follow, marked (archived). The file stores the other project's name (its folder name without the status prefix and with spaces for underscores), and the Overview shows it as a link. On the Timeline, a dependent project sits directly below its parent, and an arrow runs from the end of the parent project's last bar to the start of the dependent project's first bar, if both have an `Active Timeframe`.
@@ -534,7 +563,7 @@ HelpGuide.pdf          the same guide as a PDF, to read or print without the das
 _Incubator.md          ideas for projects
 _Archive.md            the headers of archived projects (ARCHIVEMODE HEADERS)
 _Images/               pictures for [[IMAGE#...]] links, and the logo
-_Time_Management/      Plan.md and Review.md
+_Time_Management/      Plan.md, Review.md and AgendaItems.csv (the review agenda)
 _Entities/             a folder for each entity, with tentacles inside, and Reports.md
 _Networking/           Leads.md and Events.md
 _Catalogs/             a TAG_Name.csv per catalog
@@ -583,7 +612,7 @@ _Dashboard/
     js/catalog.js      a catalog's table: editing, adding and deleting records
     js/new-project.js  New project form
     js/project.js      project page logic
-    js/weekly-review.js Review page
+    js/weekly-review.js Review page and its agenda cards
     js/reports.js      Report tab and its charts
     js/weekly-plan.js  Plan page
     js/history.js      History tab on the Review and Plan pages
@@ -595,7 +624,7 @@ _Dashboard/
     js/networking.js   Leads and Events pages
     js/compatibility.js Compatibility pages
     js/options.js      options page tabs and form
-    js/label-tables.js Statuses, Leaders and Colours tables
+    js/label-tables.js Statuses, Leaders, Colours and Agenda tables
     js/sidebar.js      todos sidebar
     js/status.js       status name + caret control
 ```

@@ -1,0 +1,13 @@
+Type,Item,Checked
+rule,[[REVIEW|LABEL]], false
+rule,[[REVIEW|LABEL#A New Idea]], false
+text,Contacts & events roundup,false
+rule,[[REVIEW_ALL|Projects]],false
+rule,[[REVIEW_ALL|Entities]],false
+rule,[[REVIEW_ALL|Tentacles]],false
+rule,[[REVIEW_ALL|Active]],false
+text,hug it out,false
+rule,[[REVIEW_ALL|Inactive]],false
+rule,[[REVIEW_ALL|Scheduled]],false
+rule,[[REVIEW_ALL|Deadlines]],false
+rule,[[REVIEW_ALL|Bookings]],false

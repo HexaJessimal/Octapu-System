@@ -774,6 +774,44 @@ a:hover {
   display: block;
   position: relative;
   padding-left: 1.7em;
+  padding-right: 28px;
+}
+/* The grey menu at the end of a task row (Cancel, Delete and, on milestones, more). */
+.doc li.task > .row-menu-control {
+  position: absolute;
+  right: 0;
+  top: 0.2em;
+}
+.todo-head .row-menu-control {
+  margin-left: auto;
+}
+.row-menu-button {
+  position: relative;
+  display: block;
+  width: 20px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--text-soft) 45%, transparent);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--text-soft) 12%, transparent);
+  cursor: pointer;
+  opacity: 0.7;
+}
+.row-menu-button::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border: 4px solid transparent;
+  border-top-color: var(--text-soft);
+  border-bottom-width: 0;
+  transform: translate(-50%, -25%);
+}
+li:hover > .row-menu-control .row-menu-button,
+.todo:hover .row-menu-button,
+.row-menu-button:hover,
+.row-menu-button[aria-expanded='true'] {
+  opacity: 1;
 }
 .doc li.task > .check {
   position: absolute;
@@ -973,6 +1011,12 @@ summary.nav-link {
   font-weight: 700;
   line-height: 1.5;
   text-align: center;
+}
+/* A filled green circle, unlike the outlined counts after it. */
+.nav-count-done {
+  border-color: var(--green);
+  background: var(--green);
+  color: var(--bg);
 }
 .nav-count-projects {
   color: var(--cyan);
@@ -1187,6 +1231,53 @@ summary.nav-link {
 .legend-line.is-unbooked {
   background: var(--text-soft);
 }
+/* A release is a line in the text colour (white on the dark theme). It's wider than it
+   looks, so it's easy to point at, and shows a card with the cover beside it on hover. */
+.gantt-mark.is-release {
+  --mark: var(--text);
+  width: 10px;
+  margin-left: -4px;
+  background: linear-gradient(var(--mark), var(--mark)) center / 2px 100% no-repeat;
+}
+.release-card {
+  position: absolute;
+  top: 34px;
+  left: 12px;
+  z-index: 2;
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  width: 140px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.35);
+  font-size: 0.8rem;
+}
+.gantt-mark.is-release:hover .release-card {
+  display: flex;
+}
+.gantt-mark.is-release.is-flipped .release-card {
+  left: auto;
+  right: 12px;
+}
+.release-card img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 4px;
+  margin-bottom: 4px;
+}
+.release-name {
+  font-weight: 600;
+}
+.release-date {
+  color: var(--text-soft);
+}
+.legend-line.is-release {
+  background: var(--text);
+}
 .legend i.legend-archived {
   background: var(--green);
 }
@@ -1266,11 +1357,15 @@ summary.nav-link {
 
 /* ---------- in-place editing ---------- */
 
-[data-edit] {
+/* Anything editable by double-click: document text (data-edit) and table cells (data-cell,
+   on catalogs and the Options tables). */
+[data-edit],
+[data-cell] {
   border-radius: 4px;
   cursor: text;
 }
-[data-edit]:hover {
+[data-edit]:hover,
+[data-cell]:hover {
   outline: 1px dashed var(--border);
   outline-offset: 2px;
 }
@@ -1360,6 +1455,43 @@ textarea.inline-field {
 }
 .timeframe-remove {
   --button-icon: url('../img/circle-xmark-solid-full.svg');
+}
+/* The flag on the Reviewed box: grey until it's on, then orange with a note beside it. */
+.review-flag-control {
+  margin-left: 8px;
+  vertical-align: -3px;
+}
+.review-flag-button {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-soft);
+  opacity: 0.7;
+  cursor: pointer;
+}
+.review-flag-button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: currentColor;
+  -webkit-mask: url('../img/flag-solid-full.svg') center / contain no-repeat;
+  mask: url('../img/flag-solid-full.svg') center / contain no-repeat;
+}
+.review-flag-button:hover {
+  opacity: 1;
+}
+.review-flag-button.is-on {
+  color: var(--orange);
+  opacity: 1;
+}
+.review-flagged {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.8rem;
+  color: var(--orange);
 }
 .row-remove {
   --button-icon: url('../img/circle-minus-solid-full.svg');
@@ -1736,6 +1868,27 @@ textarea.inline-field {
 .review-queue .review-meta,
 .review-queue .no-tasks {
   color: var(--text-soft);
+}
+/* The agenda's cards: ticked off as a whole, and rows reviewed since the last review dimmed. */
+.review-box-agenda {
+  --review-colour: var(--accent);
+}
+.review-box-agenda.is-checked,
+.review-items .is-reviewed,
+.agenda-text.is-checked .todo-text {
+  opacity: 0.55;
+}
+.nav-count-agenda {
+  color: var(--review-colour);
+}
+.agenda-text {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.agenda-text .check-box {
+  position: relative;
+  top: 0.15em;
 }
 .review-overlay {
   width: min(1100px, calc(100vw - 32px));
@@ -2445,6 +2598,20 @@ a.home-stat:hover {
 .label-card {
   overflow-x: auto;
 }
+.label-note {
+  margin: -4px 4px 14px;
+  font-size: 0.85rem;
+  color: var(--text-soft);
+}
+/* What a review agenda rule points at, shown as a chip rather than a link. */
+.agenda-rule {
+  padding: 1px 7px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+  font-size: 0.9em;
+  white-space: nowrap;
+}
 .label-table {
   width: 100%;
   border-collapse: collapse;
@@ -2544,9 +2711,11 @@ a.home-stat:hover {
   color: var(--pink);
 }
 /* Beside a milestone's plus button, at the same size. */
-.ms-actions .row-remove {
-  width: 20px;
+.milestone-menu-button {
   height: 20px;
+}
+.milestone header:hover .milestone-menu-button {
+  opacity: 1;
 }
 .visually-hidden {
   position: absolute;
@@ -3265,6 +3434,35 @@ select optgroup {
 }
 .status-menu button.is-danger {
   color: var(--pink);
+}
+/* A status in the menu: its type's icon and colour. The icon-<type> classes set both. */
+.status-menu button.status-menu-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+.status-menu button.status-menu-status.icon-archived {
+  color: var(--text-soft);
+}
+.status-menu-icon {
+  flex: none;
+  width: 1em;
+  height: 1em;
+  background: currentColor;
+  -webkit-mask: var(--icon) center / contain no-repeat;
+  mask: var(--icon) center / contain no-repeat;
+}
+.status-menu button.status-menu-status:disabled {
+  background: color-mix(in srgb, var(--surface-raised) 60%, transparent);
+}
+.status-menu button.status-menu-status.icon-unassigned { color: var(--text-soft); }
+.status-menu button.status-menu-status.icon-assigned { color: var(--orange); }
+.status-menu button.status-menu-status.icon-waiting { color: var(--yellow); }
+.status-menu button.status-menu-status.icon-done { color: var(--green); }
+.status-menu-sep.is-thin {
+  margin: 4px 6px;
+  opacity: 0.6;
 }
 .status-menu button:disabled {
   color: var(--accent);

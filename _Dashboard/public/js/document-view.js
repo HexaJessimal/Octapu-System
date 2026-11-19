@@ -9,8 +9,20 @@
     return component('add-button', { action, label, list, hasLine: line !== undefined, line, title });
   }
 
-  function renderOptions(doc, lineNumbers) {
-    return { todos: new Map(doc.todos.map((t) => [t.line, t])), badge: status.control, checkbox: status.checkbox, lineNumbers };
+  // Tasks get the row menu. A linked Scratchpad block is only offered on pages with a
+  // Scratchpad, other than Networking's. `where` adds a task's milestone, on a project.
+  function renderOptions(doc, lineNumbers, where = {}) {
+    const blockable = Array.isArray(doc.blocks) && !String(doc.folder || '').startsWith('networking:');
+    const key = (text) => String(text || '').trim().toLowerCase();
+    const blocks = new Set((doc.blocks || []).map((b) => key(b.title)));
+    return {
+      todos: new Map(doc.todos.map((t) => [t.line, t])),
+      badge: status.control,
+      checkbox: status.checkbox,
+      // A task that already has its block doesn't offer another.
+      rowMenu: (item) => status.rowMenu(item, Object.assign({ blockable: blockable && !blocks.has(key(item.editText)) }, where)),
+      lineNumbers,
+    };
   }
 
   // One card per block. Double-click a block's text, or its title unless it's reserved.
