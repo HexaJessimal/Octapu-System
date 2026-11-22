@@ -10,7 +10,7 @@
 :root {
   color-scheme: dark;
 
-  /* _Labels/Colours.csv overrides these colours, by way of api/colours.css. The values here
+  /* _Options/Colours.csv overrides these colours, by way of api/colours.css. The values here
      only apply to a row missing from that file. */
   --accent: #bba5f8;
   --bg: #0b0b0b;
@@ -1717,6 +1717,7 @@ textarea.inline-field {
 /* On a project page, the plus buttons and the summary's fact boxes are cyan, like a project's
    review flag and its box on the Review page. */
 .project-page .add-button,
+.project-page .row-remove,
 .project-page .timeframe-add:not(.is-set) {
   color: var(--cyan);
 }
@@ -1778,8 +1779,10 @@ textarea.inline-field {
   font-size: 0.8rem;
   color: var(--flag-colour);
 }
+/* The minus buttons that delete a row, card or entry match the plus buttons: a hollow circle in
+   the raised colour (cyan on a project page), turning pink when pointed at. */
 .row-remove {
-  --button-icon: url('../img/circle-minus-solid-full.svg');
+  --button-icon: url('../img/circle-minus-outline.svg');
 }
 .add-button::before,
 .timeframe-add::before,
@@ -1973,6 +1976,10 @@ textarea.inline-field {
   align-items: center;
   gap: 10px;
   margin: 26px 4px 10px;
+}
+/* A heading's plus button comes before its text, so it's in the same place on every heading. */
+.section-row .add-button {
+  order: -1;
 }
 .section-row .section-title {
   margin: 0;
@@ -2957,6 +2964,13 @@ a.home-stat:hover {
   width: 1%;
   text-align: right;
 }
+/* The Task Management lists share their column widths, so they line up one above another. */
+#statuses-panel .label-table {
+  table-layout: fixed;
+}
+#statuses-panel .label-table th:last-child {
+  width: 52px;
+}
 
 /* ---------- catalogs ---------- */
 
@@ -3019,13 +3033,13 @@ a.home-stat:hover {
   position: relative;
   appearance: none;
   display: block;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   padding: 0;
   border: 0;
   border-radius: 50%;
   background: transparent;
-  color: var(--text-soft);
+  color: var(--surface-raised);
   cursor: pointer;
 }
 .row-remove:hover {
@@ -3529,6 +3543,11 @@ a.home-stat:hover {
   background: var(--surface-raised);
 }
 
+/* As on the section headings, Active Timeframe's plus button comes before its name. */
+.facts dt.fact-heading .timeframe-control {
+  order: -1;
+  margin: 0 6px 0 0;
+}
 .facts dt.fact-heading {
   display: flex;
   align-items: center;

@@ -161,6 +161,13 @@
     let i = start;
     while (i < lines.length) {
       const line = lines[i];
+      // A comment on a line of its own, such as a milestone's count of tasks in the Task
+      // Archive, isn't shown, as in Obsidian.
+      if (/^\s*<!--.*-->\s*$/.test(line)) {
+        i++;
+        continue;
+      }
+
       if (line.trim() === '') {
         // Blank line: continue only if the next non-blank line is still part of the list.
         let j = i + 1;
@@ -215,7 +222,7 @@
   }
 
   // True if the scanner found an ARCHIVED type status on this line, and SHOWARCHIVED in
-  // _Labels/Options.csv isn't on (that comes from the api/tags.js script too).
+  // _Options/Options.csv isn't on (that comes from the api/tags.js script too).
   const isArchivedRow = (no, ctx) => {
     if (global.PMS_SHOW_ARCHIVED) return false;
     const item = ctx.todos.get(no);
@@ -393,7 +400,7 @@
   }
 
   // True if a checkbox's text opens with a status of the ARCHIVED type. Those names come from
-  // _Labels/Status.csv, by way of the api/tags.js script each page loads first.
+  // _Options/Status.csv, by way of the api/tags.js script each page loads first.
   function startsWithArchivedStatus(text) {
     const words = text.replace(/^[*_\s]+/, '').split(/[\s:*_]/, 1);
     return (global.PMS_ARCHIVED_STATUSES || []).includes(words[0]);
@@ -429,6 +436,13 @@
       }
       if (!current) continue;
       current.body.push(lines[i]);
+      // Tasks a review moved to the Task Archive still count as finished.
+      const moved = lines[i].match(/^\s*<!--\s*(\d+)\s+tasks?\s+in the Task Archive\s*-->\s*$/i);
+      if (moved) {
+        current.total += Number(moved[1]);
+        current.done += Number(moved[1]);
+        continue;
+      }
       const m = lines[i].match(/^\s*(?:[-*+]|\d+[.)])\s+\[([ xX/-])\]\s*(.*)$/);
       if (!m) continue;
       if (archivedIndent !== null && indentOf(lines[i]) > archivedIndent) continue;

@@ -1,7 +1,7 @@
 // Finds status-prefixed todo items in markdown. Pure functions, no dependencies.
 'use strict';
 
-// The status types are fixed. Status names always come from _Labels/Status.csv.
+// The status types are fixed. Status names always come from _Options/Status.csv.
 const TYPE_MARKS = { UNASSIGNED: ' ', ASSIGNED: '/', WAITING: '-', DONE: 'x', ARCHIVED: 'x' };
 const NEXT_TYPE = { UNASSIGNED: 'ASSIGNED', ASSIGNED: 'DONE', WAITING: 'DONE', DONE: 'ARCHIVED' };
 const STATUS_TYPES = Object.keys(TYPE_MARKS);

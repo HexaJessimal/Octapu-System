@@ -1,6 +1,6 @@
 # Octapu System Dashboard
 
-Version 0.5
+Version 0.7
 
 A small, self-contained dashboard for the markdown-driven project management system in this folder. Markdown files are the source of truth, so you can keep editing them in any text editor. The dashboard only changes them when you make an edit in it.
 
@@ -19,13 +19,13 @@ Record Label,Label
 Freelance Work,Freelance
 ```
 
-`Directory` is a folder directly inside the main folder. Everything an entity holds lives in it: `_Catalogs`, `_Tentacles`, `_Labels`, `_Networking`, `_Time_Management`, `_Archive.md`, `_Incubator.md` and its project directories, which `PROJECTS` names relative to that folder. The Help Guide, this README, `HelpGuide.pdf` and `_Images` (screenshots, the logo and catalog covers) are shared, and stay in the main folder.
+`Directory` is a folder directly inside the main folder. Everything an entity holds lives in it: `_Catalogs`, `_Tentacles`, `_Options`, `_Networking`, `_Time_Management`, `_Archive.md`, `_Incubator.md` and its project directories, which `PROJECTS` names relative to that folder. The Help Guide, this README, `HelpGuide.pdf` and `_Images` (screenshots, the logo and catalog covers) are shared, and stay in the main folder.
 
-A dropdown at the top of the left menu, also on the setup and login pages, chooses the entity. The choice is kept in a browser cookie, so each browser can work on a different one. Every page then reads and writes only that entity's folder, including the `_Labels` CSVs, so its statuses, tentacles, leaders, colours and options are its own. Switching from a project, tentacle or catalog page goes to the Dashboard, as that item may not exist in the other entity. The file is read on every request, so a new row appears without a restart. Choosing a new entity creates its folders and starter files, then opens first-time setup for it. With only one entity the dropdown is hidden. Without `entities.csv`, or with no usable rows, the main folder itself is the only entity, as before entities existed. A `Directory` that's `_Dashboard`, `_Images`, starts with `.`, or isn't a single folder name is skipped.
+A dropdown at the top of the left menu, also on the setup and login pages, chooses the entity. The choice is kept in a browser cookie, so each browser can work on a different one. Every page then reads and writes only that entity's folder, including the `_Options` CSVs, so its statuses, tentacles, leaders, colours and options are its own. Switching from a project, tentacle or catalog page goes to the Dashboard, as that item may not exist in the other entity. The file is read on every request, so a new row appears without a restart. Choosing a new entity creates its folders and starter files, then opens first-time setup for it. With only one entity the dropdown is hidden. Without `entities.csv`, or with no usable rows, the main folder itself is the only entity, as before entities existed. A `Directory` that's `_Dashboard`, `_Images`, starts with `.`, or isn't a single folder name is skipped.
 
-Inside an entity, its organisations and sub-organisations are **tentacles**: each row of `_Labels/Tentacles.csv` (`id,Name,Parent`), top-level or not. A project's person in charge is its **leader**, from `_Labels/Leaders.csv`, written `**Leader**:` in its header.
+Inside an entity, its organisations and sub-organisations are **tentacles**: each row of `_Options/Tentacles.csv` (`id,Name,Parent`), top-level or not. A project's person in charge is its **leader**, from `_Options/Leaders.csv`, written `**Leader**:` in its header.
 
-Older versions called tentacles "entities" or "owners", and a project's leader its "Owner". On start-up, any `_Labels/Owners.csv` with no `Tentacles.csv` beside it is renamed. An `**Owner**:` field is still read as the leader, and Compatibility offers to rename it (see Compatibility). Old `entity.html` links redirect to `tentacle.html`.
+Older versions called tentacles "entities" or "owners", and a project's leader its "Owner". On start-up, any `_Options/Owners.csv` with no `Tentacles.csv` beside it is renamed. An `**Owner**:` field is still read as the leader, and Compatibility offers to rename it (see Compatibility). Old `entity.html` links redirect to `tentacle.html`.
 
 ## First-time setup
 
@@ -38,11 +38,11 @@ Older versions called tentacles "entities" or "owners", and a project's leader i
 
 No packages need installing.
 
-The first time you open the dashboard, or an entity, a short form asks for its first tentacle's name and ID, your name and a date format. It then creates the CSV files in `_Labels/`, your tentacle's folder and markdown file, and a `Projects` folder, using sensible defaults for everything else. All of this can be changed later in Options.
+The first time you open the dashboard, or an entity, a short form asks for its first tentacle's name and ID, your name and a date format. It then creates the CSV files in `_Options/`, your tentacle's folder and markdown file, and a `Projects` folder, using sensible defaults for everything else. All of this can be changed later in Options.
 
 The form comes back whenever one of `Status.csv`, `Tentacles.csv`, `Leaders.csv`, `Options.csv` or `Colours.csv` is missing, or `Tentacles.csv` has no tentacle without a `Parent`. It only asks for what's needed and only creates what's missing, so existing files are never replaced.
 
-Each time it starts, the dashboard creates any of these that are missing in every entity's folder: the `_Catalogs`, `_Tentacles`, `_Labels`, `_Networking`, `Projects` and `_Time_Management` folders, starter `_Networking/Contacts.md` and `_Networking/Events.md` files, and a blank `_Tentacles/Reports.md` that each Review adds to. In the main folder it creates `_Images` and copies in `_Help_Guide.md`, the screenshots the guide uses (`_Images/Screenshots`) and a logo (`_Images/Logo.png`) from `_Dashboard/defaults`. The logo is only added if `_Images` has no logo of its own. Anything already there is left alone, so a deleted screenshot comes back but an edited guide is kept. To change what a new install gets, edit the copies in `_Dashboard/defaults`.
+Each time it starts, the dashboard creates any of these that are missing in every entity's folder: the `_Catalogs`, `_Tentacles`, `_Options`, `_Networking`, `Projects` and `_Time_Management` folders, starter `_Networking/Contacts.md` and `_Networking/Events.md` files, and a blank `_Tentacles/Reports.md` that each Review adds to. In the main folder it creates `_Images` and copies in `_Help_Guide.md`, the screenshots the guide uses (`_Images/Screenshots`) and a logo (`_Images/Logo.png`) from `_Dashboard/defaults`. The logo is only added if `_Images` has no logo of its own. Anything already there is left alone, so a deleted screenshot comes back but an edited guide is kept. To change what a new install gets, edit the copies in `_Dashboard/defaults`.
 
 A picture named `logo` in `_Images`, such as `_Images/Logo.png`, appears at the bottom of the left menu, with **OCTAPU SYSTEM** beside it in capitals in the Bytesized font, and links to the Dashboard.
 
@@ -85,15 +85,15 @@ The syntax depends on your shell:
 
 ## Task lists
 
-The `TASKLISTS` row in `_Labels/Options.csv` is a comma-separated list of headings, such as `"Tasks,Marketing"`. On tentacle pages and Ongoing projects, each one gets its own task list box on the Overview, in that order, and is taken off the Scratchpad. A file's `## Heading` for each list is what fills its box, and capitals and extra spaces don't matter. Changes apply on the next page load, with no restart. `Milestones` and `Notes` have their own sections, so they can't be used. If there's no `TASKLISTS` row at all, the dashboard uses `Tasks`.
+The `TASKLISTS` row in `_Options/Options.csv` is a comma-separated list of headings, such as `"Tasks,Marketing"`. On tentacle pages and Ongoing projects, each one gets its own task list box on the Overview, in that order, and is taken off the Scratchpad. A file's `## Heading` for each list is what fills its box, and capitals and extra spaces don't matter. Changes apply on the next page load, with no restart. `Milestones` and `Notes` have their own sections, so they can't be used. If there's no `TASKLISTS` row at all, the dashboard uses `Tasks`.
 
 ## How projects are organised
 
-The `PROJECTS` row in `_Labels/Options.csv` says where projects live. It holds a comma-separated list of folder names directly inside `Octapu-System/`, such as `"Projects,Incubator,Merch"`.
+The `PROJECTS` row in `_Options/Options.csv` says where projects live. It holds a comma-separated list of folder names directly inside `Octapu-System/`, such as `"Projects,Incubator,Merch"`.
 
 A directory can hold both kinds of project. Each file's `**Project Type:**` line decides which kind it is: `Milestone` for a full project with milestones, timeframes and dependencies, or `Ongoing` for a simpler one with a flat Tasks list. See [Ongoing projects](#ongoing-projects). A project with a missing or unknown type shows as a Milestone project and is listed on the Compatibility page.
 
-Every directory gets its own section in the left-hand menu. Changes apply on the next page load, with no restart. A name can't contain a path, and `_Dashboard`, `_Labels`, `_Tentacles`, `_Networking` and `_Catalogs` can't be used. If there's no `PROJECTS` row at all, the dashboard uses `Projects`.
+Every directory gets its own section in the left-hand menu. Changes apply on the next page load, with no restart. A name can't contain a path, and `_Dashboard`, `_Options`, `_Tentacles`, `_Networking` and `_Catalogs` can't be used. If there's no `PROJECTS` row at all, the dashboard uses `Projects`.
 
 Each project is a folder inside one of these directories. Markdown files sitting loose in the directory aren't projects. The folder's prefix sets its status:
 
@@ -119,14 +119,14 @@ The sidebar on the left appears on every page:
 - **Entity:** the dropdown at the top, described under Entities and tentacles.
 - **Dashboard:** two tabs, described below. **Overview** shows what matters today, and **Report** charts the figures logged with each Review. The address `?tab=report` opens the Report tab.
 - **Incubator:** ideas for projects, described below.
-- **Tentacles:** every tentacle in `_Labels/Tentacles.csv`, coloured by level as on the tentacle page's tabs. One with tentacles under it has a caret at the end of its row that shows or hides them. They start hidden, and are shown while one of them is the open page. Each browser remembers which are shown.
-- **Time Management:** `Review` and `Plan` are described below. `Review` and `Plan` each turn green in the menu once the number of days set by `ROUNDUP` in `_Labels/Options.csv` has passed since the last entry, or if there's never been one. On the day it's due it says "Due today", and after that it says how overdue it is, such as "Due 2 days ago". For the two days before that it turns yellow and counts down, such as "Due in 2 days".
+- **Tentacles:** every tentacle in `_Options/Tentacles.csv`, coloured by level as on the tentacle page's tabs. One with tentacles under it has a caret at the end of its row that shows or hides them. They start hidden, and are shown while one of them is the open page. Each browser remembers which are shown.
+- **Time Management:** `Review` and `Plan` are described below. `Review` and `Plan` each turn green in the menu once the number of days set by `ROUNDUP` in `_Options/Options.csv` has passed since the last entry, or if there's never been one. On the day it's due it says "Due today", and after that it says how overdue it is, such as "Due 2 days ago". For the two days before that it turns yellow and counts down, such as "Due in 2 days".
 - **One section per project directory** (`Projects`, for example), in the order `PROJECTS` lists them: `All projects` opens that directory's list, followed by a link to each of its projects with a `+` folder.
 - **Archive Index:** after the last project directory, only with `ARCHIVEMODE` set to `HEADERS` while `SHOWARCHIVED` is on. It lists `_Archive.md`, described under Archiving a project.
 - **Catalogs:** **All catalogs**, then each catalog by name, described below.
 - **Contacts** and **Events:** described under Networking below.
 - **Compatibility:** `Tentacles`, `Projects`, `Events` and `Core files`, described below. Each shows an orange count of the boxes its page lists, and none when it has nothing to fix. Working these out checks every project on each page load, which is quick for a few hundred files.
-- **Options:** tabs for general settings (`_Labels/Options.csv`), statuses, leaders, colours, the review agenda and entities, described below.
+- **Options:** tabs for general settings (`_Options/Options.csv`), task management (the statuses), leaders, colours, the review agenda and entities, described below, and the Task Archive to read.
 - **Help Guide:** a step by step guide to the dashboard, from `_Help_Guide.md` in the main folder, with a numbered contents list under its title linking to each `##` heading. A link written as `[text](#heading-name)` goes to a heading on the same page, and stays in the same tab. Select a screenshot to see it full size in a popup, and select it again, or press Escape, to close it. Edit that file and refresh to change it. Until it's marked as read, the menu link has a green outline. The **Mark as read** checkbox below the guide is the `- [ ] Mark as read` line at the bottom of the file, which ticking it changes. If the line is missing, ticking the box adds it.
 
 Both sidebars can be resized by dragging their inner edge (or focusing it and using the arrow keys), and double-clicking the edge resets it. The menu goes from 160 to 400 pixels and the Todos from 260 to 600, and both shrink with a small window. The round button on each edge collapses that sidebar to a thin rail, which for the Todos still shows its count. Widths and collapsed sidebars are remembered in the browser (`pms.layout`). Below 1100 pixels wide the sidebars stack above and below the page, and each button becomes a bar that hides or shows its sidebar. Names in the menu stay on one line, ending in an ellipsis if they don't fit, with the whole name as a tooltip, so a long name never widens a sidebar or scrolls it sideways.
@@ -135,7 +135,7 @@ Pages with view tabs (Overview, Scratchpad, Raw and so on) keep them in a bar at
 
 ### Overview tab
 
-- **Tiles:** **Scheduled Projects**, the number of projects in a timeframe today, comes first. Then **Open projects** and **Inactive projects**, the number of active and inactive projects across every project directory, how many days until the next Review and Plan are due, and the number of overdue tasks. Review and Plan use the `ROUNDUP` number of days from `_Labels/Options.csv`.
+- **Tiles:** **Scheduled Projects**, the number of projects in a timeframe today, comes first. Then **Open projects** and **Inactive projects**, the number of active and inactive projects across every project directory, how many days until the next Review and Plan are due, and the number of overdue tasks. Review and Plan use the `ROUNDUP` number of days from `_Options/Options.csv`.
 - **Timeline:** a Gantt chart that scrolls sideways, with one bar per timeframe in each project's `Active Timeframe`, accurate to the month. Each bar is graded through the project's milestones from left to right, using the same colours as the milestone progress bar. A project with no milestones is `N/A` in the key. Tick boxes above the chart show or hide **Active** and **Inactive** projects and the **Deadlines**, **Bookings** and **Releases** lines, and are remembered in the browser. While `SHOWARCHIVED` is on, archived projects are charted too, in the complete colour, `green`, with an **Archive** box to hide them. An event's Application Deadline is a cyan line until it's been applied for or booked. Its Event Date is a purple line once it's booked, and grey before that. An event of several days has a line at each end, with a paler band between. Point at a line to see the event. Each catalog record with a readable `Release date` is a line in the `text` colour (white on the dark theme). Pointing at it shows a card with the record's `Image` (an `[[IMAGE#...]]` value), `Title` and date, opening to the left near the chart's right edge. Timeframes that aren't written as `YYYY-MM-DD` are listed above the chart. **3 months**, **6 months** and **12 months** set how many months fit across the chart, and the choice is remembered in the browser. It opens at 6, with last month at the left. A row only shows while one of its timeframes is within two months of the months on screen, so scrolling sideways shows and hides rows and the chart only grows as tall as the stretch of time being looked at. If nothing is near, a line above the chart says so. Arrows are only drawn between rows on screen. A chart taller than 12 rows scrolls up and down, with the year and month headings staying in view.
 - **Current plan** shows the newest entry in `_Time_Management/Plan.md`, while it's less than `ROUNDUP` days old. After that it links to the Plan page instead.
 - **Due in the next 7 days** and **Overdue tasks** list open tasks with a `DEADLINE` or `SCHEDULED` date, from every non-archived project and every tentacle, soonest first. If a task has both, the deadline counts. Finished, archived and cancelled tasks are left out, and today counts as due, not overdue. Its status can be changed right there.
@@ -150,7 +150,7 @@ Pages with view tabs (Overview, Scratchpad, Raw and so on) keep them in a bar at
 Lists every `DONE` type item in non-archived projects, Ongoing ones included, in tentacles, and under a Contacts contact or an Events entry, that was closed since the last review, with one box per status. Reviews are logged in `_Time_Management/Review.md`, newest first, under a `## YYYY-MM-DD` heading, and the latest heading sets the date of the last review.
 
 - **Add to wins** adds that box's items to the wins text as bullet points, and removes the box.
-- **Submit** logs the wins under today's date and moves every `DONE` type item in all of those to the first `ARCHIVED` status, including any closed before the last review. The text can't be empty. It also adds a report to `_Tentacles/Reports.md`, described under **Report tab**. If any file can't be written, the ones already changed are put back.
+- **Submit** first moves every task already in an `ARCHIVED` type status (in the same files, and only inside an entry on Contacts and Events) out of its file and into `_Task_Archive.md` in the entity's folder, each with everything indented under it, such as its dates and subtasks. The file has a `# Task Archive` title, then a section per review, newest first: `## Date archived: YYYY-MM-DD`, `### Tasks`, then `#### <tentacle>` (or Contacts or Events) with its own files' tasks, and `##### <project>` for each of its projects. Each file's tasks are listed under `**File:** <name>`, and `**Block:** <the heading they were under, as written>`. Nothing in the dashboard reads the file except the Options page's **Task Archive** tab, which shows it read-only. A milestone the tasks leave gets a comment where they were, `<!-- 3 tasks in the Task Archive -->` (one per milestone, added to by later reviews), which the milestone progress bar, the overall progress and the Timeline count as that many finished tasks, so the milestone stays complete. A line that's only an HTML comment is never shown on a page. Then it logs the wins under today's date and moves every `DONE` type item in all of those to the first `ARCHIVED` status, including any closed before the last review. The text can't be empty. It also adds a report to `_Tentacles/Reports.md`, described under **Report tab**. If any file can't be written, the ones already changed are put back.
 
 #### Review agenda
 
@@ -176,7 +176,7 @@ Offers everything that hasn't been assigned yet, with one box for each source: a
 - An item is highlighted if it's the only incomplete item left in its milestone, in the colour `yellow`. Waiting items count as incomplete, as they do on the milestone progress bars. Cancelled items don't.
 - Click an item to move it to the **Focus** list below, where its status and priority can be set as on a project page. The items you pick are remembered in your browser until you submit them.
 - Every item on this page with an `ASSIGNED` type status is in the **Focus** list automatically, after anything you've picked. It has no Remove button, and leaves the list when its status changes.
-- **Submit focus** logs the list in `_Time_Management/Plan.md`, newest first, under today's date, as an outline of tentacle (by `Name` from `_Labels/Tentacles.csv`), then project, then items, with no status tags. Tentacles are listed under their top-level tentacle, and Contacts and Events under `Networking`.
+- **Submit focus** logs the list in `_Time_Management/Plan.md`, newest first, under today's date, as an outline of tentacle (by `Name` from `_Options/Tentacles.csv`), then project, then items, with no status tags. Tentacles are listed under their top-level tentacle, and Contacts and Events under `Networking`.
 
 ### Report tab
 
@@ -220,13 +220,13 @@ The **Report** tab draws the file:
 - **Wins logged:** a column per review.
 - **Every report:** a table of every figure, newest first, including Active and Scheduled projects, which have no chart of their own.
 
-Point at or tab to a chart to show a line across it at that review, with every value it shows. The charts take their colours from `_Labels/Colours.csv`, matching what each colour means elsewhere: green for done, orange for assigned, yellow for waiting, grey for unassigned and pink for overdue.
+Point at or tab to a chart to show a line across it at that review, with every value it shows. The charts take their colours from `_Options/Colours.csv`, matching what each colour means elsewhere: green for done, orange for assigned, yellow for waiting, grey for unassigned and pink for overdue.
 
-**Generate report** saves a single HTML file, named with today's date, holding the Overview and Report tabs as they look at that moment. The table of every report stays on the tab and isn't included. The styles and icons are inside it, so it opens in any browser with the dashboard closed, and can be emailed or kept. Links, menus, hover readouts, the add, drag and collapse buttons, and the Timeline's tick boxes and zoom buttons are left out, as they only work inside the dashboard. The Timeline in the file shows every row, not only those near the months on screen. Printing it, including to PDF, uses dark text on white, from the `print-` colours in `_Labels/Colours.csv`, and shows the whole Timeline.
+**Generate report** saves a single HTML file, named with today's date, holding the Overview and Report tabs as they look at that moment. The table of every report stays on the tab and isn't included. The styles and icons are inside it, so it opens in any browser with the dashboard closed, and can be emailed or kept. Links, menus, hover readouts, the add, drag and collapse buttons, and the Timeline's tick boxes and zoom buttons are left out, as they only work inside the dashboard. The Timeline in the file shows every row, not only those near the months on screen. Printing it, including to PDF, uses dark text on white, from the `print-` colours in `_Options/Colours.csv`, and shows the whole Timeline.
 
 ### Archiving a project
 
-The **Archive** button at the top of a project page asks first, then sets the project's `**Date Closed**:` to today. A project with any Date Closed counts as archived, whatever its folder is called. It's hidden from the Dashboard, the menu, the projects list, the Todos sidebar, Review and the Timeline's Active and Inactive rows, even when `SHOWARCHIVED` is on. What else happens depends on `ARCHIVEMODE` in `_Labels/Options.csv`:
+The **Archive** button at the top of a project page asks first, then sets the project's `**Date Closed**:` to today. A project with any Date Closed counts as archived, whatever its folder is called. It's hidden from the Dashboard, the menu, the projects list, the Todos sidebar, Review and the Timeline's Active and Inactive rows, even when `SHOWARCHIVED` is on. What else happens depends on `ARCHIVEMODE` in `_Options/Options.csv`:
 
 - **`HEADERS`** (the default) copies the project's header into the entity's `_Archive.md`, and leaves its folder alone. This is for a folder you'll move off this computer, to a NAS say, while Syncthing shares the record:
 
@@ -255,7 +255,7 @@ Ideas for projects, kept in the entity's `_Incubator.md`, one card each. The plu
 T-shirts first, then hoodies.
 ```
 
-- **Promote to Project** asks for an Active Timeframe and a leader from `_Labels/Leaders.csv`, and for a directory if `PROJECTS` names more than one. It creates a Milestone project as **New project** does, with the timeframe, dependency and notes filled in, then opens it. The idea gains `**Promoted**: <date>`.
+- **Promote to Project** asks for an Active Timeframe and a leader from `_Options/Leaders.csv`, and for a directory if `PROJECTS` names more than one. It creates a Milestone project as **New project** does, with the timeframe, dependency and notes filled in, then opens it. The idea gains `**Promoted**: <date>`.
 - **Archive Idea** asks first, then adds `**Archived**: <date>`.
 
 Either date hides the idea, which stays in the file. Notes can't hold `#` headings, which would start a new idea.
@@ -264,7 +264,7 @@ Double-click an idea's name to edit its heading (tentacle ID and title), its Pro
 
 ### Compatibility
 
-**Tentacles**, **Projects** and **Events** list everything whose markdown doesn't yet fit the dashboard, and why. **Fix all issues**, above the boxes on each page, runs every box's Fix issues one after another with its dropdowns as they are, fixing events and archive entries from the bottom of their file up, as each is found by its line, then says how many were fixed. **Core files** lists files and folders the dashboard relies on that have been renamed. An entity's `_Entities` folder is now `_Tentacles`: while only `_Entities` exists it's still used, no empty `_Tentacles` is made beside it, and Fix issues renames it (refused, with a message, if another program has it open). An entity's `_Networking/Leads.md` is now `Contacts.md`, as the Leads page is now **Contacts**. Until it's fixed, the Contacts page reads `Leads.md` whenever there's no `Contacts.md`, and no starter `Contacts.md` is made beside it. Fix issues renames it `Contacts.md`, renames its change logs to match, and changes the word Leads in its `#` title to Contacts. If both files exist it's shown in pink, to sort out by hand. `[[Leads#Name]]` links and `?page=leads` addresses still open Contacts. Only a field's label is needed, not a value. Links open the page so it can be fixed. The lists are worked out fresh each time.
+**Tentacles**, **Projects** and **Events** list everything whose markdown doesn't yet fit the dashboard, and why. **Fix all issues**, above the boxes on each page, runs every box's Fix issues one after another with its dropdowns as they are, fixing events and archive entries from the bottom of their file up, as each is found by its line, then says how many were fixed. **Core files** lists files and folders the dashboard relies on that have been renamed. An entity's `_Entities` folder is now `_Tentacles`, and its `_Labels` folder, the settings behind the Options page, is now `_Options`. While only the old name exists it's still used, no empty folder with the new name is made beside it, and Fix issues renames it (refused, with a message, if another program has it open). An entity's `_Networking/Leads.md` is now `Contacts.md`, as the Leads page is now **Contacts**. Until it's fixed, the Contacts page reads `Leads.md` whenever there's no `Contacts.md`, and no starter `Contacts.md` is made beside it. Fix issues renames it `Contacts.md`, renames its change logs to match, and changes the word Leads in its `#` title to Contacts. If both files exist it's shown in pink, to sort out by hand. `[[Leads#Name]]` links and `?page=leads` addresses still open Contacts. Only a field's label is needed, not a value. Links open the page so it can be fixed. The lists are worked out fresh each time.
 
 Each issue is coloured by what can be done about it:
 
@@ -272,15 +272,15 @@ Each issue is coloured by what can be done about it:
 - **Error colour:** anything else in the file that needs changing by hand, such as a value that isn't recognised.
 - **Orange** (`orange` in Options > Colours): a file or folder that isn't where it's expected to be.
 
-**Fix issues** only adds what's missing to the file being checked, and leaves everything else in it alone. Fields are added with no value, after the last field at the top of the file, and headings go at the end. A missing tentacle file is created like a new one, with today's date. A missing `**Project Type:**` is written as the type of the project the file is in, which is `Milestone` for a project with none. A missing, empty or unknown `**Leader**` gets a **Leader** dropdown in the box. With one person in `_Labels/Leaders.csv` they're filled in automatically. With more, choose someone or leave it for now, and a missing field is added blank.
+**Fix issues** only adds what's missing to the file being checked, and leaves everything else in it alone. Fields are added with no value, after the last field at the top of the file, and headings go at the end. A missing tentacle file is created like a new one, with today's date. A missing `**Project Type:**` is written as the type of the project the file is in, which is `Milestone` for a project with none. A missing, empty or unknown `**Leader**` gets a **Leader** dropdown in the box. With one person in `_Options/Leaders.csv` they're filled in automatically. With more, choose someone or leave it for now, and a missing field is added blank.
 
 A project with no file named after its title gets a **Main file** dropdown, set to the file it's using for now. Fix issues renames the chosen file to `Title.md` (with its change logs, so its history follows it) and then fixes that file. It won't rename a file over one that already exists.
 
-A tentacle needs a `#` title, `**Date Created**:`, `**Date Reviewed**:` and a `##` heading for each entry in `TASKLISTS`. It's also listed if its folder or its parent isn't in `_Labels/Tentacles.csv`, if it has no markdown file, or if its file isn't named after its `Name`.
+A tentacle needs a `#` title, `**Date Created**:`, `**Date Reviewed**:` and a `##` heading for each entry in `TASKLISTS`. It's also listed if its folder or its parent isn't in `_Options/Tentacles.csv`, if it has no markdown file, or if its file isn't named after its `Name`.
 
 **Projects** covers every directory in `PROJECTS`, and also lists a directory named there that doesn't exist or can't be used. Every project needs a `**Project Type:**` of `Milestone` or `Ongoing`. Ongoing projects aren't asked for `**Project Dependency**:`, `**Active Timeframe**:`, `## Milestones` or `## Notes`. They need a `##` heading for each entry in `TASKLISTS` instead.
 
-A project needs a folder and page title starting with an `id` from `_Labels/Tentacles.csv`, a `**Leader**` whose value is a `Tag` from `_Labels/Leaders.csv`, the fields `**Date Created**:`, `**Date Reviewed**:`, `**Date Closed**:`, `**Project Dependency**:` and `**Active Timeframe**:`, and `## Milestones` and `## Notes` sections. The colon can sit inside or outside the bold, and `**Created:**` counts as Date Created.
+A project needs a folder and page title starting with an `id` from `_Options/Tentacles.csv`, a `**Leader**` whose value is a `Tag` from `_Options/Leaders.csv`, the fields `**Date Created**:`, `**Date Reviewed**:`, `**Date Closed**:`, `**Project Dependency**:` and `**Active Timeframe**:`, and `## Milestones` and `## Notes` sections. The colon can sit inside or outside the bold, and `**Created:**` counts as Date Created.
 
 A leader field still called `**Owner**`, from before tentacles, is listed as **Owner should be Leader**. Fix issues renames the label and keeps the value. Entries in `_Archive.md` with an `**Owner**` field are listed in their own boxes on this page, linking to the Archive Index, and are fixed the same way.
 
@@ -319,7 +319,7 @@ The plus button adds an entry, at the end of the file's last heading on the Even
 
 A reference in double square brackets becomes a link wherever it appears in the dashboard, and the entry it points to is scrolled to and outlined. `[[Contacts#Scheme Boy (Varispeed)]]` links to that heading in `Contacts.md`, and `[[Events#Infest|the gig]]` shows "the gig" as the link's text. On a Networking page, `[[#Brawny]]` with no file name looks on that page first, and then on the other one. A name also finds a heading that adds something in brackets, so `Scott` finds `Scott (SWOLE)`. 
 
-A reference starting with an `id` from `_Labels/Tentacles.csv` links to that tentacle's page. `[[FISTING]]` opens its Overview, `[[FISTING#Tasks]]` goes to that task list on the Overview if `Tasks` is in `TASKLISTS`, and any other heading, such as `[[OCTAPU#Dates of Note]]`, opens its Scratchpad at that section. If the heading isn't found, the page opens and shows a short message. IDs are case-sensitive, so `FISTING` links and `Fisting` doesn't. The list of IDs is re-read each time a page loads.
+A reference starting with an `id` from `_Options/Tentacles.csv` links to that tentacle's page. `[[FISTING]]` opens its Overview, `[[FISTING#Tasks]]` goes to that task list on the Overview if `Tasks` is in `TASKLISTS`, and any other heading, such as `[[OCTAPU#Dates of Note]]`, opens its Scratchpad at that section. If the heading isn't found, the page opens and shows a short message. IDs are case-sensitive, so `FISTING` links and `Fisting` doesn't. The list of IDs is re-read each time a page loads.
 
 A reference that is a project's name, its tentacle ID and title as used for a Project Dependency, links to that project. It's checked before tentacle IDs, and capitals and extra spaces don't matter. `[[LABEL Design A New Logo]]` opens its Overview, a milestone heading such as `[[LABEL Design A New Logo#Final Proof]]` (or a task list on an Ongoing project) opens the Overview with that card expanded, scrolled to and outlined, and any other heading opens its Scratchpad at that block. Archived projects aren't linked.
 
@@ -331,14 +331,14 @@ Until it's converted, a hand-written Event Date is read day-first, as `25.07.26`
 
 ### Options
 
-**General** edits the values in `_Labels/Options.csv`, including the `PROJECTS` directory list. `SHOWARCHIVED`, `SYNCCONFLICTS` and `MULTIUSER` are tick boxes, and `ARCHIVEMODE` is a dropdown of `HEADERS` or `FULL` (see Archiving a project). They're always listed, even if the file doesn't have them yet.
+**General** edits the values in `_Options/Options.csv`, including the `PROJECTS` directory list. `SHOWARCHIVED`, `SYNCCONFLICTS` and `MULTIUSER` are tick boxes, and `ARCHIVEMODE` is a dropdown of `HEADERS` or `FULL` (see Archiving a project). They're always listed, even if the file doesn't have them yet.
 
 #### Working as a team
 
 Octapu doesn't copy files between computers. Keep the folder in sync with Syncthing, and run the dashboard on each computer.
 
 - **`SYNCCONFLICTS`**: when Syncthing keeps two versions of a file, it names the other one like `Plan.sync-conflict-20261117-101500-ABCDEF7.md`. With this on, a **Sync conflict** box at the top of the project, tentacle, Contacts or Events page shows how the two differ. **Keep current** deletes the copy. **Use this version** saves the copy over the file, then deletes the copy. Conflict copies are never listed as project or tentacle files.
-- **`MULTIUSER`**: each page asks you to log in first, by choosing your name from `_Labels/Leaders.csv`. Your choice is kept in a browser cookie, and **Log out** sits at the bottom of the left menu. There are no passwords, because this identifies who made a change rather than securing anything. Every markdown change made through the dashboard is added to a log next to the file, named `<file name>-change.<computer name>.log`. The computer name is the server's hostname. There's one log per computer, so Syncthing never sees two machines writing the same log. Each log entry has the time, user and computer, then one line per changed line: `+` added, `-` removed, `~-` changed from and `~+` changed to, each with its line number. Entries older than twice `ROUNDUP` days are removed whenever the log is written. The **Changelog** tab on project, tentacle, Contacts and Events pages merges every computer's log for that file, newest first. Changes made in other apps aren't logged.
+- **`MULTIUSER`**: each page asks you to log in first, by choosing your name from `_Options/Leaders.csv`. Your choice is kept in a browser cookie, and **Log out** sits at the bottom of the left menu. There are no passwords, because this identifies who made a change rather than securing anything. Every markdown change made through the dashboard is added to a log next to the file, named `<file name>-change.<computer name>.log`. The computer name is the server's hostname. There's one log per computer, so Syncthing never sees two machines writing the same log. Each log entry has the time, user and computer, then one line per changed line: `+` added, `-` removed, `~-` changed from and `~+` changed to, each with its line number. Entries older than twice `ROUNDUP` days are removed whenever the log is written. The **Changelog** tab on project, tentacle, Contacts and Events pages merges every computer's log for that file, newest first. Changes made in other apps aren't logged.
 
 ##### Recommended Syncthing setup
 
@@ -374,7 +374,7 @@ The order matters, because Syncthing uses the first pattern that matches, so kee
 
 Once a project's header has been archived (the **Archive** button in `HEADERS` mode), rename its folder **on the NAS** from `+TENTACLE_ProjectTitle` to `YYYY-MM-DD_TENTACLE_ProjectTitle`, using the archive date. The NAS then ignores it, so the computers delete their copies and the NAS keeps the folder. Don't rename it on a computer: the NAS would receive the old folder's deletion but ignore the new name, and lose the project.
 
-**Statuses** and **Leaders** list `_Labels/Status.csv` and `_Labels/Leaders.csv`. Double-click a value to change it, use the plus button to add a row, and the minus button at the end of a row to delete it after confirming. If a file doesn't exist, adding the first row creates it. Any other rows or columns in the files are kept.
+**Task Management** and **Leaders** list `_Options/Status.csv` and `_Options/Leaders.csv`. Task Management shows the statuses as a list per type, in order: **Awaiting Assignment** (`UNASSIGNED`), **Assignees** (`ASSIGNED`), **Waiting for review** (`WAITING`), **Complete** (`DONE`) and **Archived** (`ARCHIVED`). Each list's plus button adds a status of its type, and a status keeps its type, so to change one, delete it and add it to the other list. An empty list says which built-in status it falls back on. Double-click a value to change it, use the plus button to add a row, and the minus button at the end of a row to delete it after confirming. If a file doesn't exist, adding the first row creates it. Any other rows or columns in the files are kept.
 
 - **Status names** are always uppercase, and can use letters, numbers, hyphens and underscores.
 - **Next status** offers every status, including defaults for any type with no row of its own. `Automatic` leaves it blank, which moves to the first status of the next type. Renaming a status updates any `Next` pointing to it, and deleting one clears them.
@@ -384,7 +384,7 @@ Once a project's header has been archived (the **Archive** button in `HEADERS` m
 
 **Entities** lists `_Dashboard/entities.csv`, shared by every entity, edited in the same way: double-click a Name or Directory to change it, the plus button adds a row and the minus button removes one. A Directory has the same rules as in the file. Adding an entity whose folder doesn't exist makes the folder, chooses the new entity and opens first-time setup, which makes its folders and files; a folder that exists is just added. Removing one only takes its row out of the file, leaving the folder alone, and the last row can't be removed. A Directory that isn't there yet is marked "not made yet". Every change reloads the page, as the entity dropdown lists them.
 
-**Colours** lists every colour on the dashboard, from `_Labels/Colours.csv`, with what each is used for. The list is kept short, so one colour often has several uses, and changing it changes all of them. Double-click a colour to change it. It takes a 6 character hex value, with or without the `#`, and the new colour shows straight away. Paler tints of a colour, such as the current month on the Timeline, are worked out from it. Status and priority tags use the same colours everywhere, including on highlighted items in the Todos sidebar. The `print-` colours are only used when a generated report is printed.
+**Colours** lists every colour on the dashboard, from `_Options/Colours.csv`, with what each is used for. The list is kept short, so one colour often has several uses, and changing it changes all of them. Double-click a colour to change it. It takes a 6 character hex value, with or without the `#`, and the new colour shows straight away. Paler tints of a colour, such as the current month on the Timeline, are worked out from it. Status and priority tags use the same colours everywhere, including on highlighted items in the Todos sidebar. The `print-` colours are only used when a generated report is printed.
 
 You can also edit the file by hand and refresh the page. The `Name` of each row is how the stylesheet finds it, so it needs to stay as it is. A row that's missing, or whose value isn't a 6 character hex value, uses the built-in colour from `public/css/style.css`. Pale page backgrounds may leave parts the browser draws itself, such as scrollbars and dropdown lists, dark, because the dashboard declares a dark colour scheme.
 
@@ -396,7 +396,7 @@ Each tentacle has a folder named after its `id` inside `_Tentacles/`, nested ins
 
 Each top-level tentacle has one page, with a tab for itself and a tab for each tentacle under it. Each level of tabs is a row: the top-level tentacle, then those under it, then those under the open tab's tentacle at each level down. Tabs above the open one are underlined faintly. The tabs are coloured by level, using the priority colours: the top-level tentacle like priority A, the level below like priority B, the third level orange, and anything deeper grey. The Overview's facts show **Created**, **Reviewed**, **Incomplete tasks** and **Parent**, which links to the parent's tab, or says **None (top level)**.
 
-- **Plus tab:** at the end of the last row, asks for a name, an ID and which tentacle it goes **Under** (the open tab's to start with), then creates the folder and markdown file and adds the row to `_Labels/Tentacles.csv`. The new file has `Date Created` set to today, `Date Reviewed`, `## Notes` and a heading for each entry in `TASKLISTS`, so it passes the Compatibility check. The ID is suggested from the name. It can use letters, numbers and hyphens, and can't match an existing `id`.
+- **Plus tab:** at the end of the last row, asks for a name, an ID and which tentacle it goes **Under** (the open tab's to start with), then creates the folder and markdown file and adds the row to `_Options/Tentacles.csv`. The new file has `Date Created` set to today, `Date Reviewed`, `## Notes` and a heading for each entry in `TASKLISTS`, so it passes the Compatibility check. The ID is suggested from the name. It can use letters, numbers and hyphens, and can't match an existing `id`.
 - **Timeline**, on the Overview below the summary: the Dashboard's Timeline for this tab's own projects (those whose name starts with its ID) and its archive entries, without the projects of tentacles under it, and without event and release lines. Its zoom and Active, Inactive and Archive tick boxes are shared with the Dashboard's.
 - **Folder button:** the folder icon at the top right of a project's or tentacle's summary opens its folder in the file browser: `explorer.exe` on Windows, `open` on a Mac, and `xdg-open` on Linux, which needs to be installed (it comes with most desktops). It opens on the computer running the dashboard server, which is yours unless `PMS_HOST` makes it reachable from another. It's cyan on a project, like the project's fact boxes, and the raised purple (`surface-raised`) on a tentacle, like the tentacle's. `POST /api/open-folder` only opens a folder the dashboard lists, never a path sent to it.
 - **Overview** works like a project's, without the milestone bar. A box for each heading in `TASKLISTS` takes the place of the milestones. Use a box's plus button to add a task to it, or double-click a task to edit it. If a file doesn't have that heading yet, the first task adds it.
@@ -465,7 +465,7 @@ Any other `**Key**: value` lines show up in the summary card too.
 
 ### Todos sidebar
 
-The sidebar on the right lists every line, in the markdown files of all non-archived projects and every tentacle in `_Labels/Tentacles.csv`, and inside a contact on Contacts or an event on Events, that starts with a status named in `_Labels/Status.csv`. A Contacts or Events item links to its contact or event, and belongs to no tentacle or project in the filter. The CSV needs `Type` and `Name` columns, and uses `Next` for status changes. Items in archived project folders never appear, whichever filter is selected.
+The sidebar on the right lists every line, in the markdown files of all non-archived projects and every tentacle in `_Options/Tentacles.csv`, and inside a contact on Contacts or an event on Events, that starts with a status named in `_Options/Status.csv`. A Contacts or Events item links to its contact or event, and belongs to no tentacle or project in the filter. The CSV needs `Type` and `Name` columns, and uses `Next` for status changes. Items in archived project folders never appear, whichever filter is selected.
 
 Status names come only from the CSV, which is re-read on every page load, so you can add, rename or remove them at any time. Status types are fixed: `UNASSIGNED`, `ASSIGNED`, `WAITING`, `DONE` and `ARCHIVED`. CSV rows with any other type are ignored. If the CSV is missing, or has no status for a type, a status named after that type is used instead.
 
@@ -476,9 +476,9 @@ When a row enters a `DONE` type status through the dashboard, it gets a `CLOSED`
 - Ignored: `<!-- HTML comments -->`, `%% Obsidian comments %%`, `#+BEGIN_COMMENT` blocks, fenced code, and struck-through lines.
 - **Filter**: five dropdowns, laid out in two columns with **Sort**. Each opens a list of tick boxes, and you can tick as many as you like. A row shows if it matches any ticked choice in a dropdown, and passes every dropdown.
   - **Type:** the status types. Every type is ticked except `ARCHIVED`, so archived items only show when you tick it. Unticking every type shows nothing.
-  - **Status:** statuses from `_Labels/Status.csv`.
+  - **Status:** statuses from `_Options/Status.csv`.
   - **Priority:** `A`, `B`, `C`, `R` (recurring), or **None** for rows without one.
-  - **Tentacle:** the top-level tentacle in `_Labels/Tentacles.csv` a row belongs to. A project counts under the tentacle in its title or folder name, and a tentacle's rows count under its top-level tentacle. A project whose folder isn't named `TENTACLE_Title` and whose tentacle isn't known doesn't appear under any tentacle.
+  - **Tentacle:** the top-level tentacle in `_Options/Tentacles.csv` a row belongs to. A project counts under the tentacle in its title or folder name, and a tentacle's rows count under its top-level tentacle. A project whose folder isn't named `TENTACLE_Title` and whose tentacle isn't known doesn't appear under any tentacle.
   - **Project:** projects. It lists only projects with items of a ticked type, and only the ticked tentacles' projects when any are ticked.
 
   Each choice shows how many rows it would leave, alongside the other filters. The button shows what's ticked. In Status, Priority, Tentacle and Project, ticking nothing means **All**. **Show all** at the top of a list ticks every type, or clears the other dropdowns back to All. A click outside, or Escape, closes the list.
@@ -502,7 +502,7 @@ The focus is read as an outline of tentacle, then project, then items, so hand e
 
 A row with an `ARCHIVED` type status, and anything nested under it, is hidden everywhere, unless `SHOWARCHIVED` is on (see below). On a milestone it still counts as a finished task, and a milestone with only archived checkboxes shows as complete and says **Milestone complete**. Task lists on tentacles and Ongoing projects leave archived rows out of their progress. It only appears in the Todos sidebar when `ARCHIVED` is ticked under Type in Filter, and in the text box when you double-click a file's **Raw** tab to edit it.
 
-`SHOWARCHIVED` in `_Labels/Options.csv` keeps archived rows visible on project, tentacle, Contacts and Events pages, with their archived icon. It's `TRUE` or `FALSE`, shown as a tick box on the Options page, and is off if the file doesn't have it. Ticking it and saving adds the row to an older file. Progress counts don't change, and the Todos sidebar still uses its own Filter.
+`SHOWARCHIVED` in `_Options/Options.csv` keeps archived rows visible on project, tentacle, Contacts and Events pages, with their archived icon. It's `TRUE` or `FALSE`, shown as a tick box on the Options page, and is off if the file doesn't have it. Ticking it and saving adds the row to an older file. Progress counts don't change, and the Todos sidebar still uses its own Filter.
 
 ### Changing a status
 
@@ -542,12 +542,12 @@ The top of each project file follows this pattern:
 **Leader** : #Name
 ```
 
-- **Title:** the first `#` heading is the page title, and it's never listed as a todo. If it starts with an `id` from `_Labels/Tentacles.csv`, the dashboard shows that tentacle's `Name` with a dropdown for choosing another. The file keeps the `id`.
+- **Title:** the first `#` heading is the page title, and it's never listed as a todo. If it starts with an `id` from `_Options/Tentacles.csv`, the dashboard shows that tentacle's `Name` with a dropdown for choosing another. The file keeps the `id`.
 - **Date Reviewed:** a single date, shown read-only and set from the Review page. The flag button beside it adds `**Flagged for Review**: Yes` on the next line, which puts the project on the Review page until it's next reviewed. Selecting it again removes the line.
-- **Date Closed:** a single date, in the `DATEFORMAT` set in `_Labels/Options.csv`. Click the plus to add one or the pencil to change it. Saving an empty box clears the date.
+- **Date Closed:** a single date, in the `DATEFORMAT` set in `_Options/Options.csv`. Click the plus to add one or the pencil to change it. Saving an empty box clears the date.
 - **Active Timeframe:** empty by default. Click the plus button next to it and choose a start and end month and year. A timeframe always runs from the first day of its start month to the last day of its end month, and is stored as full dates. Each new timeframe is added to the end of the line, separated by a comma. If a file doesn't have the line yet, the first timeframe adds it below `Date Created`. The Overview tab lists the timeframes one per row, each with a pencil to change its dates and a cross to delete it. The file keeps them on the single comma-separated line.
 - **Project Dependency:** empty by default. On the Overview tab, the plus button lists every project that isn't archived, apart from this one and any that already depend on it. With `ARCHIVEMODE` set to `HEADERS`, the entries in `_Archive.md` follow, marked (archived). The file stores the other project's name (its folder name without the status prefix and with spaces for underscores), and the Overview shows it as a link. On the Timeline, a dependent project sits directly below its parent, and an arrow runs from the end of the parent project's last bar to the start of the dependent project's first bar, if both have an `Active Timeframe`.
-- **Leader:** shown as a `Name` from `_Labels/Leaders.csv`, with a dropdown for choosing another. The file keeps the `Tag`.
+- **Leader:** shown as a `Name` from `_Options/Leaders.csv`, with a dropdown for choosing another. The file keeps the `Tag`.
 
 **Dates are always stored in the markdown as `YYYY-MM-DD`.** `DATEFORMAT` only controls how the browser shows dates and how you type them into the dashboard, so changing it never touches your files. If you edit a file by hand, write dates as `YYYY-MM-DD` so the dashboard can read them. Dates in links, URLs and code are shown exactly as written.
 
@@ -604,12 +604,13 @@ _Images/               pictures for [[IMAGE#...]] links, and the logo, shared by
 Label/                 one entity's folder, as named in _Dashboard/entities.csv
   Projects/            its projects (each directory in PROJECTS, relative to this folder)
   _Incubator.md        ideas for projects
+  _Task_Archive.md     tasks each review has taken out of their files once archived
   _Archive.md          the headers of archived projects (ARCHIVEMODE HEADERS)
   _Time_Management/    Plan.md, Review.md and AgendaItems.csv (the review agenda)
-  _Tentacles/           a folder for each top-level tentacle, with its tentacles inside, and Reports.md
+  _Tentacles/          a folder for each top-level tentacle, with its tentacles inside, and Reports.md
   _Networking/         Contacts.md and Events.md
   _Catalogs/           a TAG_Name.csv per catalog
-  _Labels/             the CSV files behind the Options page, Tentacles.csv among them
+  _Options/           the CSV files behind the Options page, Tentacles.csv among them
 Freelance/             another entity's folder, laid out the same way
 _Dashboard/
   entities.csv         the entities (Name,Directory)
@@ -669,7 +670,7 @@ _Dashboard/
     js/networking.js   Contacts and Events pages
     js/compatibility.js Compatibility pages
     js/options.js      options page tabs and form
-    js/label-tables.js Statuses, Leaders, Colours and Agenda tables
+    js/label-tables.js Task Management, Leaders, Colours, Agenda and Entities tables
     js/sidebar.js      todos sidebar
     js/status.js       status name + caret control
 ```
@@ -678,5 +679,5 @@ _Dashboard/
 
 - **HTML** lives in `public/components/*.html`, as `<template name="...">` blocks. A script asks for one by name with `PMS.component('name', { slot: value })`, or `PMS.element` for a live element such as a dialog. Pages load them all through `api/components.js`, so a new or changed template only needs a browser refresh.
 - **Slots:** `{{slot}}` is escaped, `{{{slot}}}` is HTML that's already safe, and `{{#if slot}}...{{else}}...{{/if}}` is optional markup. Line breaks and the indentation after them are removed, so a space that matters has to be on the same line as its neighbours.
-- **CSS** lives in `public/css/style.css`. The colours come from `_Labels/Colours.csv`. Values only known while the page runs, such as where a Timeline bar starts, are passed in as named custom properties like `--from`, and the stylesheet says what to do with them.
+- **CSS** lives in `public/css/style.css`. The colours come from `_Options/Colours.csv`. Values only known while the page runs, such as where a Timeline bar starts, are passed in as named custom properties like `--from`, and the stylesheet says what to do with them.
 - **JavaScript** lives in `public/js`. Anything used by more than one page goes in `js/projects.js`.

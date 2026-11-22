@@ -696,6 +696,97 @@ function moveRow(markdown, line, status, text, toLine, toTitle, statuses) {
   return insertLine(removeLines(markdown, first, last), at - moved.length, moved);
 }
 
+// ----- the Task Archive -----
+
+// Takes every task in an ARCHIVED type status out of a file, each with everything indented
+// under it (its dates and subtasks), for a review to move into _Task_Archive.md. `keep` says
+// which lines can be taken, as a Contacts or Events task only counts inside an entry. Each
+// task comes back as the heading it was under (its block, as written, or null before the
+// first heading) and its lines, lined up at the left.
+//
+// A milestone whose tasks leave keeps a comment counting them (ARCHIVE_MARKER), so it still
+// shows as complete rather than as having no tasks.
+function takeArchivedRows(markdown, statuses, keep = () => true) {
+  const visible = stripComments(markdown);
+  const raw = rawLines(markdown);
+  const archived = scanLines(markdown, createMatcher(statuses)).filter((item) => item.type === 'ARCHIVED' && keep(item.line));
+  const milestones = milestoneSection(visible);
+  const rows = [];
+  const ranges = [];
+  const taken = new Map(); // a milestone heading's 0-based index -> how many tasks left it
+  for (const item of archived) {
+    if (ranges.length && item.line <= ranges[ranges.length - 1].last) continue; // under one already taken
+    const { first, last, own } = rowExtent(visible, item.line);
+    let heading = first - 2;
+    while (heading >= 0 && !/^#{1,6}\s/.test(visible[heading])) heading--;
+    rows.push({ block: heading >= 0 ? visible[heading].trim() : null, lines: raw.slice(first - 1, last).map((l) => dedent(l, own)) });
+    ranges.push({ first, last });
+    if (milestones && heading > milestones.start && heading < milestones.end && MILESTONE_HEADING.test(visible[heading])) taken.set(heading, (taken.get(heading) || 0) + 1);
+  }
+  // From the bottom up, so the earlier line numbers still hold.
+  let remaining = ranges.reduceRight((text, { first, last }) => removeLines(text, first, last), markdown);
+  // Then each milestone's count, also from the bottom up. A heading moves up by the lines
+  // taken out above it.
+  for (const [heading, count] of [...taken].sort((a, b) => b[0] - a[0])) {
+    const above = ranges.filter((r) => r.last <= heading).reduce((n, r) => n + r.last - r.first + 1, 0);
+    remaining = addArchiveMarker(remaining, heading - above, count);
+  }
+  return { markdown: remaining, rows };
+}
+
+// "<!-- 3 tasks in the Task Archive -->", left where a milestone's archived tasks were. It's a
+// comment, so Obsidian and the dashboard don't show it, but the progress bar counts it as
+// that many finished tasks.
+const ARCHIVE_MARKER = /^\s*<!--\s*(\d+)\s+tasks?\s+in the Task Archive\s*-->\s*$/i;
+const archiveMarker = (count) => `<!-- ${count} ${count === 1 ? 'task' : 'tasks'} in the Task Archive -->`;
+
+// Adds `count` to the marker of the milestone whose heading is at 0-based `heading`, or adds
+// a marker after the milestone's last line.
+function addArchiveMarker(markdown, heading, count) {
+  const raw = rawLines(markdown);
+  const visible = stripComments(markdown);
+  let end = heading + 1;
+  while (end < visible.length && !/^#{1,3}\s/.test(visible[end])) end++;
+  for (let i = heading + 1; i < end; i++) {
+    const found = raw[i].match(ARCHIVE_MARKER);
+    if (found) return editLine(markdown, i + 1, () => archiveMarker(Number(found[1]) + count));
+  }
+  return insertLine(markdown, lastContentLine(raw, heading + 2, end) || heading + 1, archiveMarker(count));
+}
+
+// One file's archived tasks: its name, then each block's tasks under the block's heading.
+function archivedFileLines({ file, rows }) {
+  const lines = [`**File:** ${file}`];
+  let block;
+  for (const row of rows) {
+    if (row.block !== block || lines.length === 1) {
+      block = row.block;
+      lines.push(`**Block:** ${block || '(before the first heading)'}`);
+    }
+    lines.push(...row.lines);
+  }
+  return lines;
+}
+
+// Adds one review's archived tasks to _Task_Archive.md, newest first, under the review's
+// date. `groups` is a list of { heading, files, projects: [{ title, files }] }: a tentacle
+// (or Contacts or Events) with its own files' tasks, then each of its projects'.
+function addTaskArchive(markdown, date, groups) {
+  const section = [`## Date archived: ${date}`, '', '### Tasks', ''];
+  for (const group of groups) {
+    section.push(`#### ${group.heading}`);
+    for (const file of group.files) section.push(...archivedFileLines(file), '');
+    if (!group.files.length) section.push('');
+    for (const project of group.projects) {
+      section.push(`##### ${project.title}`);
+      for (const file of project.files) section.push(...archivedFileLines(file), '');
+    }
+  }
+  if (markdown === null || !markdown.trim()) return ['# Task Archive', '', ...section].join('\n');
+  const title = titleIndex(stripComments(markdown));
+  return title === -1 ? insertLine(markdown, null, ['# Task Archive', '', ...section]) : insertLine(markdown, title + 1, ['', ...section.slice(0, -1)]);
+}
+
 // Makes a task into a new milestone at the end of the Milestones section, named after its
 // text. Its subtasks become the milestone's tasks; its own dates are dropped.
 function promoteRow(markdown, line, status, text, statuses) {
@@ -984,6 +1075,8 @@ module.exports = {
   setProjectType,
   setRowDate,
   advanceRecurring,
+  takeArchivedRows,
+  addTaskArchive,
   ARCHIVE_FIELDS,
   INCUBATOR_FIELDS,
   parseNamedEntries,

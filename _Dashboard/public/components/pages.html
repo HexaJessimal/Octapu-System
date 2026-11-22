@@ -242,7 +242,7 @@
     <label>Wins<textarea name="wins" rows="10"></textarea></label>
     <p class="form-error" role="alert" hidden></p>
     <div class="modal-actions"><button type="submit" class="primary-button">Submit wins and archive {{count}}</button></div>
-    <p class="review-note">Every done item moves to {{archiveTo}}, including any not listed above because they were closed before the last review.</p>
+    <p class="review-note">Every done item moves to {{archiveTo}}, including any not listed above because they were closed before the last review. Tasks already archived move out of their files into _Task_Archive.md first, where the Task Archive tab on the Options page shows them.</p>
   </form>
 </template>
 
@@ -372,7 +372,7 @@
 <template name="label-panel">
   <div class="section-row">
     <h2 class="section-title">{{title}}</h2>
-    {{#if canAdd}}<button type="button" class="add-button" data-add-row title="Add a {{noun}}" aria-label="Add a {{noun}}"></button>{{/if}}
+    {{#if canAdd}}<button type="button" class="add-button" data-add-row{{#if group}} data-group="{{group}}"{{/if}} title="Add a {{noun}}" aria-label="Add a {{noun}}"></button>{{/if}}
   </div>
   {{#if note}}<p class="label-note">{{note}}</p>{{/if}}
   {{{body}}}
@@ -397,7 +397,7 @@
 
 <template name="label-actions"><td class="label-actions"><button type="button" class="row-remove" data-remove title="Delete this {{noun}}" aria-label="Delete {{name}}"></button></td></template>
 
-<template name="label-no-rows"><tr><td class="empty" colspan="{{{span}}}">No rows yet.</td></tr></template>
+<template name="label-no-rows"><tr><td class="empty" colspan="{{{span}}}">{{#if message}}{{message}}{{else}}No rows yet.{{/if}}</td></tr></template>
 
 <!-- After an entity's Directory, when that folder hasn't been made yet. -->
 <template name="label-missing"><span class="label-default"> (not made yet)</span></template>

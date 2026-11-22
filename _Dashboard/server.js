@@ -96,6 +96,8 @@ const {
   setProjectType,
   setRowDate,
   advanceRecurring,
+  takeArchivedRows,
+  addTaskArchive,
   ARCHIVE_FIELDS,
   INCUBATOR_FIELDS,
   parseNamedEntries,
@@ -135,7 +137,7 @@ const DEVICE = cleanDevice(os.hostname());
 const requestContext = new AsyncLocalStorage();
 const USER_COOKIE = 'pms_user';
 
-const VERSION = '0.5';
+const VERSION = '0.7';
 const HOST = process.env.PMS_HOST || '127.0.0.1';
 const PORT = Number(process.env.PMS_PORT) || 4173;
 
@@ -159,10 +161,17 @@ const OLD_TENTACLES_FOLDER = '_Entities';
 const tentaclesFolder = (root) =>
   !fs.existsSync(path.join(root, TENTACLES_FOLDER)) && fs.existsSync(path.join(root, OLD_TENTACLES_FOLDER)) ? OLD_TENTACLES_FOLDER : TENTACLES_FOLDER;
 
+// The settings folder was called _Labels. That name is still used while it's the only one there,
+// until Compatibility's Core files page renames it.
+const OPTIONS_FOLDER = '_Options';
+const OLD_OPTIONS_FOLDER = '_Labels';
+const optionsFolder = (root) =>
+  !fs.existsSync(path.join(root, OPTIONS_FOLDER)) && fs.existsSync(path.join(root, OLD_OPTIONS_FOLDER)) ? OLD_OPTIONS_FOLDER : OPTIONS_FOLDER;
+
 function dataPaths(root) {
   const tentacleDir = path.join(root, tentaclesFolder(root));
   const timeDir = path.join(root, '_Time_Management');
-  const labelsDir = path.join(root, '_Labels');
+  const optionsDir = path.join(root, optionsFolder(root));
   return {
     TENTACLE_DIR: tentacleDir,
     TIME_MANAGEMENT_DIR: timeDir,
@@ -173,14 +182,16 @@ function dataPaths(root) {
     // Archived projects' headers (ARCHIVEMODE HEADERS) and ideas not yet made into projects.
     ARCHIVE_FILE: path.join(root, '_Archive.md'),
     INCUBATOR_FILE: path.join(root, '_Incubator.md'),
+    // Tasks a review has taken out of their files once they were ARCHIVED. Nothing else reads it.
+    TASK_ARCHIVE_FILE: path.join(root, '_Task_Archive.md'),
     NETWORKING_DIR: path.join(root, '_Networking'),
     CATALOGS_DIR: path.join(root, '_Catalogs'), // a CSV per catalog
-    LABELS_DIR: labelsDir,
-    STATUS_FILE: path.join(labelsDir, 'Status.csv'),
-    TENTACLES_FILE: path.join(labelsDir, 'Tentacles.csv'),
-    LEADERS_FILE: path.join(labelsDir, 'Leaders.csv'),
-    COLOURS_FILE: path.join(labelsDir, 'Colours.csv'),
-    OPTIONS_FILE: path.join(labelsDir, 'Options.csv'),
+    OPTIONS_DIR: optionsDir,
+    STATUS_FILE: path.join(optionsDir, 'Status.csv'),
+    TENTACLES_FILE: path.join(optionsDir, 'Tentacles.csv'),
+    LEADERS_FILE: path.join(optionsDir, 'Leaders.csv'),
+    COLOURS_FILE: path.join(optionsDir, 'Colours.csv'),
+    OPTIONS_FILE: path.join(optionsDir, 'Options.csv'),
   };
 }
 // The selected tentacle's folder, set for each request (see tentacleRoot), or the main folder.
@@ -346,7 +357,7 @@ const FALLBACK_PROJECT_DIRS = 'Projects'; // only used if Options.csv has no PRO
 const FALLBACK_TASK_LISTS = 'Tasks'; // only used if Options.csv has no TASKLISTS row
 // Folders the dashboard uses for something else, so they can't also hold projects.
 const RESERVED_DIRS = new Set(
-  [__dirname, ...['NETWORKING_DIR', 'LABELS_DIR', 'CATALOGS_DIR', 'TIME_MANAGEMENT_DIR'].map((name) => dataPaths(ROOT_DIR)[name]), TENTACLES_FOLDER, OLD_TENTACLES_FOLDER].map((dir) => path.basename(dir).toLowerCase())
+  [__dirname, ...['NETWORKING_DIR', 'CATALOGS_DIR', 'TIME_MANAGEMENT_DIR'].map((name) => dataPaths(ROOT_DIR)[name]), TENTACLES_FOLDER, OLD_TENTACLES_FOLDER, OPTIONS_FOLDER, OLD_OPTIONS_FOLDER].map((dir) => path.basename(dir).toLowerCase())
 );
 const ARCHIVED_FOLDER = /^\d{4}[.\-_]\d{2}[.\-_]\d{2}/;
 // A project is archived once its folder starts with a date or it has a Date Closed. Either
@@ -1716,6 +1727,16 @@ async function openFolder({ folder }) {
 // are renamed with it, and the old name in its `# ` title is changed to the new one.
 const CORE_RENAMES = [
   {
+    key: 'options',
+    folder: true,
+    dir: () => currentRoot(),
+    location: '',
+    from: OLD_OPTIONS_FOLDER,
+    to: OPTIONS_FOLDER,
+    href: 'options.html',
+    why: 'it holds the settings shown on the Options page',
+  },
+  {
     key: 'tentacles',
     folder: true,
     dir: () => currentRoot(),
@@ -2497,9 +2518,14 @@ async function networkingFiles() {
     const full = path.join(at().NETWORKING_DIR, page.file);
     const content = await readIfExists(full);
     if (content === null) continue;
-    const sections = parseEntries(content, page.level);
-    const entries = (page.section ? sections.filter((s) => page.section.test(s.title)) : sections).flatMap((s) => s.entries);
-    files.push({ folder: NETWORKING_PREFIX + name, file: page.file, full, name: page.title, content, entryAt: (line) => entries.find((e) => line > e.line && line <= e.end) || null });
+    // Finds the entry a line is in. It's worked out from given text, as a review takes
+    // archived tasks out of the file before it looks for done ones.
+    const entriesIn = (text) => {
+      const sections = parseEntries(text, page.level);
+      const entries = (page.section ? sections.filter((s) => page.section.test(s.title)) : sections).flatMap((s) => s.entries);
+      return (line) => entries.find((e) => line > e.line && line <= e.end) || null;
+    };
+    files.push({ folder: NETWORKING_PREFIX + name, file: page.file, full, name: page.title, content, entryAt: entriesIn(content), entriesIn });
   }
   return files;
 }
@@ -2508,14 +2534,17 @@ async function networkingFiles() {
 // line isn't part of anything to review. Projects are named by their folder instead.
 async function reviewableFiles() {
   const tentacles = (await allTentacleFiles()).map((f) => Object.assign(f, { sourceOf: () => f.name }));
-  const networking = (await networkingFiles()).map((f) =>
-    Object.assign(f, {
-      sourceOf: (line) => {
-        const entry = f.entryAt(line);
+  // `sourceIn` gives the same for another version of the file's text.
+  const networking = (await networkingFiles()).map((f) => {
+    const sourceIn = (text) => {
+      const entryAt = text === f.content ? f.entryAt : f.entriesIn(text);
+      return (line) => {
+        const entry = entryAt(line);
         return entry ? `${f.name}: ${entry.title}` : null;
-      },
-    })
-  );
+      };
+    };
+    return Object.assign(f, { sourceOf: sourceIn(f.content), sourceIn });
+  });
   return [...(await liveProjectFiles()), ...tentacles, ...networking];
 }
 
@@ -2666,15 +2695,24 @@ async function submitWeeklyReview({ wins }) {
   const figures = await measureReport(statuses, await readLastReview(), today, text);
 
   const changes = [];
+  const taken = []; // { file, rows } for each file with tasks moving to the Task Archive
   let archived = 0;
-  for (const { full, content, sourceOf } of await reviewableFiles()) {
-    let after = content;
-    for (const item of doneRows(content, match, sourceOf)) {
+  for (const f of await reviewableFiles()) {
+    // First, tasks that were already ARCHIVED leave for _Task_Archive.md...
+    const keep = f.sourceOf ? (line) => f.sourceOf(line) !== null : undefined;
+    const took = takeArchivedRows(f.content, statuses, keep);
+    if (took.rows.length) taken.push({ file: f, rows: took.rows });
+    // ...then the done ones are archived in their place, so they stay until the next review.
+    let after = took.markdown;
+    const sourceOf = f.sourceIn ? f.sourceIn(after) : f.sourceOf;
+    for (const item of doneRows(after, match, sourceOf)) {
       after = replaceStatus(after, item.line, item.status, target, statuses);
       archived++;
     }
-    if (after !== content) changes.push({ full, before: content, after });
+    if (after !== f.content) changes.push({ full: f.full, before: f.content, after });
   }
+  const taskArchive = taken.length ? await readIfExists(at().TASK_ARCHIVE_FILE) : null;
+  const updatedTaskArchive = taken.length ? addTaskArchive(taskArchive, today, await taskArchiveGroups(taken)) : null;
 
   const review = await readIfExists(at().REVIEW_FILE);
   const updatedReview = addReview(review === null ? `# Review\n**Created:** ${today}\n` : review, today, text);
@@ -2683,6 +2721,16 @@ async function submitWeeklyReview({ wins }) {
 
   const written = [];
   try {
+    // The Task Archive is written before the tasks leave their files, so they're never lost.
+    if (updatedTaskArchive !== null) {
+      if (taskArchive === null) {
+        await fs.promises.writeFile(at().TASK_ARCHIVE_FILE, updatedTaskArchive, { encoding: 'utf8', flag: 'wx' });
+        await recordCreated(at().TASK_ARCHIVE_FILE, updatedTaskArchive);
+      } else {
+        await writeFileSafely(at().TASK_ARCHIVE_FILE, updatedTaskArchive);
+      }
+      written.push({ full: at().TASK_ARCHIVE_FILE, before: taskArchive });
+    }
     for (const change of changes) {
       await writeFileSafely(change.full, change.after);
       written.push(change);
@@ -2703,13 +2751,49 @@ async function submitWeeklyReview({ wins }) {
       await writeFileSafely(at().REVIEW_FILE, updatedReview);
     }
   } catch (err) {
-    // A Reports.md this review created is removed again rather than left empty.
+    // A Reports.md or _Task_Archive.md this review created is removed again rather than left empty.
     for (const change of written) await (change.before === null ? fs.promises.unlink(change.full) : writeFileSafely(change.full, change.before)).catch(() => {});
     throw err;
   }
   // Last, as a failure here only leaves the ticks in place.
   await uncheckAgenda().catch(() => {});
-  return { code: 200, body: { ok: true, archived, archivedTo: target } };
+  const moved = taken.reduce((n, t) => n + t.rows.length, 0);
+  return { code: 200, body: { ok: true, archived, archivedTo: target, taskArchived: moved } };
+}
+
+// The files a review took archived tasks from, grouped for _Task_Archive.md: each tentacle
+// with its own files' tasks and then each of its projects', and Contacts and Events on their
+// own. Tentacles keep the order of Tentacles.csv, and anything else comes after.
+async function taskArchiveGroups(taken) {
+  const tentacles = await readTentacles();
+  const projects = await listProjects();
+  const groups = new Map();
+  const groupOf = (heading) => {
+    if (!groups.has(heading)) groups.set(heading, { heading, files: [], projects: [] });
+    return groups.get(heading);
+  };
+  for (const { file: f, rows } of taken) {
+    const entry = { file: f.file, rows };
+    if (f.folder.startsWith(TENTACLE_PREFIX) || f.folder.startsWith(NETWORKING_PREFIX)) {
+      groupOf(f.name).files.push(entry);
+      continue;
+    }
+    const project = projects.find((p) => p.folder === f.folder);
+    const group = groupOf(project ? await projectTentacleName(project, tentacles) : 'Projects');
+    const title = projectTitle(f.folder) || f.folder;
+    let place = group.projects.find((p) => p.title === title);
+    if (!place) group.projects.push((place = { title, files: [] }));
+    place.files.push(entry);
+  }
+  const order = tentacles.map((t) => t.name);
+  const rank = (heading) => (order.includes(heading) ? order.indexOf(heading) : order.length);
+  return [...groups.values()].sort((a, b) => rank(a.heading) - rank(b.heading));
+}
+
+// The Options page's Task Archive tab: the file as it is, to read.
+async function readTaskArchive() {
+  const text = await readIfExists(at().TASK_ARCHIVE_FILE);
+  return { exists: text !== null, content: text || '', location: path.basename(at().TASK_ARCHIVE_FILE) };
 }
 
 // A task that becomes recurring for the first time is scheduled one period from today.
@@ -3037,7 +3121,7 @@ async function setupState() {
   const tentacle = !tentacles.some((o) => !o.parent);
   return {
     needed: missing.length > 0 || tentacle,
-    missing: missing.map((file) => `_Labels/${path.basename(file)}`),
+    missing: missing.map((file) => `${path.basename(at().OPTIONS_DIR)}/${path.basename(file)}`),
     fields: { tentacle, leader: leaders.length === 0, dateFormat: missing.includes(at().OPTIONS_FILE) },
     dateFormats: SETUP_DATE_FORMATS,
   };
@@ -3064,8 +3148,8 @@ async function saveSetup(body) {
   if (fields.leader && !leaderTag(leaderName)) return badSetup('Enter your name.');
   if (fields.dateFormat && !SETUP_DATE_FORMATS.includes(body.dateFormat)) return badSetup('Choose a date format.');
 
-  await fs.promises.mkdir(at().LABELS_DIR, { recursive: true });
-  const isMissing = (file) => missing.includes(`_Labels/${path.basename(file)}`);
+  await fs.promises.mkdir(at().OPTIONS_DIR, { recursive: true });
+  const isMissing = (file) => missing.includes(`${path.basename(at().OPTIONS_DIR)}/${path.basename(file)}`);
   if (isMissing(at().OPTIONS_FILE)) {
     const text = newOptionsCsv({ dateFormat: body.dateFormat, roundup: DEFAULT_ROUNDUP_DAYS, projects: FALLBACK_PROJECT_DIRS, taskLists: FALLBACK_TASK_LISTS });
     await fs.promises.writeFile(at().OPTIONS_FILE, text, 'utf8');
@@ -3591,6 +3675,7 @@ async function route(req, res) {
     if (url.pathname === '/api/status-table') return sendJson(res, 200, await readStatusTable());
     if (url.pathname === '/api/leader-table') return sendJson(res, 200, await readLeaderTable());
     if (url.pathname === '/api/entity-table') return sendJson(res, 200, await readEntityTable());
+    if (url.pathname === '/api/task-archive') return sendJson(res, 200, await readTaskArchive());
     if (url.pathname === '/api/agenda-table') return sendJson(res, 200, await readAgendaTable());
     if (url.pathname === '/api/colour-table') return sendJson(res, 200, await readColourTable());
     if (url.pathname === '/api/colours.css') return send(res, 200, coloursStylesheet((await readColourTable()).rows), MIME['.css']);
@@ -3652,7 +3737,7 @@ async function route(req, res) {
 // already there is left alone.
 function requiredDirs(root) {
   const p = dataPaths(root);
-  return [p.NETWORKING_DIR, p.LABELS_DIR, p.TENTACLE_DIR, path.join(root, 'Projects'), p.TIME_MANAGEMENT_DIR, p.CATALOGS_DIR];
+  return [p.NETWORKING_DIR, p.OPTIONS_DIR, p.TENTACLE_DIR, path.join(root, 'Projects'), p.TIME_MANAGEMENT_DIR, p.CATALOGS_DIR];
 }
 function starterFiles(root) {
   const p = dataPaths(root);
@@ -3665,8 +3750,8 @@ function starterFiles(root) {
 
 // Tentacles.csv was called Owners.csv. It's renamed once, and never over a Tentacles.csv.
 async function renameOldTentaclesFile(root) {
-  const { TENTACLES_FILE, LABELS_DIR } = dataPaths(root);
-  const old = path.join(LABELS_DIR, 'Owners.csv');
+  const { TENTACLES_FILE, OPTIONS_DIR } = dataPaths(root);
+  const old = path.join(OPTIONS_DIR, 'Owners.csv');
   if ((await readIfExists(TENTACLES_FILE)) !== null || (await readIfExists(old)) === null) return;
   await fs.promises.rename(old, TENTACLES_FILE);
   console.log(`Renamed ${path.relative(ROOT_DIR, old)} to Tentacles.csv`);

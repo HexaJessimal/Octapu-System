@@ -30,7 +30,7 @@ Fill in:
 
 [[IMAGE#Screenshots/03-SetupFill.png]]
 
-Select **Get started**. The dashboard creates the settings files it needs in the `_Labels` folder and your tentacle's folder. You can change all of this later in Options.
+Select **Get started**. The dashboard creates the settings files it needs in the `_Options` folder and your tentacle's folder. You can change all of this later in Options.
 
 ## View your homepage
 
@@ -232,6 +232,10 @@ Further down the Review page, finished tasks since your last review are grouped 
 
 Your wins are saved in `_Time_Management/Review.md`. Every finished task, not only those listed, moves to the archived status and disappears from view. Past reviews are on the **History** tab.
 
+Tasks that were already archived at the last review leave their files altogether. Each review moves them, with anything under them, into `_Task_Archive.md` in your entity's folder, under the review's date and grouped by tentacle and project, with the file and heading each came from. Nothing else in the dashboard reads that file. To look back at them, open the **Task Archive** tab on the Options page.
+
+So that a milestone still shows as complete once its tasks have gone, the review leaves a hidden note where they were, such as `<!-- 3 tasks in the Task Archive -->`. Neither Obsidian nor the dashboard shows it, but the milestone's progress counts those tasks as done. Leave the note in place if you edit the file by hand.
+
 Each review also logs figures to `_Tentacles/Reports.md`: the tasks you completed and those still open, overdue tasks, active projects with nothing finished, how much of your Plan got done, and the wins you logged. [Read your report and save it](#read-your-report-and-save-it) shows how to read them.
 
 There's no screenshot of this step. The Wins box is at the bottom of the Review page.
@@ -382,7 +386,7 @@ Then create a folder with exactly that name, next to your `Projects` folder. Unt
 
 [[IMAGE#Screenshots/46-NewProjectsDirectory.png]]
 
-The **Statuses** tab sets the status names you can give tasks. Double-click a value to change it, and use the plus and minus buttons to add or remove rows. **Next status** decides what a status moves to when you select it.
+The **Task Management** tab sets the status names you can give tasks, in a list for each kind: **Awaiting Assignment**, **Assignees**, **Waiting for review**, **Complete** and **Archived**. Use a list's plus button to add a status of that kind, double-click a value to change it, and the minus button to remove one. To move a status to another list, remove it and add it again there. A list with nothing in it uses a built-in status named after its kind. **Next status** decides what a status moves to when you select it.
 
 [[IMAGE#Screenshots/47-CustomStatuses.png]]
 
@@ -390,7 +394,7 @@ The **Statuses** tab sets the status names you can give tasks. Double-click a va
 
 On the **Leaders** tab, select the plus button and enter a name. Leaders can then be chosen as the leader of a project.
 
-Tasks are assigned using statuses, so if you'd like to assign tasks to the new person too, add a status with their name in the **ASSIGNED** type on the Statuses tab.
+Tasks are assigned using statuses, so if you'd like to assign tasks to the new person too, add a status with their name to the **Assignees** list on the Task Management tab.
 
 [[IMAGE#Screenshots/48-NewProjectLeaders.png]]
 
@@ -459,7 +463,7 @@ On the **Events** page, Fix issues changes dates you typed yourself, such as `25
 
 [[IMAGE#Screenshots/67-CompatibilityEvents.png]]
 
-The **Core files** page lists files and folders the dashboard relies on that have been given a new name. The folder of tentacles in each entity was called `_Entities`, and is now `_Tentacles`: until it's renamed, the dashboard keeps using `_Entities`, and Fix issues renames it. Close anything that has the folder open first. The Leads page is now called **Contacts**, so an entity whose contacts are still in `_Networking/Leads.md` is listed there. Until it's fixed, the Contacts page still reads `Leads.md`, so nothing goes missing. Fix issues renames it `Contacts.md`, with its change logs, and changes Leads to Contacts in its `#` title. If both files exist, move anything you still need into `Contacts.md` and delete `Leads.md` yourself. Old `[[Leads#Name]]` links keep working.
+The **Core files** page lists files and folders the dashboard relies on that have been given a new name. The folder of tentacles in each entity was called `_Entities`, and is now `_Tentacles`, and the folder behind the Options page was called `_Labels`, and is now `_Options`. Until they're renamed, the dashboard keeps using the old names, and Fix issues renames them. Close anything that has the folder open first. The Leads page is now called **Contacts**, so an entity whose contacts are still in `_Networking/Leads.md` is listed there. Until it's fixed, the Contacts page still reads `Leads.md`, so nothing goes missing. Fix issues renames it `Contacts.md`, with its change logs, and changes Leads to Contacts in its `#` title. If both files exist, move anything you still need into `Contacts.md` and delete `Leads.md` yourself. Old `[[Leads#Name]]` links keep working.
 
 [[IMAGE#Screenshots/87-CoreFiles.png]]
 
@@ -473,7 +477,7 @@ Your files are organised like this:
 - `_Images`: pictures used in your notes and this guide, shared by all your entities.
 - `Label`, `Freelance` and so on: a folder for each entity, holding everything below.
 - `_Tentacles`: a folder per tentacle, named after its ID, with tentacles inside their parent, and `Reports.md`.
-- `_Labels`: the settings files behind the Options page, including `Tentacles.csv`.
+- `_Options`: the settings files behind the Options page, including `Tentacles.csv`.
 - `_Networking`: `Contacts.md` and `Events.md`.
 - `_Catalogs`: a CSV file per catalog, named with its tag and name, such as `RLS_Record_Label_Studios.csv`. [Keep a catalog of your releases](#keep-a-catalog-of-your-releases) shows how to use them.
 - `Projects`, and any other directory in `PROJECTS`: a folder per project.

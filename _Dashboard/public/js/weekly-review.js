@@ -204,7 +204,8 @@
       const result = await postJson('api/weekly-review', { wins: form.elements.wins.value });
       if (!result.ok) return showFormError(error, result.error || 'Could not log the review.');
       await load();
-      status.toast('Review logged. ' + result.body.archived + ' items moved to ' + result.body.archivedTo + '.');
+      const moved = result.body.taskArchived;
+      status.toast('Review logged. ' + result.body.archived + ' items moved to ' + result.body.archivedTo + '.' + (moved ? ' ' + moved + (moved === 1 ? ' archived task' : ' archived tasks') + ' moved to the Task Archive.' : ''));
       status.refresh();
     } catch (_) {
       showFormError(error, UNREACHABLE);

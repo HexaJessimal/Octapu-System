@@ -1,4 +1,4 @@
-# Leads list
+# Contacts list
 
 ## Contacts
 
