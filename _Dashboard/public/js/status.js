@@ -1,18 +1,26 @@
 // The interactive status controls: a status name with a caret, and the checkbox.
 (function (global) {
   'use strict';
-  const { parseFolder, STATUS_LABELS, statusLabel, presentTypes, badgeClass, displayDate, displayDates, component, element, UNREACHABLE, postJson, showFormError, entityHref, openDialog } = global.PMS;
+  const { parseFolder, STATUS_LABELS, statusLabel, presentTypes, badgeClass, displayDate, displayDates, component, element, UNREACHABLE, postJson, showFormError, tentacleHref, openDialog } = global.PMS;
 
   // What an untagged checkbox's mark looks like.
   const MARK_TYPES = { ' ': 'UNASSIGNED', x: 'DONE', '/': 'ASSIGNED', '-': 'WAITING' };
   const NO_PRIORITY = '-';
-  const PRIORITY_OPTIONS = [NO_PRIORITY, 'A', 'B', 'C'];
+  const PRIORITY_OPTIONS = [NO_PRIORITY, 'A', 'B', 'C', 'R'];
+  // R is a recurring task. Its period is a count and one of these units, as in R|5D.
+  const RECUR_UNITS = { D: ['day', 'days'], W: ['week', 'weeks'], M: ['month', 'months'], Y: ['year', 'years'] };
+  const recurValue = (item) => (item.recur ? item.recur.count + item.recur.unit : '');
+  // "5D" as "5 days", or "1W" as "1 week".
+  const describePeriod = (value) => {
+    const [, count, unit] = String(value).match(/^(\d+)([DWMY])$/) || [];
+    return count ? count + ' ' + RECUR_UNITS[unit][count === '1' ? 0 : 1] : '';
+  };
   // Each project status that can be switched, and what it switches to.
   const SWITCHABLE = { active: 'inactive', inactive: 'active' };
 
   let statuses = [];
   let types = [];
-  let owners = [];
+  let tentacles = [];
   let leaders = [];
   let dependencyOptions = [];
   let projectTypes = [];
@@ -26,8 +34,8 @@
     types = presentTypes(list);
   }
 
-  function setHeaderOptions(ownerList, leaderList, format, dependencyList = [], typeList = []) {
-    owners = ownerList;
+  function setHeaderOptions(tentacleList, leaderList, format, dependencyList = [], typeList = []) {
+    tentacles = tentacleList;
     leaders = leaderList;
     dateFormat = format;
     dependencyOptions = dependencyList;
@@ -62,6 +70,7 @@
       cancelled: item.cancelled,
       scheduled: plannedDate(item, 'SCHEDULED'),
       deadline: plannedDate(item, 'DEADLINE'),
+      recur: recurValue(item),
     });
   }
 
@@ -73,14 +82,17 @@
     return (done.find((s) => s.name === 'DONE') || done[0] || {}).name || null;
   }
 
+  // A recurring task's box moves its schedule on rather than ticking it.
   function checkbox(item) {
     const iconType = item.type || MARK_TYPES[item.mark];
     const target = checkboxTarget(item.status);
-    const clickable = item.mark !== 'x' && target;
+    const clickable = item.recur || (item.mark !== 'x' && target);
+    let title = clickable ? 'Move to ' + target : item.mark === 'x' ? 'Ticked' : 'No next status';
+    if (item.recur) title = 'Move the schedule on ' + describePeriod(recurValue(item));
     return component('control-checkbox', {
       attrs: dataAttrs(item),
       icon: iconType ? iconType.toLowerCase() : '',
-      title: clickable ? 'Move to ' + target : item.mark === 'x' ? 'Ticked' : 'No next status',
+      title,
       disabled: !clickable,
       caret: !item.status,
     });
@@ -93,14 +105,14 @@
     return component('control-person', { attrs: documentAttrs(project, line, value), leader, describe: label || 'none', label });
   }
 
-  // The owner keyword in the page title, shown by its friendly name.
-  function ownerControl(project) {
-    const id = project.title.owner;
-    const owner = owners.find((o) => o.id === id);
-    return personControl(project, project.title.line, id, owner ? owner.name : '', false);
+  // The tentacle keyword in the page title, shown by its friendly name.
+  function tentacleControl(project) {
+    const id = project.title.tentacle;
+    const tentacle = tentacles.find((o) => o.id === id);
+    return personControl(project, project.title.line, id, tentacle ? tentacle.name : '', false);
   }
 
-  // The value of the Owner field, shown by its friendly name if Leaders.csv knows it.
+  // The value of the Leader field, shown by its friendly name if Leaders.csv knows it.
   function leaderControl(project) {
     const value = project.leader.value;
     const leader = leaders.find((l) => l.id === value);
@@ -142,13 +154,15 @@
 
   // Date Reviewed / Date Closed: a plus when empty, a pencil once set.
   // The Reviewed box's value: the date (or "Not yet"), a note while it's flagged, and the flag.
+  // The flag is coloured like the Review page box the page is listed in: projects or tentacles.
   function reviewedValue(doc) {
     const value = doc.dates.reviewed.value;
     const on = Boolean(doc.flagged);
+    const kind = String(doc.folder).startsWith('tentacle:') ? 'tentacles' : 'projects';
     return (
       (value ? global.PMS.markdown.inline(value) : 'Not yet') +
-      component('control-review-flag', { attrs: documentAttrs(doc, 'flag', ''), on, pressed: String(on), action: on ? 'Remove the flag for review' : 'Flag for review' }) +
-      (on ? component('review-flagged') : '')
+      component('control-review-flag', { attrs: documentAttrs(doc, 'flag', ''), kind, on, pressed: String(on), action: on ? 'Remove the flag for review' : 'Flag for review' }) +
+      (on ? component('review-flagged', { kind }) : '')
     );
   }
 
@@ -166,21 +180,28 @@
   }
 
   function priorityControl(item) {
+    const every = item.recur ? 'recurring every ' + describePeriod(recurValue(item)) : '';
     return component('control-priority', {
       attrs: dataAttrs(item),
       value: item.priority || NO_PRIORITY,
       className: item.priority ? 'prio-' + item.priority.toLowerCase() : 'prio-none',
-      describe: item.priority || 'none',
+      describe: every || item.priority || 'none',
+      title: every ? 'Priority: ' + every : 'Priority',
     });
   }
 
   // The status name and caret, followed by its priority selector.
+  // Selecting the name moves the status on, or a recurring task's schedule.
   function control(item) {
     const def = definition(item.status);
+    const advance = def && def.advance;
+    let title = advance ? 'Move to ' + advance : 'No next status';
+    if (item.recur) title = 'Move the schedule on ' + describePeriod(recurValue(item));
     return component('control-status', {
       attrs: dataAttrs(item),
       className: badgeClass(item.type),
-      advance: def && def.advance,
+      title,
+      disabled: !advance && !item.recur,
       name: item.status,
       priority: priorityControl(item),
     });
@@ -189,7 +210,7 @@
   // The grey menu at the end of a task row: Cancel and Delete everywhere, plus, where they
   // make sense, moving the task to another milestone, making it a milestone, and giving it a
   // linked Scratchpad block. `where` says which: { milestone: { line, title } } for a task in
-  // a Milestone project's milestone, and { blockable: true } on project and entity pages.
+  // a Milestone project's milestone, and { blockable: true } on project and tentacle pages.
   function rowMenu(item, where = {}) {
     if (item.mark === null && !item.status) return '';
     return component('control-row-menu', {
@@ -233,14 +254,16 @@
   }
 
   // Where a todo links to, and the name to show for it.
+  // A task from Contacts or Events links to its contact or event, named after it.
   function itemLink(item) {
-    const { entity } = item;
-    const page = entity ? entityHref(entity.root, entity.id) : 'project.html?folder=' + encodeURIComponent(item.folder);
-    return { label: entity ? entity.name : global.PMS.parseFolder(item.folder).title, href: page + '&file=' + encodeURIComponent(item.file) };
+    const { tentacle, networking } = item;
+    if (networking) return { label: networking.title, href: 'networking.html?page=' + networking.page + '#' + encodeURIComponent(networking.title) };
+    const page = tentacle ? tentacleHref(tentacle.root, tentacle.id) : 'project.html?folder=' + encodeURIComponent(item.folder);
+    return { label: tentacle ? tentacle.name : global.PMS.parseFolder(item.folder).title, href: page + '&file=' + encodeURIComponent(item.file) };
   }
 
   function controlKind(el) {
-    return ['check', 'priority', 'leader', 'owner', 'date', 'dependency', 'timeframe', 'milestone-menu', 'row-menu', 'review-flag'].find((k) => el.matches('.' + k + '-control')) || 'status';
+    return ['check', 'priority', 'leader', 'header', 'date', 'dependency', 'timeframe', 'milestone-menu', 'row-menu', 'review-flag'].find((k) => el.matches('.' + k + '-control')) || 'status';
   }
 
   const post = (url, ctrl, fields) => postJson(url, Object.assign({ folder: ctrl.dataset.folder, file: ctrl.dataset.file }, fields));
@@ -320,6 +343,22 @@
 
   function changePriority(ctrl, value) {
     sendEdit(ctrl, 'api/priority', { status: ctrl.dataset.status, priority: value === NO_PRIORITY ? null : value });
+  }
+
+  // A recurring task's status or box: its SCHEDULED date moves on by its period.
+  function advanceRecurring(ctrl) {
+    sendEdit(ctrl, 'api/recur', { status: ctrl.dataset.status, text: ctrl.dataset.text || '' });
+  }
+
+  // Choosing R asks how often the task comes round, starting on its current period.
+  function recurForm(ctrl) {
+    const [, count = '1', unit = 'W'] = (ctrl.dataset.recur || '').match(/^(\d+)([DWMY])$/) || [];
+    const option = (value, label, selected) => component('option', { value, label, selected });
+    const counts = Array.from({ length: 10 }, (_, i) => option(String(i + 1), String(i + 1), String(i + 1) === count)).join('');
+    const units = Object.entries(RECUR_UNITS).map(([key, names]) => option(key, names[1][0].toUpperCase() + names[1].slice(1), key === unit)).join('');
+    return buildForm('Recurring', component('recur-fields', { counts, units }), 'Save', (form) =>
+      submitForm(form, ctrl, 'api/priority', { line: Number(ctrl.dataset.line), status: ctrl.dataset.status, priority: 'R|' + form.elements.recurCount.value + form.elements.recurUnit.value })
+    );
   }
 
   function closeMenu(refocus) {
@@ -486,7 +525,7 @@
     }
     if (caret.matches('.type-button')) return menuPanel(labelMenu(projectTypes.map((t) => ({ id: t, name: t })), 'project-type', ctrl.dataset.status));
     if (caret.matches('.leader-button')) return menuPanel(labelMenu(leaders, 'leader', ctrl.dataset.status));
-    if (caret.matches('.owner-button')) return menuPanel(labelMenu(owners, 'owner', ctrl.dataset.status));
+    if (caret.matches('.header-button')) return menuPanel(labelMenu(tentacles, 'tentacle', ctrl.dataset.status));
     return menuPanel(statusMenu(ctrl.dataset.status));
   }
 
@@ -532,10 +571,14 @@
         openMenu(opener, planningForm(ctrl, choice.dataset.plan));
         return;
       }
+      if (choice.dataset.priority === 'R') {
+        openMenu(opener, recurForm(ctrl));
+        return;
+      }
       if (choice.dataset.priority) changePriority(ctrl, choice.dataset.priority);
       else if (choice.dataset.projectStatus) moveProject(ctrl, choice.dataset.projectStatus);
       else if (choice.dataset.projectType) sendEdit(ctrl, 'api/project-type', { type: choice.dataset.projectType });
-      else if (choice.dataset.owner) sendEdit(ctrl, 'api/owner', { from: ctrl.dataset.status || null, to: choice.dataset.owner });
+      else if (choice.dataset.tentacle) sendEdit(ctrl, 'api/tentacle-tag', { from: ctrl.dataset.status || null, to: choice.dataset.tentacle });
       else if (choice.dataset.leader) sendEdit(ctrl, 'api/leader', { from: ctrl.dataset.status, to: choice.dataset.leader });
       else if (choice.dataset.milestone) milestoneAction(ctrl, choice.dataset.milestone);
       else if (choice.dataset.row) rowAction(ctrl, choice.dataset.row);
@@ -560,7 +603,7 @@
       removeTimeframe(removeButton.closest('.status-control'));
       return;
     }
-    const caret = target.closest('.status-caret, .priority-button, .owner-button, .timeframe-add, .row-menu-button') || target.closest('.project-status-button');
+    const caret = target.closest('.status-caret, .priority-button, .header-button, .timeframe-add, .row-menu-button') || target.closest('.project-status-button');
     if (caret) {
       const wasOpen = menu && menu.caret === caret;
       closeMenu(false);
@@ -572,14 +615,16 @@
     const box = target.closest('.check-box');
     const boxCtrl = box && box.closest('.status-control');
     if (boxCtrl) {
-      change(boxCtrl, checkboxTarget(boxCtrl.dataset.status));
+      if (boxCtrl.dataset.recur) advanceRecurring(boxCtrl);
+      else change(boxCtrl, checkboxTarget(boxCtrl.dataset.status));
       return;
     }
     const name = target.closest('.status-name');
     if (name) {
       const ctrl = name.closest('.status-control');
       const def = definition(ctrl.dataset.status);
-      if (def) change(ctrl, def.advance);
+      if (ctrl.dataset.recur) advanceRecurring(ctrl);
+      else if (def) change(ctrl, def.advance);
     }
   });
 
@@ -605,5 +650,5 @@
     true
   );
 
-  global.PMS.status = { itemLink, setStatuses, setHeaderOptions, onChange, refresh, toast, confirmDelete, control, checkbox, rowMenu, setMilestones, onMilestoneAction, reviewedValue, dateInput, ownerControl, leaderControl, projectStatusControl, projectTypeControl, timeframeControl, timeframeEntryControl, dateControl, dependencyControl };
+  global.PMS.status = { itemLink, setStatuses, setHeaderOptions, onChange, refresh, toast, confirmDelete, control, checkbox, rowMenu, setMilestones, onMilestoneAction, reviewedValue, dateInput, tentacleControl, leaderControl, projectStatusControl, projectTypeControl, timeframeControl, timeframeEntryControl, dateControl, dependencyControl };
 })(window);

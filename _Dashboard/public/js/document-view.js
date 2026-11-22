@@ -1,4 +1,4 @@
-// The parts of a markdown document's page shared by projects and entities.
+// The parts of a markdown document's page shared by projects and tentacles.
 (function (global) {
   'use strict';
   const { markdown: md, status, editing, component } = global.PMS;
@@ -57,7 +57,7 @@
     return Object.assign(
       { appendTo, insertAfter },
       doc.title ? { titleLine: doc.title.line, titleHtml: titleHtml() } : {},
-      doc.leader ? { lineHtml: { line: doc.leader.line, html: component('labelled-control', { label: 'Owner', control: status.leaderControl(doc) }) } } : {}
+      doc.leader ? { lineHtml: { line: doc.leader.line, html: component('labelled-control', { label: 'Leader', control: status.leaderControl(doc) }) } } : {}
     );
   }
 
@@ -89,7 +89,7 @@
     });
   }
 
-  // One box per task list, on the Overview of entities and Ongoing projects.
+  // One box per task list, on the Overview of tentacles and Ongoing projects.
   function renderTaskLists(doc) {
     return doc.taskLists
       .map((list, i) => {
@@ -122,5 +122,20 @@
     return component('doc-title', { attrs: editable ? editing.attrs('title', line, rest) : '', text: rest ? md.inline(rest) : 'Untitled' });
   }
 
-  global.PMS.documentView = { addButton, renderOptions, renderScratchpad, fileTabs, renderRaw, headerOptions, progressMeter, taskRows, renderTaskLists, fact, titleSpan };
+  // The folder button at the top right of a summary, and what it does. The server only opens
+  // folders it lists itself, so the folder name is all it needs.
+  const folderButton = (doc) => component('folder-button', { folder: doc.folder });
+
+  document.addEventListener('click', async (e) => {
+    const button = e.target.closest('[data-open-folder]');
+    if (!button) return;
+    try {
+      const result = await global.PMS.postJson('api/open-folder', { folder: button.dataset.openFolder });
+      if (!result.ok) status.toast(result.error || 'Could not open the folder.');
+    } catch (_) {
+      status.toast(global.PMS.UNREACHABLE);
+    }
+  });
+
+  global.PMS.documentView = { folderButton, addButton, renderOptions, renderScratchpad, fileTabs, renderRaw, headerOptions, progressMeter, taskRows, renderTaskLists, fact, titleSpan };
 })(window);

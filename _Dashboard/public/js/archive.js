@@ -29,7 +29,7 @@
 
   function card(entry, index) {
     const dependency = entry.target ? component('link', { href: dependencyHref(entry.target), label: entry.dependency }) : escapeHtml(entry.dependency);
-    const leader = page.leaders.find((l) => l.id === entry.owner);
+    const leader = page.leaders.find((l) => l.id === entry.leader);
     return component('archive-card', {
       index,
       target: normalText(entry.title) === normalText(hashReference()),
@@ -41,7 +41,7 @@
         field('Date Closed', escapeHtml(displayDate(entry.closed)), entry.raw.closed),
         field('Active Timeframe', escapeHtml(entry.timeframes.map(displayDates).join(', ')), entry.raw.timeframe),
         field('Project Dependency', dependency, entry.raw.dependency),
-        field('Owner', escapeHtml(leader ? leader.name : entry.owner), entry.raw.owner),
+        field('Leader', escapeHtml(leader ? leader.name : entry.leader), entry.raw.leader),
       ].join(''),
       notes: entry.notes ? md.inline(entry.notes) : '',
     });
@@ -66,25 +66,25 @@
     if (target) target.scrollIntoView({ block: 'start' });
   }
 
-  // Everything but the entity and title can be left empty.
+  // Everything but the tentacle and title can be left empty.
   function askForEntry() {
     const choose = (items, blank) => option('', blank) + items.map((i) => option(i.id, i.name)).join('');
     formDialog({
       heading: 'New archive entry',
       fields:
-        component('select-field', { label: 'Entity', name: 'owner', required: true, options: choose(page.owners, 'Choose…') }) +
+        component('select-field', { label: 'Tentacle', name: 'tentacle', required: true, options: choose(page.tentacles, 'Choose…') }) +
         component('text-field', { label: 'Title', name: 'title' }) +
         status.dateInput('created', 'Date Created', false) +
         status.dateInput('closed', 'Date Closed', false) +
         status.dateInput('start', 'Timeframe start', false) +
         status.dateInput('end', 'Timeframe end', false) +
         component('select-field', { label: 'Project Dependency', name: 'dependency', required: false, options: choose(page.dependencyChoices, 'None') }) +
-        component('select-field', { label: 'Owner', name: 'leader', required: false, options: choose(page.leaders, 'None') }),
+        component('select-field', { label: 'Leader', name: 'leader', required: false, options: choose(page.leaders, 'None') }),
       submit: 'Add',
       failure: 'Could not add the entry.',
       send: ({ elements }) =>
         postJson('api/archive-entry', {
-          owner: elements.owner.value,
+          tentacle: elements.tentacle.value,
           title: elements.title.value,
           created: elements.created.value,
           closed: elements.closed.value,

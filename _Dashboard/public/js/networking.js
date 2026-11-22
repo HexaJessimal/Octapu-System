@@ -1,4 +1,4 @@
-// Networking pages: the contacts in Leads.md or the events in Events.md, as cards of editable
+// Networking pages: the contacts in Contacts.md or the events in Events.md, as cards of editable
 // fields, and a Scratchpad of everything else in the file.
 (function () {
   'use strict';
@@ -8,7 +8,7 @@
   const titleEl = document.getElementById('page-title');
   const toggles = Array.from(document.querySelectorAll('[data-view]'));
   const params = new URLSearchParams(location.search);
-  const page = params.get('page') === 'events' ? 'events' : 'leads';
+  const page = params.get('page') === 'events' ? 'events' : 'contacts';
   let view = changes.viewNames(['scratchpad', 'raw']).includes(params.get('view')) ? params.get('view') : 'list';
 
   md.setNetworkingPage(page);
@@ -70,7 +70,7 @@
     draw();
   }
 
-  // Leads have no progress, so the filter only applies on the Events page.
+  // Contacts have no progress, so the filter only applies on the Events page.
   const passes = (entry) => page !== 'events' || filter === 'all' || entry.progress === filter;
 
   function filterChips() {

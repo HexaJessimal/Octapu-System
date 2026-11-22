@@ -1,4 +1,5 @@
-// The Statuses, Leaders, Colours and Agenda tabs on the Options page: a CSV as an editable table.
+// The Statuses, Leaders, Colours, Agenda and Entities tabs on the Options page: a CSV as an
+// editable table.
 (function (global) {
   'use strict';
   const { escapeHtml, badgeClass, status, component, getJson, postJson, loadError, clearSelection, UNREACHABLE, formDialog, inlineEditor } = global.PMS;
@@ -59,7 +60,7 @@
       noun: 'agenda item',
       file: '_Time_Management/AgendaItems.csv',
       missing: '',
-      note: 'Shown as cards on the Review page. A text item is a reminder. REVIEW lists one entity or project, or the Dashboard, and REVIEW_ALL a group of them. Each card is ticked off on the Review page.',
+      note: 'Shown as cards on the Review page. A text item is a reminder. REVIEW lists one tentacle or project, or the Dashboard, and REVIEW_ALL a group of them. Each card is ticked off on the Review page.',
       keyOf: (row) => row.raw,
       // Items can repeat, so a row is found by its place and checked against its item as written.
       target: (row, index) => ({ index, fromItem: row.raw }),
@@ -91,6 +92,31 @@
           },
         },
       ],
+    },
+    entities: {
+      url: 'api/entity-table',
+      title: 'Entities',
+      noun: 'entity',
+      file: '_Dashboard/entities.csv',
+      missing: 'Until then, the main folder is the only entity.',
+      note: 'Each entity is a folder directly inside the main folder, with its own projects, tentacles, options and everything else. Adding one whose folder doesn\'t exist yet makes the folder and opens the setup form for it. Removing one only takes it off this list: its folder and everything in it stay where they are.',
+      keyOf: (row) => row.dir,
+      removeQuestion: 'Remove this entity from the list? Its folder and everything in it stay where they are.',
+      removeLabel: 'Remove',
+      columns: () => [
+        { key: 'name', label: 'Name', text: true },
+        { key: 'dir', label: 'Directory', text: true, render: (row) => escapeHtml(row.dir) + (row.missing ? component('label-missing') : '') },
+      ],
+      // The entity dropdown lists these, so every change reloads the page.
+      afterSave: () => location.reload(),
+      // A new folder is chosen straight away, which makes its folders and opens setup.
+      afterAdd: (body) => {
+        if (!body || !body.created) return false;
+        postJson('api/entity-select', { dir: body.dir })
+          .catch(() => {})
+          .then(() => location.assign('setup.html'));
+        return true;
+      },
     },
   };
   const targetOf = (table, row, index) => (table.target ? table.target(row, index) : { from: table.keyOf(row) });
@@ -212,8 +238,9 @@
         submit: 'Add',
         failure: 'Could not save that.',
         send: (f) => postJson(table.url, bodyOf(Object.assign({ action: 'add' }, draftOf(f)))),
-        done: (_, dialog) => {
+        done: (result, dialog) => {
           dialog.close();
+          if (table.afterAdd && table.afterAdd(result.body)) return;
           return reload();
         },
       });
@@ -241,7 +268,7 @@
 
     async function removeRow(index) {
       const row = data.rows[index];
-      if (!(await status.confirmDelete(table.keyOf(row), 'Delete this ' + table.noun + '?'))) return;
+      if (!(await status.confirmDelete(table.keyOf(row), table.removeQuestion || 'Delete this ' + table.noun + '?', table.removeLabel))) return;
       try {
         const result = await postJson(table.url, Object.assign({ action: 'delete' }, targetOf(table, row, index)));
         if (!result.ok) status.toast(result.error || 'Could not delete that.');

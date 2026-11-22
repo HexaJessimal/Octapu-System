@@ -9,8 +9,8 @@
 
   const form = dialog.querySelector('form');
   const error = dialog.querySelector('.form-error');
-  const entity = form.elements.entity;
-  const owner = form.elements.owner;
+  const tentacle = form.elements.tentacle;
+  const leader = form.elements.leader;
   const type = form.elements.type;
 
   function fillSelect(select, items) {
@@ -25,11 +25,11 @@
     error.hidden = true;
     try {
       const data = await getJson('api/project-options');
-      fillSelect(entity, data.owners);
-      fillSelect(owner, data.leaders);
+      fillSelect(tentacle, data.tentacles);
+      fillSelect(leader, data.leaders);
       fillSelect(type, data.types.map((t) => ({ id: t, name: t })));
     } catch (err) {
-      showFormError(error, 'Could not load the entity and owner lists (' + err.message + ').');
+      showFormError(error, 'Could not load the tentacle and leader lists (' + err.message + ').');
     }
     dialog.showModal();
   });
@@ -41,9 +41,9 @@
     error.hidden = true;
     try {
       const result = await postJson('api/projects', {
-        entity: entity.value,
+        tentacle: tentacle.value,
         title: form.elements.title.value,
-        owner: owner.value,
+        leader: leader.value,
         type: type.value,
         notes: form.elements.notes.value,
         dir: new URLSearchParams(location.search).get('dir') || undefined,

@@ -7,12 +7,14 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { AsyncLocalStorage } = require('async_hooks');
+const { spawn } = require('child_process');
 const {
+  parseCsv,
   PRIORITIES,
   parseStatuses,
   withDefaultStatuses,
   moveToStatus,
-  parseOwners,
+  parseTentacles,
   parseLeaders,
   parseColours,
   coloursStylesheet,
@@ -27,7 +29,10 @@ const {
   findTodos,
   replaceStatus,
   setPriority,
-  setOwner,
+  RECUR_VALUE,
+  addPeriod,
+  setPlanningDate,
+  setTentacle,
   setLeader,
   setDateField,
   setReviewFlag,
@@ -41,21 +46,24 @@ const {
   newOptionsCsv,
   newStatusCsv,
   leaderTag,
-  newEntityFile,
-  appendOwnerCsv,
+  newTentacleFile,
+  appendTentacleCsv,
   PROJECT_TYPES,
   STATUS_TYPES,
   editStatusCsv,
   editLeaderCsv,
+  editEntityCsv,
   timeframeError,
   addTimeframe,
   editTimeframe,
   isUsableDateFormat,
   parseTimeframes,
-  ownerChain,
+  tentacleChain,
   updateOptionsCsv,
   cleanName,
   stripComments,
+  LEADER_FIELD,
+  OLD_LEADER_FIELD,
   setHeaderField,
   AGENDA_GROUPS,
   parseAgenda,
@@ -80,16 +88,18 @@ const {
   milestoneRows,
   lastReviewDate,
   parseFocus,
-  entityProblems,
+  tentacleProblems,
   projectProblems,
   unknownMarkdown,
   hasDashboardStructure,
   applyFixes,
   setProjectType,
   setRowDate,
+  advanceRecurring,
   ARCHIVE_FIELDS,
   INCUBATOR_FIELDS,
   parseNamedEntries,
+  renameOldLeader,
   addNamedEntry,
   addEntryMark,
   removeNamedEntry,
@@ -131,36 +141,151 @@ const PORT = Number(process.env.PMS_PORT) || 4173;
 
 const PUBLIC_DIR = path.resolve(__dirname, 'public');
 const ROOT_DIR = path.resolve(__dirname, '..');
-// The data folders sit beside this app's folder, each named with a leading underscore.
-const ENTITY_DIR = path.resolve(ROOT_DIR, '_Entities');
-const TIME_MANAGEMENT_DIR = path.resolve(ROOT_DIR, '_Time_Management');
-const REVIEW_FILE = path.join(TIME_MANAGEMENT_DIR, 'Review.md');
-const AGENDA_FILE = path.join(TIME_MANAGEMENT_DIR, 'AgendaItems.csv');
+// Shared by every entity: the guide and the pictures stay in the main folder.
+const HELP_FILE = path.join(ROOT_DIR, '_Help_Guide.md');
+const IMAGES_DIR = path.join(ROOT_DIR, '_Images');
+const IMAGE_TYPES = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp']);
+// The tentacles (Name,Directory), each keeping its data in its own folder of the main folder.
+const ENTITIES_FILE = path.join(__dirname, 'entities.csv');
+const ENTITY_COOKIE = 'pms_entity';
+// Without entities.csv, the main folder itself holds the data, as before entities existed.
+const FALLBACK_ENTITY = { name: 'Octapu System', dir: '' };
+
+// An entity's data folders and files, each named with a leading underscore.
+// The tentacles' folder was called _Entities. That name is still used while it's the only one
+// there, until Compatibility's Core files page renames it.
+const TENTACLES_FOLDER = '_Tentacles';
+const OLD_TENTACLES_FOLDER = '_Entities';
+const tentaclesFolder = (root) =>
+  !fs.existsSync(path.join(root, TENTACLES_FOLDER)) && fs.existsSync(path.join(root, OLD_TENTACLES_FOLDER)) ? OLD_TENTACLES_FOLDER : TENTACLES_FOLDER;
+
+function dataPaths(root) {
+  const tentacleDir = path.join(root, tentaclesFolder(root));
+  const timeDir = path.join(root, '_Time_Management');
+  const labelsDir = path.join(root, '_Labels');
+  return {
+    TENTACLE_DIR: tentacleDir,
+    TIME_MANAGEMENT_DIR: timeDir,
+    REVIEW_FILE: path.join(timeDir, 'Review.md'),
+    AGENDA_FILE: path.join(timeDir, 'AgendaItems.csv'),
+    FOCUS_FILE: path.join(timeDir, 'Plan.md'),
+    REPORTS_FILE: path.join(tentacleDir, 'Reports.md'), // a report is added with each review
+    // Archived projects' headers (ARCHIVEMODE HEADERS) and ideas not yet made into projects.
+    ARCHIVE_FILE: path.join(root, '_Archive.md'),
+    INCUBATOR_FILE: path.join(root, '_Incubator.md'),
+    NETWORKING_DIR: path.join(root, '_Networking'),
+    CATALOGS_DIR: path.join(root, '_Catalogs'), // a CSV per catalog
+    LABELS_DIR: labelsDir,
+    STATUS_FILE: path.join(labelsDir, 'Status.csv'),
+    TENTACLES_FILE: path.join(labelsDir, 'Tentacles.csv'),
+    LEADERS_FILE: path.join(labelsDir, 'Leaders.csv'),
+    COLOURS_FILE: path.join(labelsDir, 'Colours.csv'),
+    OPTIONS_FILE: path.join(labelsDir, 'Options.csv'),
+  };
+}
+// The selected tentacle's folder, set for each request (see tentacleRoot), or the main folder.
+const currentRoot = () => (requestContext.getStore() || {}).root || ROOT_DIR;
+// The data paths of the entity this request is working on.
+const at = () => dataPaths(currentRoot());
+
+// An error message if an entities.csv Directory can't hold an entity's data. Like a projects
+// directory, it has to be a single folder directly inside the main folder.
+function entityDirError(dir) {
+  if (!dir || /[\\/:*?"<>|]/.test(dir) || dir.startsWith('.')) return `"${dir}" needs to be the name of a single folder directly inside the main folder.`;
+  if (['_dashboard', '_images'].includes(dir.toLowerCase())) return `"${dir}" is already used by the dashboard.`;
+  return null;
+}
+
+// The entities in entities.csv, in its order, as { name, dir }. Rows with an unusable or
+// repeated Directory are skipped. With no usable rows, the main folder is the only tentacle.
+// Every row of entities.csv as written, { name, dir }, or null if it has no Name and
+// Directory columns.
+function parseEntityRows(text) {
+  const rows = text === null ? [] : parseCsv(text);
+  const header = (rows[0] || []).map((h) => h.trim().toLowerCase());
+  const [nameAt, dirAt] = [header.indexOf('name'), header.indexOf('directory')];
+  if (nameAt === -1 || dirAt === -1) return null;
+  return rows
+    .slice(1)
+    .filter((row) => row.some((cell) => cell.trim()))
+    .map((row) => ({ name: (row[nameAt] || '').trim(), dir: (row[dirAt] || '').trim() }));
+}
+
+async function readEntities() {
+  const rows = parseEntityRows(await readIfExists(ENTITIES_FILE));
+  if (!rows) return [FALLBACK_ENTITY];
+  const seen = new Set();
+  const entities = [];
+  for (const { name, dir } of rows) {
+    if (entityDirError(dir) || seen.has(dir.toLowerCase())) continue;
+    seen.add(dir.toLowerCase());
+    entities.push({ name: name || dir, dir });
+  }
+  return entities.length ? entities : [FALLBACK_ENTITY];
+}
+
+// The Options page's Entities tab: entities.csv as written, and which folders don't exist yet.
+async function readEntityTable() {
+  const text = await readIfExists(ENTITIES_FILE);
+  const rows = parseEntityRows(text) || [];
+  return { exists: text !== null, rows: rows.map((row) => Object.assign(row, { missing: !row.dir || !fs.existsSync(path.join(ROOT_DIR, row.dir)) })) };
+}
+
+// Adds, changes or removes a row of entities.csv. Removing one leaves its folder alone. A new
+// entity's folder is made if it isn't there, and the page then chooses it, which opens setup.
+async function saveEntityRow(body) {
+  const result = await editLabelFile(ENTITIES_FILE, 'Name,Directory', (text, b) => editEntityCsv(text, b, entityDirError), body);
+  if (result.code !== 200 || body.action !== 'add') return result;
+  const dir = body.dir.trim();
+  const full = path.join(ROOT_DIR, dir);
+  const created = !fs.existsSync(full);
+  if (created) await fs.promises.mkdir(full);
+  return { code: 200, body: { ok: true, created, dir } };
+}
+
+const entityRootOf = (entity) => (entity.dir ? path.join(ROOT_DIR, entity.dir) : ROOT_DIR);
+
+// A cookie's value, or null if the request doesn't have it.
+function readCookie(req, name) {
+  const cookie = (req.headers.cookie || '')
+    .split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${name}=`));
+  if (!cookie) return null;
+  try {
+    return decodeURIComponent(cookie.slice(name.length + 1));
+  } catch {
+    return null;
+  }
+}
+
+// The entity this browser has chosen, or the first one. Each browser keeps its own choice.
+async function selectedEntity(req) {
+  const entities = await readEntities();
+  const chosen = readCookie(req, ENTITY_COOKIE);
+  return entities.find((e) => e.dir === chosen) || entities[0];
+}
+
 const AGENDA_HEADER = 'Type,Item,Checked';
-const REPORTS_FILE = path.join(ENTITY_DIR, 'Reports.md'); // a report is added with each review
-const FOCUS_FILE = path.join(TIME_MANAGEMENT_DIR, 'Plan.md');
-// Archived projects' headers (ARCHIVEMODE HEADERS) and ideas not yet made into projects.
-const ARCHIVE_FILE = path.join(ROOT_DIR, '_Archive.md');
-const INCUBATOR_FILE = path.join(ROOT_DIR, '_Incubator.md');
 const ARCHIVE_PREFIX = 'archive:'; // a Timeline row for an entry in _Archive.md
 const ARCHIVE_FOLDER = 'archive'; // how edits name _Archive.md
-const HELP_FILE = path.resolve(__dirname, '..', '_Help_Guide.md');
-const IMAGES_DIR = path.resolve(ROOT_DIR, '_Images');
-const IMAGE_TYPES = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp']);
-// Edits name their document by folder. An entity's is this prefix plus its id.
-const ENTITY_PREFIX = 'entity:';
-const NETWORKING_DIR = path.resolve(ROOT_DIR, '_Networking');
-const CATALOGS_DIR = path.resolve(ROOT_DIR, '_Catalogs'); // a CSV per catalog
+const INCUBATOR_FOLDER = 'incubator'; // and _Incubator.md
+// Edits name their document by folder. A tentacle's is this prefix plus its id.
+const TENTACLE_PREFIX = 'tentacle:';
 const NETWORKING_PREFIX = 'networking:';
 const field = (label, match) => ({ label, match: match || new RegExp(`^${label.replace(/[/&]/g, '\\$&')}$`, 'i') });
 // Which file each Networking page reads, how deep its entries' headings are, which of its
 // `##` sections it lists (all of them if there's no `section`), and each entry's fields.
 const NETWORKING = {
-  leads: {
-    title: 'Leads',
+  contacts: {
+    title: 'Contacts',
     tab: 'Contacts',
     noun: 'contact',
-    file: 'Leads.md',
+    // Leads.md until the page was renamed. That name is still read until Compatibility's Core
+    // files page renames it, so nothing goes missing in the meantime.
+    get file() {
+      return contactsFile(at().NETWORKING_DIR);
+    },
     level: 3,
     section: /^contacts$/i,
     fields: [
@@ -187,6 +312,10 @@ const NETWORKING = {
     ],
   },
 };
+const CONTACTS_FILE = 'Contacts.md';
+const OLD_CONTACTS_FILE = 'Leads.md';
+const contactsFile = (dir) => (!fs.existsSync(path.join(dir, CONTACTS_FILE)) && fs.existsSync(path.join(dir, OLD_CONTACTS_FILE)) ? OLD_CONTACTS_FILE : CONTACTS_FILE);
+
 // The events fields written on one line and edited with their own controls, by `kind`: a
 // single date, a date or range of dates, or Yes or No.
 function eventField(label, kind, match) {
@@ -209,20 +338,16 @@ function eventProgress(entry) {
 }
 const isNetworkingField = (page) => (label) => page.fields.some((f) => f.match.test(label));
 const DEFAULT_ROUNDUP_DAYS = 7; // only used if Options.csv doesn't set a usable ROUNDUP
-const LABELS_DIR = path.resolve(ROOT_DIR, '_Labels');
-const STATUS_FILE = path.join(LABELS_DIR, 'Status.csv');
-const OWNERS_FILE = path.join(LABELS_DIR, 'Owners.csv');
-const LEADERS_FILE = path.join(LABELS_DIR, 'Leaders.csv');
-const COLOURS_FILE = path.join(LABELS_DIR, 'Colours.csv');
 const DEFAULT_COLOURS_FILE = path.resolve(__dirname, 'defaults', 'Colours.csv');
 const SETUP_DATE_FORMATS = ['DD.MM.YYYY', 'DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'];
-const OPTIONS_FILE = path.join(LABELS_DIR, 'Options.csv');
-const SETUP_FILES = [STATUS_FILE, OWNERS_FILE, LEADERS_FILE, OPTIONS_FILE, COLOURS_FILE];
+const setupFiles = () => ['STATUS_FILE', 'TENTACLES_FILE', 'LEADERS_FILE', 'OPTIONS_FILE', 'COLOURS_FILE'].map((name) => at()[name]);
 const FALLBACK_DATE_FORMAT = 'YYYY-MM-DD'; // only used if Options.csv doesn't set DATEFORMAT
 const FALLBACK_PROJECT_DIRS = 'Projects'; // only used if Options.csv has no PROJECTS row
 const FALLBACK_TASK_LISTS = 'Tasks'; // only used if Options.csv has no TASKLISTS row
 // Folders the dashboard uses for something else, so they can't also hold projects.
-const RESERVED_DIRS = new Set([__dirname, ENTITY_DIR, NETWORKING_DIR, LABELS_DIR, CATALOGS_DIR].map((dir) => path.basename(dir).toLowerCase()));
+const RESERVED_DIRS = new Set(
+  [__dirname, ...['NETWORKING_DIR', 'LABELS_DIR', 'CATALOGS_DIR', 'TIME_MANAGEMENT_DIR'].map((name) => dataPaths(ROOT_DIR)[name]), TENTACLES_FOLDER, OLD_TENTACLES_FOLDER].map((dir) => path.basename(dir).toLowerCase())
+);
 const ARCHIVED_FOLDER = /^\d{4}[.\-_]\d{2}[.\-_]\d{2}/;
 // A project is archived once its folder starts with a date or it has a Date Closed. Either
 // way it's hidden from the dashboard, even when SHOWARCHIVED is on.
@@ -295,16 +420,16 @@ function parseProjectDirs(options) {
   for (const name of splitList(value)) {
     if (seen.has(name.toLowerCase())) continue;
     seen.add(name.toLowerCase());
-    dirs.push({ name, fullPath: path.resolve(ROOT_DIR, name), error: projectDirError(name) });
+    dirs.push({ name, fullPath: path.resolve(currentRoot(), name), error: projectDirError(name) });
   }
   const first = dirs.find((d) => !d.error);
   return dirs.map((d) => Object.assign(d, { prefix: d === first ? '' : `${d.name}/` }));
 }
 
-const readOptions = () => readLabelFile(OPTIONS_FILE, parseOptions, {});
+const readOptions = () => readLabelFile(at().OPTIONS_FILE, parseOptions, {});
 const splitList = (value) => value.split(',').map((part) => part.trim()).filter(Boolean);
 
-// The headings that get a task list on entity and Ongoing project pages. Milestones
+// The headings that get a task list on tentacle and Ongoing project pages. Milestones
 // and Notes are kept for their own sections, so they can't be task lists.
 async function readTaskLists() {
   const { TASKLISTS } = await readOptions();
@@ -374,11 +499,11 @@ async function readProject(folder, requestedFile) {
 
   const file = requestedFile && project.files.includes(requestedFile) ? requestedFile : primaryFile(project);
   const content = await readProjectFile(project, file);
-  const [statuses, owners, leaders, dateFormat] = await Promise.all([readStatuses(), readOwners(), readLeaders(), readDateFormat()]);
+  const [statuses, tentacles, leaders, dateFormat] = await Promise.all([readStatuses(), readTentacles(), readLeaders(), readDateFormat()]);
   const todos = scanLines(content, createMatcher(statuses)).map((t) => Object.assign(t, { folder, file }));
-  const { title, timeframe, leader, dates, dependency, flagged } = parseHeader(content, owners);
+  const { title, timeframe, leader, dates, dependency, flagged } = parseHeader(content, tentacles);
   const blocks = parseBlocks(content);
-  const details = { folder, directory, ongoing, archived: isArchived(project), projectTypes: PROJECT_TYPES, file, files: project.files, content, statuses, todos, owners, leaders, dateFormat, title, timeframe, leader, dates, dependency, flagged };
+  const details = { folder, directory, ongoing, archived: isArchived(project), projectTypes: PROJECT_TYPES, file, files: project.files, content, statuses, todos, tentacles, leaders, dateFormat, title, timeframe, leader, dates, dependency, flagged };
   if (ongoing) return Object.assign(details, splitTaskLists(blocks, await readTaskLists()), { dependencyOptions: [] });
   const planned = projects.filter((p) => !p.ongoing);
   const archive = await dependableArchive();
@@ -402,7 +527,7 @@ async function listProjectsWithContent(directory) {
   );
 }
 
-// A project's title: its folder without the status prefix or owner.
+// A project's title: its folder without the status prefix or tentacle.
 function projectTitle(folder) {
   return folder.replace(STATUS_PREFIX, '').split('_').slice(1).join(' ').trim();
 }
@@ -415,7 +540,7 @@ function projectName(folder) {
 
 // The entries in _Archive.md, one per project archived in HEADERS mode.
 async function readArchive() {
-  const text = await readIfExists(ARCHIVE_FILE);
+  const text = await readIfExists(at().ARCHIVE_FILE);
   return text === null ? [] : parseNamedEntries(text, ARCHIVE_FIELDS);
 }
 
@@ -425,7 +550,7 @@ const dependableArchive = async () => ((await readArchiveMode()) === 'FULL' ? []
 const dependencyKey = (text) => text.trim().replace(/\s+/g, ' ').toLowerCase();
 
 // What a Project Dependency value names: a project's folder, or else an entry in
-// `archive` as "archive:Title", or null. An entry's title, "OWNERID Title", is written the
+// `archive` as "archive:Title", or null. An entry's title, "TENTACLEID Title", is written the
 // same way as a project's name, so the file doesn't need to say which it is.
 function resolveDependency(value, projects, archive = []) {
   const key = dependencyKey(value);
@@ -490,9 +615,9 @@ async function readLabelFile(file, parse, fallback) {
   }
 }
 
-const readStatuses = async () => withAdvance(withDefaultStatuses(await readLabelFile(STATUS_FILE, parseStatuses, [])));
-const readOwners = () => readLabelFile(OWNERS_FILE, parseOwners, []);
-const readLeaders = () => readLabelFile(LEADERS_FILE, parseLeaders, []);
+const readStatuses = async () => withAdvance(withDefaultStatuses(await readLabelFile(at().STATUS_FILE, parseStatuses, [])));
+const readTentacles = () => readLabelFile(at().TENTACLES_FILE, parseTentacles, []);
+const readLeaders = () => readLabelFile(at().LEADERS_FILE, parseLeaders, []);
 
 // On/off options and their values when Options.csv doesn't have them. The Options page always
 // lists them, and saving one adds it to the file.
@@ -519,7 +644,7 @@ async function readChoice(key) {
 }
 const readArchiveMode = () => readChoice('ARCHIVEMODE');
 
-// SHOWARCHIVED: archived rows stay visible on project, entity, Leads and Events pages.
+// SHOWARCHIVED: archived rows stay visible on project, tentacle, Contacts and Events pages.
 const readSwitch = async (key) => ((await readOptions())[key] || '').toUpperCase() === 'TRUE';
 const readShowArchived = () => readSwitch('SHOWARCHIVED');
 
@@ -538,66 +663,77 @@ async function readDateFormat() {
 async function collectTodos(find = findTodos) {
   const statuses = await readStatuses();
   const match = createMatcher(statuses);
-  const owners = await readOwners();
+  const tentacles = await readTentacles();
   const focus = await readLatestFocus();
   const items = [];
   for (const project of await listProjects()) {
     if (isArchived(project)) continue;
     const active = project.name.startsWith('+');
     // The focus only ever lists projects with milestones.
-    const focused = active && !project.ongoing ? await focusNames(project, focus, owners) : null;
-    const entityName = topEntityName(owners, await projectOwnerId(project, owners));
+    const focused = active && !project.ongoing ? await focusNames(project, focus, tentacles) : null;
+    const tentacleName = topTentacleName(tentacles, await projectTentacleId(project, tentacles));
     for (const file of project.files) {
       const content = await readProjectFile(project, file);
       const milestones = new Map(milestoneRows(content, statuses).map((row) => [row.line, row.milestone]));
       for (const item of find(content, match)) {
         const named = focused && [item.editText, milestones.get(item.line)].some((name) => name && focused.has(focusKey(name)));
         const highlight = !active ? 'inactive' : named ? 'milestone' : focused ? 'project' : null;
-        items.push(Object.assign(item, { folder: project.folder, file, highlight, entityName }));
+        items.push(Object.assign(item, { folder: project.folder, file, highlight, tentacleName }));
       }
     }
   }
-  for (const owner of owners) {
-    const place = entityPlace(owners, owner.id);
+  for (const row of tentacles) {
+    const place = tentaclePlace(tentacles, row.id);
     if (!place) continue;
-    const entity = { root: place.chain[0], id: owner.id, name: owner.name };
-    const focused = entityFocusNames(owner, owners.find((o) => o.id === place.chain[0]), focus);
-    for (const file of await entityFiles(place.dir)) {
+    // Where the item's tentacle page is: its top-level tentacle and its own tab.
+    const tentacle = { root: place.chain[0], id: row.id, name: row.name };
+    const focused = tentacleFocusNames(row, tentacles.find((o) => o.id === place.chain[0]), focus);
+    for (const file of await tentacleFiles(place.dir)) {
       const content = await fs.promises.readFile(path.join(place.dir, file), 'utf8');
       for (const item of find(content, match)) {
         const named = focused && focused.has(focusKey(item.editText || ''));
-        items.push(Object.assign(item, { folder: ENTITY_PREFIX + owner.id, file, highlight: focused ? (named ? 'milestone' : 'project') : null, entity, entityName: topEntityName(owners, owner.id) }));
+        items.push(Object.assign(item, { folder: TENTACLE_PREFIX + row.id, file, highlight: focused ? (named ? 'milestone' : 'project') : null, tentacle, tentacleName: topTentacleName(tentacles, row.id) }));
       }
     }
   }
-  return { statuses, items, priorities: PRIORITIES, dateFormat: await readDateFormat() };
+  // Tasks on the Contacts and Events pages, as long as they're inside a contact or an event.
+  for (const page of await networkingFiles()) {
+    for (const item of find(page.content, match)) {
+      const entry = page.entryAt(item.line);
+      if (!entry) continue;
+      const networking = { page: page.folder.slice(NETWORKING_PREFIX.length), name: page.name, title: entry.title };
+      items.push(Object.assign(item, { folder: page.folder, file: page.file, highlight: null, networking, tentacleName: null }));
+    }
+  }
+  // R, recurring, is offered by the Todos filter and sorted after C.
+  return { statuses, items, priorities: [...PRIORITIES, 'R'], dateFormat: await readDateFormat() };
 }
 
 const focusKey = (text) => text.trim().toLowerCase();
 
 // The outline of the newest dated entry in the focus log, or [] if there isn't one.
 async function readLatestFocus() {
-  const text = await readIfExists(FOCUS_FILE);
+  const text = await readIfExists(at().FOCUS_FILE);
   const latest = text === null ? null : lastReviewDate(text);
   const entry = latest && parseBlocks(text).find((b) => b.title === latest);
   return entry ? parseFocus(entry.body) : [];
 }
 
-// The names listed under this entity or tentacle in the focus, or null if it isn't in it. A
-// plan files them under their top-level entity.
-function entityFocusNames(owner, top, focus) {
-  const entries = focus.filter((entry) => focusKey(entry.project) === focusKey(owner.name) && entry.owner !== null && focusKey(entry.owner) === focusKey(top.name));
+// The names listed under this tentacle or tentacle in the focus, or null if it isn't in it. A
+// plan files them under their top-level tentacle.
+function tentacleFocusNames(tentacle, top, focus) {
+  const entries = focus.filter((entry) => focusKey(entry.project) === focusKey(tentacle.name) && entry.tentacle !== null && focusKey(entry.tentacle) === focusKey(top.name));
   return entries.length ? new Set(entries.flatMap((entry) => entry.items.map(focusKey))) : null;
 }
 
 // The names listed under this project in the focus, or null if the project isn't in it.
-// The owner is compared too, as two owners can each have a project with the same title.
-async function focusNames(project, focus, owners) {
+// The tentacle is compared too, as two tentacles can each have a project with the same title.
+async function focusNames(project, focus, tentacles) {
   const title = focusKey(projectTitle(project.name));
   const sameTitle = focus.filter((entry) => focusKey(entry.project) === title);
   if (!sameTitle.length) return null;
-  const owner = focusKey(await projectOwnerName(project, owners));
-  const matching = sameTitle.filter((entry) => entry.owner !== null && focusKey(entry.owner) === owner);
+  const tentacle = focusKey(await projectTentacleName(project, tentacles));
+  const matching = sameTitle.filter((entry) => entry.tentacle !== null && focusKey(entry.tentacle) === tentacle);
   return matching.length ? new Set(matching.flatMap((entry) => entry.items.map(focusKey))) : null;
 }
 
@@ -625,10 +761,20 @@ async function collectTimeline() {
   if (!fullArchive && showArchived) {
     for (const { title, fields } of archive) {
       const dependency = resolveDependency(fields.dependency.value, projects, archive);
-      rows.push(Object.assign({ folder: ARCHIVE_PREFIX + title, file: path.basename(ARCHIVE_FILE), content: '', dependency, kind: 'archive', archive: { title } }, parseTimeframes(fields.timeframe.value, STORAGE_FORMAT)));
+      rows.push(Object.assign({ folder: ARCHIVE_PREFIX + title, file: path.basename(at().ARCHIVE_FILE), content: '', dependency, kind: 'archive', archive: { title } }, parseTimeframes(fields.timeframe.value, STORAGE_FORMAT)));
     }
   }
   return rows;
+}
+
+// The Timeline rows for one tentacle's page: the projects whose tentacle ID is that tentacle's,
+// and archive entries whose title starts with it. Those under it aren't included.
+async function tentacleTimeline(id) {
+  const tentacles = await readTentacles();
+  const projects = await listProjects('milestone');
+  const owned = new Set();
+  for (const project of projects) if ((await projectTentacleId(project, tentacles)) === id) owned.add(project.folder);
+  return (await collectTimeline()).filter((row) => (row.archive ? row.archive.title.trim().split(/\s+/)[0] === id : owned.has(row.folder)));
 }
 
 // Each event's Event Date and Application Deadline, for the Timeline's lines. Only dates the
@@ -636,7 +782,7 @@ async function collectTimeline() {
 // deadline only matters until the event has been applied for or booked.
 async function timelineEvents() {
   const page = NETWORKING.events;
-  const content = await readIfExists(path.join(NETWORKING_DIR, page.file));
+  const content = await readIfExists(path.join(at().NETWORKING_DIR, page.file));
   if (content === null) return [];
   return parseEntries(content, page.level, isNetworkingField(page))
     .flatMap((s) => s.entries)
@@ -685,16 +831,17 @@ async function findLogo() {
   }
 }
 
-// What the left-hand menu lists: top-level owners, each project directory with its
+// What the left-hand menu lists: top-level tentacles, each project directory with its
 // projects, and the Time Management pages' due dates and counts.
 async function collectNav() {
-  const owners = await readOwners();
+  const tentacles = await readTentacles();
   const toReview = await collectToReview();
+  const waiting = await waitingTasks();
   const help = await readIfExists(HELP_FILE);
   return {
     logo: await findLogo(),
     helpUnread: help !== null && !splitHelp(help).read,
-    entities: owners.filter((o) => !o.parent).map(({ id, name }) => ({ id, name })),
+    tentacles: tentacleTree(tentacles),
     catalogs: await listCatalogs(),
     directories: await Promise.all(
       (await readProjectDirs()).map(async (d) => ({ name: d.name, projects: (await listDirectory(d)).filter((p) => !p.closed).map((p) => p.folder) }))
@@ -702,12 +849,31 @@ async function collectNav() {
     roundup: {
       doneToReview: (await doneSinceReview(await readStatuses(), await readLastReview())).length,
       projectsToReview: toReview.projects.length,
-      entitiesToReview: toReview.entities.length,
-      review: await daysSinceLastEntry(REVIEW_FILE),
-      plan: await daysSinceLastEntry(FOCUS_FILE),
+      tentaclesToReview: toReview.tentacles.length,
+      waitingTasks: waiting.length,
+      review: await daysSinceLastEntry(at().REVIEW_FILE),
+      plan: await daysSinceLastEntry(at().FOCUS_FILE),
       interval: await readRoundupDays(),
     },
+    // How many rows each Compatibility page lists, counted the same way the pages are.
+    compatibility: {
+      tentacles: (await incompatibleTentacles()).rows.length,
+      projects: (await incompatibleProjects()).rows.length,
+      events: (await incompatibleEvents()).rows.length,
+      core: (await incompatibleCoreFiles()).rows.length,
+    },
   };
+}
+
+// Every tentacle, each followed by those under it, with its top-level tentacle's ID as `root`
+// and its `level` (0 for a top-level tentacle). Tentacles in a loop are left out.
+function tentacleTree(tentacles) {
+  const placed = tentacles.map((o) => ({ o, chain: tentacleChain(tentacles, o.id) })).filter((t) => t.chain);
+  const below = (parent) =>
+    placed
+      .filter((t) => (t.o.parent || null) === parent)
+      .flatMap((t) => [{ id: t.o.id, name: t.o.name, parent: t.o.parent || null, root: t.chain[0], level: t.chain.length - 1 }, ...below(t.o.id)]);
+  return below(null);
 }
 
 // Whole days since a log file's newest dated heading, or null if it has none.
@@ -733,19 +899,19 @@ async function readHistory(file) {
   return { entries: entries.map(({ title, body }) => ({ title, body })), dateFormat: await readDateFormat() };
 }
 
-// An owner's markdown lives in its own folder, nested under its parents' folders.
-function entityPlace(owners, id) {
-  const owner = owners.find((o) => o.id === id);
-  const chain = owner && ownerChain(owners, id);
+// A tentacle's markdown lives in its own folder, nested under its parents' folders.
+function tentaclePlace(tentacles, id) {
+  const tentacle = tentacles.find((o) => o.id === id);
+  const chain = tentacle && tentacleChain(tentacles, id);
   if (!chain) return null;
-  const dir = path.resolve(ENTITY_DIR, ...chain);
-  return isInside(ENTITY_DIR, dir) ? { owner, chain, dir } : null;
+  const dir = path.resolve(at().TENTACLE_DIR, ...chain);
+  return isInside(at().TENTACLE_DIR, dir) ? { tentacle, chain, dir } : null;
 }
 
-// An owner's main file: the one named after it, or else the first in its folder.
-const primaryEntityFile = (owner, files) => (files.includes(`${owner.name}.md`) ? `${owner.name}.md` : files[0]);
+// A tentacle's main file: the one named after it, or else the first in its folder.
+const primaryTentacleFile = (tentacle, files) => (files.includes(`${tentacle.name}.md`) ? `${tentacle.name}.md` : files[0]);
 
-async function entityFiles(dir) {
+async function tentacleFiles(dir) {
   try {
     return await listMarkdown(dir);
   } catch (err) {
@@ -754,48 +920,49 @@ async function entityFiles(dir) {
   }
 }
 
-// One tab of a top-level entity's page: `tab` picks the entity itself or one
-// of those under it. The file is the one named after the owner, or else the first in its
+// One tab of a top-level tentacle's page: `tab` picks the tentacle itself or one
+// of those under it. The file is the one named after the tentacle, or else the first in its
 // folder. Its Tasks section is sent separately from the other blocks.
-async function readEntity(id, tab, requestedFile) {
-  const owners = await readOwners();
-  const selected = entityPlace(owners, id);
+async function readTentacle(id, tab, requestedFile) {
+  const tentacles = await readTentacles();
+  const selected = tentaclePlace(tentacles, id);
   if (!selected) return null;
   const root = selected.chain[0];
-  const family = owners.filter((o) => (ownerChain(owners, o.id) || [])[0] === root);
-  // `level` is 0 for the top-level entity, 1 for its tentacles, and so on down.
+  const family = tentacles.filter((o) => (tentacleChain(tentacles, o.id) || [])[0] === root);
+  // `level` is 0 for the top-level tentacle, 1 for its tentacles, and so on down.
   const tabs = [...family.filter((o) => o.id === root), ...family.filter((o) => o.id !== root)].map((o) => ({
     id: o.id,
     name: o.name,
-    level: ownerChain(owners, o.id).length - 1,
+    parent: o.parent || null,
+    level: tentacleChain(tentacles, o.id).length - 1,
   }));
 
-  const { owner, chain, dir } = entityPlace(owners, family.some((o) => o.id === tab) ? tab : id);
-  const expected = `${owner.name}.md`;
-  const parent = chain.length > 1 ? owners.find((o) => o.id === owner.parent) : null;
+  const { tentacle, chain, dir } = tentaclePlace(tentacles, family.some((o) => o.id === tab) ? tab : id);
+  const expected = `${tentacle.name}.md`;
+  const parent = chain.length > 1 ? tentacles.find((o) => o.id === tentacle.parent) : null;
   const base = {
-    id: owner.id,
+    id: tentacle.id,
     root,
-    name: owner.name,
+    name: tentacle.name,
     parentId: parent ? parent.id : null,
     parentName: parent ? parent.name : null,
     tabs,
-    folder: ENTITY_PREFIX + owner.id,
-    location: `_Entities/${chain.join('/')}/${expected}`,
+    folder: TENTACLE_PREFIX + tentacle.id,
+    location: `${path.basename(at().TENTACLE_DIR)}/${chain.join('/')}/${expected}`,
   };
 
-  const files = await entityFiles(dir);
+  const files = await tentacleFiles(dir);
   if (!files.length) return Object.assign(base, { file: null, files, content: '' });
-  const file = files.includes(requestedFile) ? requestedFile : primaryEntityFile(owner, files);
+  const file = files.includes(requestedFile) ? requestedFile : primaryTentacleFile(tentacle, files);
   const content = await fs.promises.readFile(path.join(dir, file), 'utf8');
   const [statuses, leaders] = await Promise.all([readStatuses(), readLeaders()]);
   const blocks = parseBlocks(content);
-  return Object.assign(base, parseHeader(content, owners), {
+  return Object.assign(base, parseHeader(content, tentacles), {
     file,
-    files: mainFirst(files, primaryEntityFile(owner, files)),
+    files: mainFirst(files, primaryTentacleFile(tentacle, files)),
     content,
     statuses,
-    owners,
+    tentacles,
     leaders,
     todos: scanLines(content, createMatcher(statuses)).map((t) => Object.assign(t, { folder: base.folder, file })),
     ...splitTaskLists(blocks, await readTaskLists()),
@@ -803,49 +970,49 @@ async function readEntity(id, tab, requestedFile) {
 }
 
 
-// An error message if these can't be an entity's name and ID, or null.
-function entityError(name, id) {
+// An error message if these can't be a tentacle's name and ID, or null.
+function tentacleError(name, id) {
   return (
     projectTitleError(name, 'name') ||
     (/^[A-Za-z0-9-]+$/.test(id) ? projectTitleError(id, 'ID') : 'The ID can only use letters, numbers and hyphens.')
   );
 }
 
-// Creates a new entity's markdown file. Throws EEXIST if it's already there.
-async function writeEntityFile(dir, name) {
+// Creates a new tentacle's markdown file. Throws EEXIST if it's already there.
+async function writeTentacleFile(dir, name) {
   const full = path.join(dir, `${name}.md`);
-  const content = newEntityFile({ name, today: formatDate(new Date(), STORAGE_FORMAT), taskLists: await readTaskLists() });
+  const content = newTentacleFile({ name, today: formatDate(new Date(), STORAGE_FORMAT), taskLists: await readTaskLists() });
   await fs.promises.mkdir(dir, { recursive: true });
   await fs.promises.writeFile(full, content, { encoding: 'utf8', flag: 'wx' });
   await recordCreated(full, content);
   return full;
 }
 
-// Adds a tentacle: its folder and markdown file, then its row in Owners.csv.
-async function createEntity(body) {
+// Adds a tentacle: its folder and markdown file, then its row in Tentacles.csv.
+async function createTentacle(body) {
   const name = cleanName(body.name);
   const id = body.id.trim();
-  const error = entityError(name, id);
+  const error = tentacleError(name, id);
   if (error) return { code: 400, body: { error } };
 
-  const owners = await readOwners();
-  const place = entityPlace(owners, body.parent);
+  const tentacles = await readTentacles();
+  const place = tentaclePlace(tentacles, body.parent);
   if (!place) return { code: 400, body: { error: 'Invalid request' } };
-  if (owners.some((o) => o.id.toLowerCase() === id.toLowerCase())) {
-    return { code: 409, body: { error: `An entity with the ID "${id}" already exists.` } };
+  if (tentacles.some((o) => o.id.toLowerCase() === id.toLowerCase())) {
+    return { code: 409, body: { error: `A tentacle with the ID "${id}" already exists.` } };
   }
 
   const dir = path.join(place.dir, id);
   const full = path.join(dir, `${name}.md`);
-  const csv = await fs.promises.readFile(OWNERS_FILE, 'utf8');
+  const csv = await fs.promises.readFile(at().TENTACLES_FILE, 'utf8');
   try {
-    await writeEntityFile(dir, name);
+    await writeTentacleFile(dir, name);
   } catch (err) {
-    if (err.code === 'EEXIST') return { code: 409, body: { error: 'That entity already has a file with that name.' } };
+    if (err.code === 'EEXIST') return { code: 409, body: { error: 'That tentacle already has a file with that name.' } };
     throw err;
   }
   try {
-    await writeFileSafely(OWNERS_FILE, appendOwnerCsv(csv, { id, name, parent: body.parent }));
+    await writeFileSafely(at().TENTACLES_FILE, appendTentacleCsv(csv, { id, name, parent: body.parent }));
   } catch (err) {
     await fs.promises.rm(full, { force: true });
     await fs.promises.rmdir(dir).catch(() => {});
@@ -907,25 +1074,27 @@ async function changelogCutoff() {
   return new Date(Date.now() - 2 * (await readRoundupDays()) * 24 * 60 * 60 * 1000);
 }
 
-// The path of a project's or entity's markdown file, or null if there's no such file.
+// The path of a project's or tentacle's markdown file, or null if there's no such file.
 // Folder and file must match real entries exactly, which blocks any path tricks.
 async function editableFile(folder, file) {
   // _Archive.md, edited from the Archive Index.
-  if (folder === ARCHIVE_FOLDER) return file === path.basename(ARCHIVE_FILE) && (await readIfExists(ARCHIVE_FILE)) !== null ? ARCHIVE_FILE : null;
+  if (folder === ARCHIVE_FOLDER) return file === path.basename(at().ARCHIVE_FILE) && (await readIfExists(at().ARCHIVE_FILE)) !== null ? at().ARCHIVE_FILE : null;
+  // _Incubator.md, edited from the Incubator.
+  if (folder === INCUBATOR_FOLDER) return file === path.basename(at().INCUBATOR_FILE) && (await readIfExists(at().INCUBATOR_FILE)) !== null ? at().INCUBATOR_FILE : null;
   if (folder.startsWith(NETWORKING_PREFIX)) {
     const page = networkingPage(folder.slice(NETWORKING_PREFIX.length));
-    const full = page && page.file === file ? path.join(NETWORKING_DIR, file) : null;
+    const full = page && page.file === file ? path.join(at().NETWORKING_DIR, file) : null;
     return full && (await readIfExists(full)) !== null ? full : null;
   }
-  if (folder.startsWith(ENTITY_PREFIX)) {
-    const place = entityPlace(await readOwners(), folder.slice(ENTITY_PREFIX.length));
-    return place && (await entityFiles(place.dir)).includes(file) ? path.join(place.dir, file) : null;
+  if (folder.startsWith(TENTACLE_PREFIX)) {
+    const place = tentaclePlace(await readTentacles(), folder.slice(TENTACLE_PREFIX.length));
+    return place && (await tentacleFiles(place.dir)).includes(file) ? path.join(place.dir, file) : null;
   }
   const project = (await listProjects()).find((p) => p.folder === folder);
   return project && project.files.includes(file) ? path.join(project.fullPath, file) : null;
 }
 
-// Runs `transform` over a project or entity file and saves the result. A null result
+// Runs `transform` over a project or tentacle file and saves the result. A null result
 // means the line it targeted has changed.
 async function updateProjectFile(folder, file, transform) {
   const full = await editableFile(folder, file);
@@ -1008,16 +1177,16 @@ function runningTimeframes(content, today) {
 
 // The latest plan's outline, with a link to each project it names where one can be found.
 async function currentPlan(projects, days, interval) {
-  const text = await readIfExists(FOCUS_FILE);
+  const text = await readIfExists(at().FOCUS_FILE);
   const date = text === null ? null : lastReviewDate(text);
   const current = days !== null && days < interval;
   if (!current) return { date, current, entries: [] };
-  const owners = await readOwners();
+  const tentacles = await readTentacles();
   const entries = [];
   for (const entry of await readLatestFocus()) {
     let folder = null;
     for (const project of projects.filter((p) => focusKey(projectTitle(p.name)) === focusKey(entry.project))) {
-      if (focusKey(await projectOwnerName(project, owners)) === focusKey(entry.owner || '')) folder = project.folder;
+      if (focusKey(await projectTentacleName(project, tentacles)) === focusKey(entry.tentacle || '')) folder = project.folder;
     }
     entries.push(Object.assign(entry, { folder }));
   }
@@ -1033,8 +1202,8 @@ async function collectHome() {
     listProjects(),
     collectTodos(scanLines),
     readRoundupDays(),
-    daysSinceLastEntry(REVIEW_FILE),
-    daysSinceLastEntry(FOCUS_FILE),
+    daysSinceLastEntry(at().REVIEW_FILE),
+    daysSinceLastEntry(at().FOCUS_FILE),
   ]);
   const live = projects.filter((p) => !isArchived(p));
   const planned = live.filter((p) => !p.ongoing);
@@ -1091,7 +1260,7 @@ function headingAbove(lines, lineNo) {
 }
 
 // What the Plan page offers: each active project's milestone rows, then the rows of every
-// entity and tentacle, and those under a Leads contact or an Events entry. A project in a timeframe today is `suggested`, and so is the last incomplete
+// tentacle and tentacle, and those under a contact or an Events entry. A project in a timeframe today is `suggested`, and so is the last incomplete
 // row of a milestone, marked `lastInMilestone`.
 async function collectWeeklyPlan() {
   const statuses = await readStatuses();
@@ -1113,7 +1282,7 @@ async function collectWeeklyPlan() {
 
   const match = createMatcher(statuses);
   const rowsOf = (content) => scanLines(content, match).filter((row) => row.type !== 'ARCHIVED' && row.editText.trim() !== '');
-  for (const { folder, file, name, content } of await allEntityFiles()) {
+  for (const { folder, file, name, content } of await allTentacleFiles()) {
     const lines = content.split(/\r\n?|\n/);
     const rows = rowsOf(content).map((row) => Object.assign(planRow(row, folder, file), { source: name, milestone: headingAbove(lines, row.line) }));
     if (rows.length) projects.push({ folder, file, name, rows, suggested: false });
@@ -1127,73 +1296,73 @@ async function collectWeeklyPlan() {
   return { statuses, projects, dateFormat: await readDateFormat() };
 }
 
-// A project's current owner's ID: from its page title, or else its folder name.
-async function projectOwnerId(project, owners) {
-  const { title } = parseHeader(await readProjectFile(project, primaryFile(project)), owners);
-  return (title && title.owner) || project.name.replace(STATUS_PREFIX, '').split('_')[0];
+// A project's current tentacle's ID: from its page title, or else its folder name.
+async function projectTentacleId(project, tentacles) {
+  const { title } = parseHeader(await readProjectFile(project, primaryFile(project)), tentacles);
+  return (title && title.tentacle) || project.name.replace(STATUS_PREFIX, '').split('_')[0];
 }
 
-const ownerName = (owners, id) => {
-  const owner = owners.find((o) => o.id === id);
-  return owner ? owner.name : id;
+const nameOfTentacle = (tentacles, id) => {
+  const tentacle = tentacles.find((o) => o.id === id);
+  return tentacle ? tentacle.name : id;
 };
 
-// A project's current owner's friendly name.
-const projectOwnerName = async (project, owners) => ownerName(owners, await projectOwnerId(project, owners));
+// A project's current tentacle's friendly name.
+const projectTentacleName = async (project, tentacles) => nameOfTentacle(tentacles, await projectTentacleId(project, tentacles));
 
-// The name of the top-level entity an owner sits under, or is, for the Todos filter. Null
-// when the owner isn't in Owners.csv, such as a folder not named OWNER_Title.
-function topEntityName(owners, id) {
-  const place = entityPlace(owners, id);
-  return place ? ownerName(owners, place.chain[0]) : null;
+// The name of the top-level tentacle a tentacle sits under, or is, for the Todos filter. Null
+// when the tentacle isn't in Tentacles.csv, such as a folder not named TENTACLE_Title.
+function topTentacleName(tentacles, id) {
+  const place = tentaclePlace(tentacles, id);
+  return place ? nameOfTentacle(tentacles, place.chain[0]) : null;
 }
 
 // Where an item goes in the logged focus: the name above, and the name it's listed under.
-async function focusHeading(folder, projects, owners) {
-  if (folder.startsWith(ENTITY_PREFIX)) {
-    const place = entityPlace(owners, folder.slice(ENTITY_PREFIX.length));
-    return place && { owner: owners.find((o) => o.id === place.chain[0]).name, project: place.owner.name };
+async function focusHeading(folder, projects, tentacles) {
+  if (folder.startsWith(TENTACLE_PREFIX)) {
+    const place = tentaclePlace(tentacles, folder.slice(TENTACLE_PREFIX.length));
+    return place && { tentacle: tentacles.find((o) => o.id === place.chain[0]).name, project: place.tentacle.name };
   }
   if (folder.startsWith(NETWORKING_PREFIX)) {
     const page = networkingPage(folder.slice(NETWORKING_PREFIX.length));
-    return page && { owner: 'Networking', project: page.title };
+    return page && { tentacle: 'Networking', project: page.title };
   }
   const project = projects.find((p) => p.folder === folder);
-  return project ? { owner: await projectOwnerName(project, owners), project: projectTitle(project.name) } : null;
+  return project ? { tentacle: await projectTentacleName(project, tentacles), project: projectTitle(project.name) } : null;
 }
 
-// Logs the focus under today's date as an outline: owner, then project, then items.
+// Logs the focus under today's date as an outline: tentacle, then project, then items.
 async function submitWeeklyFocus({ items }) {
   if (!items.length) return { code: 400, body: { error: 'Add at least one item first.' } };
   const projects = await listProjects('milestone');
-  const owners = await readOwners();
-  const outline = new Map(); // owner name -> project -> items, in the order they were picked
+  const tentacles = await readTentacles();
+  const outline = new Map(); // tentacle name -> project -> items, in the order they were picked
   for (const { folder, text } of items) {
     const clean = text.trim();
-    const heading = await focusHeading(folder, projects, owners);
+    const heading = await focusHeading(folder, projects, tentacles);
     if (!heading || !clean || /[\r\n]/.test(clean)) return { code: 400, body: { error: 'Invalid request' } };
-    if (!outline.has(heading.owner)) outline.set(heading.owner, new Map());
-    const owned = outline.get(heading.owner);
+    if (!outline.has(heading.tentacle)) outline.set(heading.tentacle, new Map());
+    const owned = outline.get(heading.tentacle);
     if (!owned.has(heading.project)) owned.set(heading.project, []);
     owned.get(heading.project).push(clean);
   }
   const lines = [];
-  for (const [owner, owned] of outline) {
-    lines.push(`- ${owner}`);
+  for (const [tentacle, owned] of outline) {
+    lines.push(`- ${tentacle}`);
     for (const [project, texts] of owned) {
       lines.push(`    - ${project}:`, ...texts.map((t) => `        - ${t}`));
     }
   }
 
   const today = formatDate(new Date(), STORAGE_FORMAT);
-  const existing = await readIfExists(FOCUS_FILE);
+  const existing = await readIfExists(at().FOCUS_FILE);
   const updated = addReview(existing === null ? `# Plan\n**Created:** ${today}\n` : existing, today, lines.join('\n'));
   if (existing === null) {
-    await fs.promises.mkdir(TIME_MANAGEMENT_DIR, { recursive: true });
-    await fs.promises.writeFile(FOCUS_FILE, updated, 'utf8');
-    await recordCreated(FOCUS_FILE, updated);
+    await fs.promises.mkdir(at().TIME_MANAGEMENT_DIR, { recursive: true });
+    await fs.promises.writeFile(at().FOCUS_FILE, updated, 'utf8');
+    await recordCreated(at().FOCUS_FILE, updated);
   } else {
-    await writeFileSafely(FOCUS_FILE, updated);
+    await writeFileSafely(at().FOCUS_FILE, updated);
   }
   return { code: 200, body: { ok: true } };
 }
@@ -1206,7 +1375,7 @@ async function readNetworking(name) {
   const page = networkingPage(name);
   if (!page) return null;
   const base = { title: page.title, tab: page.tab, noun: page.noun, location: `_Networking/${page.file}`, dateFormat: await readDateFormat() };
-  const content = await readIfExists(path.join(NETWORKING_DIR, page.file));
+  const content = await readIfExists(path.join(at().NETWORKING_DIR, page.file));
   if (content === null) return Object.assign(base, { file: null, sections: [], past: [] });
 
   const statuses = await readStatuses();
@@ -1270,7 +1439,7 @@ async function otherNetworkingTitles(name) {
   const others = [];
   for (const other of Object.keys(NETWORKING).filter((key) => key !== name)) {
     const page = NETWORKING[other];
-    const content = await readIfExists(path.join(NETWORKING_DIR, page.file));
+    const content = await readIfExists(path.join(at().NETWORKING_DIR, page.file));
     if (content === null) continue;
     const sections = parseEntries(content, page.level).filter((s) => !page.section || page.section.test(s.title));
     others.push({ page: other, titles: sections.flatMap((s) => s.entries.map((e) => e.title)) });
@@ -1381,7 +1550,7 @@ function eventFixes(entry) {
 // Every event whose date or Yes/No fields need changing, and how many were checked.
 async function incompatibleEvents() {
   const page = NETWORKING.events;
-  const content = await readIfExists(path.join(NETWORKING_DIR, page.file));
+  const content = await readIfExists(path.join(at().NETWORKING_DIR, page.file));
   if (content === null) return { checked: 0, rows: [] };
   const entries = parseEntries(content, page.level, isNetworkingField(page)).flatMap((s) => s.entries);
   const rows = entries
@@ -1405,21 +1574,21 @@ async function fixEvent(line, title) {
 
 const isFolder = (full) => fs.promises.stat(full).then((s) => s.isDirectory(), () => false);
 
-const folderOwner = (name) => name.replace(STATUS_PREFIX, '').split('_')[0];
+const folderTentacle = (name) => name.replace(STATUS_PREFIX, '').split('_')[0];
 
 // What's wrong with one of a project's files. An extra file is only held to the project
 // rules if it looks like it's meant to follow them. Otherwise it's left alone, as notes and
 // other documents belong in a project's folder too.
-function projectFileProblems(project, file, content, { owners, leaders, taskLists }) {
+function projectFileProblems(project, file, content, { tentacles, leaders, taskLists }) {
   if (file !== primaryFile(project) && !hasDashboardStructure(content, taskLists)) return [];
-  return projectProblems(content, folderOwner(project.name), owners, leaders, taskLists, project.ongoing ? 'Ongoing' : 'Milestone');
+  return projectProblems(content, folderTentacle(project.name), tentacles, leaders, taskLists, project.ongoing ? 'Ongoing' : 'Milestone');
 }
 
 // Every markdown file in a project folder that wouldn't work with the dashboard, any
 // directory named in Options.csv that can't be used, any markdown loose in one of those
 // directories, and how many of these were checked.
 async function incompatibleProjects() {
-  const [owners, leaders, projects, taskLists] = await Promise.all([readOwners(), readLeaders(), listProjects(), readTaskLists()]);
+  const [tentacles, leaders, projects, taskLists] = await Promise.all([readTentacles(), readLeaders(), listProjects(), readTaskLists()]);
   const rows = [];
   let checked = 0;
   for (const project of projects) {
@@ -1427,7 +1596,7 @@ async function incompatibleProjects() {
     const main = primaryFile(project);
     for (const file of project.files) {
       checked++;
-      const problems = projectFileProblems(project, file, await readProjectFile(project, file), { owners, leaders, taskLists });
+      const problems = projectFileProblems(project, file, await readProjectFile(project, file), { tentacles, leaders, taskLists });
       // Without a file named after the project, its main file is only a guess, so the
       // main file's row offers the folder's files to choose from.
       const missing = file === main && missingMainFile(project);
@@ -1447,7 +1616,29 @@ async function incompatibleProjects() {
       rows.push({ name: `${dir.name}/${file}`, problems: [unknownMarkdown()] });
     }
   }
+  for (const entry of await oldLeaderEntries()) {
+    checked++;
+    rows.push({ name: entry.title, archiveLine: entry.line, file: path.basename(at().ARCHIVE_FILE), problems: [OLD_LEADER_PROBLEM] });
+  }
   return { checked, rows, leaders: leaders.map(({ id, name }) => ({ id, name })) };
+}
+
+// Archive entries written before tentacles, whose leader is still called Owner.
+const OLD_LEADER_PROBLEM = { text: `${OLD_LEADER_FIELD} should be ${LEADER_FIELD}`, kind: 'fixable' };
+async function oldLeaderEntries() {
+  const text = await readIfExists(at().ARCHIVE_FILE);
+  if (text === null) return [];
+  const lines = stripComments(text);
+  return parseNamedEntries(text, ARCHIVE_FIELDS).filter((e) => e.fields.leader.line && !new RegExp(`\\*\\*\\s*${LEADER_FIELD}`, 'i').test(lines[e.fields.leader.line - 1]));
+}
+
+// Renames one archive entry's Owner field to Leader. `line` and `title` find the entry.
+async function fixArchiveLeader(line, title) {
+  const entry = (await oldLeaderEntries()).find((e) => e.line === line && e.title === title);
+  if (!entry) return { code: 409, body: { error: 'That entry has changed in the file, so nothing was updated.' } };
+  const content = await readIfExists(at().ARCHIVE_FILE);
+  await writeFileSafely(at().ARCHIVE_FILE, renameOldLeader(content, entry.fields.leader.line));
+  return { code: 200, body: { ok: true } };
 }
 
 // The name a project's main file should have, from the title in its folder name.
@@ -1475,20 +1666,119 @@ async function renameToMain(project, file) {
   } catch (err) {
     if (err.code !== 'ENOENT') throw err;
   }
-  await fs.promises.rename(from, to);
-  const prefixLength = logName(file, '').length - '.log'.length;
-  for (const name of (await fs.promises.readdir(project.fullPath)).filter(isLogOf(file))) {
-    const device = name.slice(prefixLength, -'.log'.length);
-    await fs.promises.rename(path.join(project.fullPath, name), path.join(project.fullPath, logName(target, device))).catch((err) => {
-      console.error(`Could not rename the change log ${name}:`, err.message);
-    });
-  }
+  await renameWithLogs(project.fullPath, file, target);
   return null;
 }
 
-// Folders inside _Entities/ that don't match an owner's place in Owners.csv.
-async function unknownEntityFolders(owners) {
-  const known = new Set(owners.map((o) => ownerChain(owners, o.id)).filter(Boolean).map((chain) => chain.join('/')));
+// Renames a markdown file in `dir`, and every computer's change log for it, so its Changelog
+// carries on under the new name.
+async function renameWithLogs(dir, file, target) {
+  await fs.promises.rename(path.join(dir, file), path.join(dir, target));
+  const prefixLength = logName(file, '').length - '.log'.length;
+  for (const name of (await fs.promises.readdir(dir)).filter(isLogOf(file))) {
+    const device = name.slice(prefixLength, -'.log'.length);
+    await fs.promises.rename(path.join(dir, name), path.join(dir, logName(target, device))).catch((err) => {
+      console.error(`Could not rename the change log ${name}:`, err.message);
+    });
+  }
+}
+
+// ---------- opening a folder ----------
+
+// The file browser for this computer: Explorer on Windows, Finder on a Mac, and on Linux
+// whichever one xdg-open picks.
+const FILE_BROWSER = { win32: 'explorer.exe', darwin: 'open' }[process.platform] || 'xdg-open';
+
+// Opens a project's or tentacle's folder in the file browser of the computer running the
+// server. Only folders the dashboard lists can be opened, never a path sent by the page.
+async function openFolder({ folder }) {
+  let dir = null;
+  if (folder.startsWith(TENTACLE_PREFIX)) {
+    const place = tentaclePlace(await readTentacles(), folder.slice(TENTACLE_PREFIX.length));
+    dir = place && place.dir;
+  } else {
+    const project = (await listProjects()).find((p) => p.folder === folder);
+    dir = project && project.fullPath;
+  }
+  if (!dir || !fs.existsSync(dir)) return NOT_FOUND;
+  // Not waited for: Explorer reports failure even when it has opened the folder. A browser that
+  // can't be started (no xdg-open, say) is logged rather than stopping the server.
+  const child = spawn(FILE_BROWSER, [dir], { detached: true, stdio: 'ignore' });
+  child.on('error', (err) => console.error(`Could not open ${dir} with ${FILE_BROWSER}:`, err.message));
+  child.unref();
+  return { code: 200, body: { ok: true } };
+}
+
+// ---------- core files ----------
+
+// Files and folders the dashboard itself relies on that have been renamed. Each old name is
+// listed on Compatibility's Core files page, and Fix issues renames it. A file's change logs
+// are renamed with it, and the old name in its `# ` title is changed to the new one.
+const CORE_RENAMES = [
+  {
+    key: 'tentacles',
+    folder: true,
+    dir: () => currentRoot(),
+    location: '',
+    from: OLD_TENTACLES_FOLDER,
+    to: TENTACLES_FOLDER,
+    href: null,
+    why: 'the organisations inside an entity are now called tentacles',
+  },
+  {
+    key: 'contacts',
+    dir: () => at().NETWORKING_DIR,
+    location: '_Networking',
+    from: OLD_CONTACTS_FILE,
+    to: CONTACTS_FILE,
+    href: 'networking.html?page=contacts',
+    why: 'the Leads page is now called Contacts',
+    title: ['Leads', 'Contacts'],
+  },
+];
+
+async function incompatibleCoreFiles() {
+  const rows = [];
+  for (const rule of CORE_RENAMES) {
+    const dir = rule.dir();
+    if (!fs.existsSync(path.join(dir, rule.from))) continue;
+    const both = fs.existsSync(path.join(dir, rule.to));
+    const problem = both
+      ? { text: `Both ${rule.from} and ${rule.to} exist. Move anything you still need from ${rule.from} into ${rule.to}, then delete ${rule.from}`, kind: 'error' }
+      : { text: `${rule.from} should be called ${rule.to}, as ${rule.why}`, kind: 'fixable' };
+    rows.push({ key: rule.key, name: rule.from, file: rule.from, directory: rule.location, href: rule.href, problems: [problem] });
+  }
+  return { checked: CORE_RENAMES.length, rows };
+}
+
+async function fixCoreFile(key, file) {
+  const rule = CORE_RENAMES.find((r) => r.key === key && r.from === file);
+  if (!rule) return { code: 400, body: { error: 'Invalid request' } };
+  const dir = rule.dir();
+  if (!fs.existsSync(path.join(dir, rule.from))) return NOT_FOUND;
+  if (fs.existsSync(path.join(dir, rule.to))) return { code: 409, body: { error: `${rule.to} already exists, so ${rule.from} wasn't renamed.` } };
+  if (rule.folder) {
+    try {
+      await fs.promises.rename(path.join(dir, rule.from), path.join(dir, rule.to));
+    } catch (err) {
+      if (!['EPERM', 'EBUSY', 'EACCES'].includes(err.code)) throw err;
+      return { code: 409, body: { error: `${rule.from} is in use by another program, so it couldn't be renamed. Close anything using it and try again.` } };
+    }
+    return { code: 200, body: { ok: true } };
+  }
+  const content = await readIfExists(path.join(dir, rule.from));
+  await renameWithLogs(dir, rule.from, rule.to);
+  const [before, after] = rule.title;
+  // The old name is swapped wherever it appears in the file's `# ` title, so "# Leads list"
+  // becomes "# Contacts list".
+  const retitled = content.replace(new RegExp(`^(\\uFEFF?#[ \\t].*?)\\b${before}\\b`, 'm'), `$1${after}`);
+  if (retitled !== content) await writeFileSafely(path.join(dir, rule.to), retitled);
+  return { code: 200, body: { ok: true } };
+}
+
+// Folders inside the tentacles' folder that don't match a tentacle's place in Tentacles.csv.
+async function unknownTentacleFolders(tentacles) {
+  const known = new Set(tentacles.map((o) => tentacleChain(tentacles, o.id)).filter(Boolean).map((chain) => chain.join('/')));
   const unknown = [];
   const walk = async (dir, parents) => {
     for (const entry of await fs.promises.readdir(dir, { withFileTypes: true })) {
@@ -1499,68 +1789,68 @@ async function unknownEntityFolders(owners) {
     }
   };
   try {
-    await walk(ENTITY_DIR, []);
+    await walk(at().TENTACLE_DIR, []);
   } catch (err) {
     if (err.code !== 'ENOENT') throw err;
   }
   return unknown;
 }
 
-// What's wrong with one of an entity's files, by the same rule as projectFileProblems.
-function entityFileProblems(owner, files, file, content, taskLists) {
-  if (file !== primaryEntityFile(owner, files) && !hasDashboardStructure(content, taskLists)) return [unknownMarkdown()];
-  return entityProblems(content, taskLists);
+// What's wrong with one of a tentacle's files, by the same rule as projectFileProblems.
+function tentacleFileProblems(tentacle, files, file, content, taskLists) {
+  if (file !== primaryTentacleFile(tentacle, files) && !hasDashboardStructure(content, taskLists)) return [unknownMarkdown()];
+  return tentacleProblems(content, taskLists);
 }
 
-// Every entity file that wouldn't work with the dashboard, any markdown loose in
-// _Entities/, and how many of these were checked.
-async function incompatibleEntities() {
-  const [owners, taskLists] = await Promise.all([readOwners(), readTaskLists()]);
+// Every tentacle file that wouldn't work with the dashboard, any markdown loose in
+// the tentacles' folder, and how many of these were checked.
+async function incompatibleTentacles() {
+  const [tentacles, taskLists] = await Promise.all([readTentacles(), readTaskLists()]);
   const rows = [];
-  let checked = owners.length;
-  for (const owner of owners) {
-    const place = entityPlace(owners, owner.id);
+  let checked = tentacles.length;
+  for (const tentacle of tentacles) {
+    const place = tentaclePlace(tentacles, tentacle.id);
     if (!place) {
-      rows.push({ name: owner.name, problems: [{ text: `Parent "${owner.parent}" isn't in Owners.csv`, kind: 'error' }] });
+      rows.push({ name: tentacle.name, problems: [{ text: `Parent "${tentacle.parent}" isn't in Tentacles.csv`, kind: 'error' }] });
       continue;
     }
-    const expected = `${owner.name}.md`;
-    const files = await entityFiles(place.dir);
+    const expected = `${tentacle.name}.md`;
+    const files = await tentacleFiles(place.dir);
     if (!files.length) {
-      // A name from a hand-edited Owners.csv might not be usable as a file name.
-      const kind = projectTitleError(owner.name, 'name') ? 'error' : 'fixable';
-      rows.push({ id: owner.id, name: owner.name, problems: [{ text: `No markdown file at _Entities/${place.chain.join('/')}/${expected}`, kind }] });
+      // A name from a hand-edited Tentacles.csv might not be usable as a file name.
+      const kind = projectTitleError(tentacle.name, 'name') ? 'error' : 'fixable';
+      rows.push({ id: tentacle.id, name: tentacle.name, problems: [{ text: `No markdown file at ${path.basename(at().TENTACLE_DIR)}/${place.chain.join('/')}/${expected}`, kind }] });
       continue;
     }
-    const file = primaryEntityFile(owner, files);
-    const problems = entityFileProblems(owner, files, file, await fs.promises.readFile(path.join(place.dir, file), 'utf8'), taskLists);
-    if (file !== expected) problems.push({ text: `File is called "${file}", but Owners.csv expects "${expected}"`, kind: 'unexpected' });
-    if (problems.length) rows.push({ id: owner.id, name: owner.name, file, problems });
+    const file = primaryTentacleFile(tentacle, files);
+    const problems = tentacleFileProblems(tentacle, files, file, await fs.promises.readFile(path.join(place.dir, file), 'utf8'), taskLists);
+    if (file !== expected) problems.push({ text: `File is called "${file}", but Tentacles.csv expects "${expected}"`, kind: 'unexpected' });
+    if (problems.length) rows.push({ id: tentacle.id, name: tentacle.name, file, problems });
     for (const extra of files.filter((f) => f !== file)) {
       checked++;
-      const found = entityFileProblems(owner, files, extra, await fs.promises.readFile(path.join(place.dir, extra), 'utf8'), taskLists);
-      if (found.length) rows.push({ id: owner.id, name: owner.name, file: extra, additional: true, problems: found });
+      const found = tentacleFileProblems(tentacle, files, extra, await fs.promises.readFile(path.join(place.dir, extra), 'utf8'), taskLists);
+      if (found.length) rows.push({ id: tentacle.id, name: tentacle.name, file: extra, additional: true, problems: found });
     }
   }
-  const loose = (await entityFiles(ENTITY_DIR)).filter((file) => file !== path.basename(REPORTS_FILE));
-  for (const file of loose) rows.push({ name: `_Entities/${file}`, problems: [unknownMarkdown()] });
-  const folders = await unknownEntityFolders(owners);
-  for (const folder of folders) rows.push({ name: folder, problems: [{ text: "This folder isn't in Owners.csv", kind: 'unexpected' }] });
+  const loose = (await tentacleFiles(at().TENTACLE_DIR)).filter((file) => file !== path.basename(at().REPORTS_FILE));
+  for (const file of loose) rows.push({ name: `${path.basename(at().TENTACLE_DIR)}/${file}`, problems: [unknownMarkdown()] });
+  const folders = await unknownTentacleFolders(tentacles);
+  for (const folder of folders) rows.push({ name: folder, problems: [{ text: "This folder isn't in Tentacles.csv", kind: 'unexpected' }] });
   return { checked: checked + loose.length + folders.length, rows };
 }
 
 // Fix issues for one of a project's files. `main` is the file chosen to become the main one
 // when none is named after the project: it's renamed, then fixed in place of `requested`.
-// `owner` is the leader chosen for the Owner field. Without one, a new Owner field is only
+// `leader` is the leader chosen for the Leader field. Without one, a new Leader field is only
 // filled in when there's just one leader it could be.
-async function fixProject(folder, requested, main, owner) {
-  const [owners, leaders, taskLists] = await Promise.all([readOwners(), readLeaders(), readTaskLists()]);
+async function fixProject(folder, requested, main, leader) {
+  const [tentacles, leaders, taskLists] = await Promise.all([readTentacles(), readLeaders(), readTaskLists()]);
   const findProject = async () => (await listProjects()).find((p) => p.folder === folder);
   let project = await findProject();
   if (!project) return NOT_FOUND;
   let file = requested || primaryFile(project);
   if (!project.files.includes(file)) return NOT_FOUND;
-  if (owner && !leaders.some((l) => l.id === owner)) return { code: 400, body: { error: `"${owner}" isn't in Leaders.csv.` } };
+  if (leader && !leaders.some((l) => l.id === leader)) return { code: 400, body: { error: `"${leader}" isn't in Leaders.csv.` } };
   if (main && missingMainFile(project)) {
     if (!project.files.includes(main)) return NOT_FOUND;
     const refused = await renameToMain(project, main);
@@ -1568,36 +1858,36 @@ async function fixProject(folder, requested, main, owner) {
     project = await findProject();
     file = primaryFile(project);
   }
-  const ownerId = folderOwner(project.name);
-  const folderTitle = owners.some((o) => o.id === ownerId) ? `${ownerId} ${projectTitle(project.name)}` : project.name.replace(STATUS_PREFIX, '').replace(/_/g, ' ');
+  const tentacleId = folderTentacle(project.name);
+  const folderTitle = tentacles.some((o) => o.id === tentacleId) ? `${tentacleId} ${projectTitle(project.name)}` : project.name.replace(STATUS_PREFIX, '').replace(/_/g, ' ');
   const details = {
     title: file === primaryFile(project) ? folderTitle : fileTitle(file),
-    owner: owner || (leaders.length === 1 ? leaders[0].id : ''),
+    leader: leader || (leaders.length === 1 ? leaders[0].id : ''),
     projectType: project.ongoing ? 'Ongoing' : 'Milestone',
   };
-  return updateProjectFile(folder, file, (content) => applyFixes(content, projectFileProblems(project, file, content, { owners, leaders, taskLists }), details));
+  return updateProjectFile(folder, file, (content) => applyFixes(content, projectFileProblems(project, file, content, { tentacles, leaders, taskLists }), details));
 }
 
 const fileTitle = (file) => file.replace(/\.md$/i, '');
 
-// Fix issues for an entity: creates its file if it has none, or fills in the one asked for.
-async function fixEntity(id, requested) {
-  const [owners, taskLists] = await Promise.all([readOwners(), readTaskLists()]);
-  const place = entityPlace(owners, id);
+// Fix issues for a tentacle: creates its file if it has none, or fills in the one asked for.
+async function fixTentacle(id, requested) {
+  const [tentacles, taskLists] = await Promise.all([readTentacles(), readTaskLists()]);
+  const place = tentaclePlace(tentacles, id);
   if (!place) return NOT_FOUND;
-  const { owner, dir } = place;
-  const files = await entityFiles(dir);
+  const { tentacle, dir } = place;
+  const files = await tentacleFiles(dir);
   if (files.length) {
-    const main = primaryEntityFile(owner, files);
+    const main = primaryTentacleFile(tentacle, files);
     const file = requested || main;
     if (!files.includes(file)) return NOT_FOUND;
-    return updateProjectFile(ENTITY_PREFIX + id, file, (content) =>
-      applyFixes(content, entityFileProblems(owner, files, file, content, taskLists), { title: file === main ? owner.name : fileTitle(file), owner: '' })
+    return updateProjectFile(TENTACLE_PREFIX + id, file, (content) =>
+      applyFixes(content, tentacleFileProblems(tentacle, files, file, content, taskLists), { title: file === main ? tentacle.name : fileTitle(file), tentacle: '' })
     );
   }
-  const error = projectTitleError(owner.name, 'name');
+  const error = projectTitleError(tentacle.name, 'name');
   if (error) return { code: 400, body: { error } };
-  await writeEntityFile(dir, owner.name);
+  await writeTentacleFile(dir, tentacle.name);
   return { code: 200, body: { ok: true } };
 }
 
@@ -1625,19 +1915,19 @@ async function changeProjectStatus({ folder, status }) {
 
 // Each entry in _Archive.md, for the Archived filter of the first directory's projects list.
 async function readArchivePage() {
-  const text = await readIfExists(ARCHIVE_FILE);
+  const text = await readIfExists(at().ARCHIVE_FILE);
   const entries = text === null ? [] : parseNamedEntries(text, ARCHIVE_FIELDS);
-  const [owners, leaders, projects] = await Promise.all([readOwners(), readLeaders(), listProjects('milestone')]);
+  const [tentacles, leaders, projects] = await Promise.all([readTentacles(), readLeaders(), listProjects('milestone')]);
   return {
     // Named like a document page's file, so the Raw view and double-click edits can save it.
     folder: ARCHIVE_FOLDER,
-    file: path.basename(ARCHIVE_FILE),
+    file: path.basename(at().ARCHIVE_FILE),
     content: text || '',
     todos: [],
-    location: path.basename(ARCHIVE_FILE),
+    location: path.basename(at().ARCHIVE_FILE),
     exists: text !== null,
     dateFormat: await readDateFormat(),
-    owners: owners.map(({ id, name }) => ({ id, name })),
+    tentacles: tentacles.map(({ id, name }) => ({ id, name })),
     leaders: leaders.map(({ id, name }) => ({ id, name })),
     dependencyChoices: await dependencyChoices(null, projects, entries),
     entries: entries.map(({ title, line, fields, notes }) => ({
@@ -1651,31 +1941,31 @@ async function readArchivePage() {
       timeframes: timeframeEntries(fields.timeframe.value),
       dependency: fields.dependency.value,
       target: resolveDependency(fields.dependency.value, projects, entries),
-      owner: fields.owner.value,
+      leader: fields.leader.value,
       notes,
     })),
   };
 }
 
 // An archive entry's lines under its heading, in the order archiveProject writes them.
-const archiveLines = ({ created, closed, timeframe, dependency, owner }) => [
+const archiveLines = ({ created, closed, timeframe, dependency, leader }) => [
   `**${ARCHIVE_FIELDS.created}**: ${created}`,
   `**${ARCHIVE_FIELDS.closed}**: ${closed}`,
   `**${ARCHIVE_FIELDS.timeframe}**: ${timeframe}`,
   `**${ARCHIVE_FIELDS.dependency}**: ${dependency}`,
-  `**${ARCHIVE_FIELDS.owner}** : ${owner}`,
+  `**${ARCHIVE_FIELDS.leader}** : ${leader}`,
 ];
 
 // Adds an archive entry by hand, for a project that was never in the dashboard or whose
 // record was lost. Dates arrive in the DATEFORMAT, and everything but the name can be empty.
-async function saveArchiveEntry({ owner, title, created, closed, start, end, dependency, leader }) {
+async function saveArchiveEntry({ tentacle, title, created, closed, start, end, dependency, leader }) {
   const name = title.trim().replace(/\s+/g, ' ');
   const error = projectTitleError(name);
   if (error) return { code: 400, body: { error } };
-  const [owners, leaders, entries, projects] = await Promise.all([readOwners(), readLeaders(), readArchive(), listProjects('milestone')]);
-  if (!owners.some((o) => o.id === owner)) return { code: 400, body: { error: 'Choose an entity.' } };
-  if (leader && !leaders.some((l) => l.id === leader)) return { code: 400, body: { error: 'Choose an owner.' } };
-  const full = `${owner} ${name}`;
+  const [tentacles, leaders, entries, projects] = await Promise.all([readTentacles(), readLeaders(), readArchive(), listProjects('milestone')]);
+  if (!tentacles.some((o) => o.id === tentacle)) return { code: 400, body: { error: 'Choose a tentacle.' } };
+  if (leader && !leaders.some((l) => l.id === leader)) return { code: 400, body: { error: 'Choose a leader.' } };
+  const full = `${tentacle} ${name}`;
   if (entries.some((e) => dependencyKey(e.title) === dependencyKey(full))) return { code: 409, body: { error: 'The archive already has an entry with that name.' } };
   if (dependency && !(await dependencyChoices(null, projects, entries)).some((c) => c.id === dependency)) return { code: 400, body: { error: "That can't be chosen as a dependency." } };
 
@@ -1687,23 +1977,23 @@ async function saveArchiveEntry({ owner, title, created, closed, start, end, dep
   if (timeframeProblem) return { code: 400, body: { error: timeframeProblem } };
   const stored = (d) => (d.trim() ? toStoredDate(d.trim(), format) : '');
 
-  await appendNamedEntry(ARCHIVE_FILE, 'Archive', full, archiveLines({
+  await appendNamedEntry(at().ARCHIVE_FILE, 'Archive', full, archiveLines({
     created: stored(created),
     closed: stored(closed),
     timeframe: start.trim() ? `${stored(start)} to ${stored(end)}` : '',
     dependency,
-    owner: leader,
+    leader,
   }));
   return { code: 200, body: { ok: true } };
 }
 
 // Removes an archive entry, heading and all. Null from the edit means the entry has changed.
 async function removeArchiveEntry({ line, title }) {
-  const content = await readIfExists(ARCHIVE_FILE);
+  const content = await readIfExists(at().ARCHIVE_FILE);
   if (content === null) return NOT_FOUND;
   const updated = removeNamedEntry(content, ARCHIVE_FIELDS, line, title);
   if (updated === null) return { code: 409, body: { error: 'That entry has changed in the file, so nothing was removed.' } };
-  await writeFileSafely(ARCHIVE_FILE, updated);
+  await writeFileSafely(at().ARCHIVE_FILE, updated);
   return { code: 200, body: { ok: true } };
 }
 
@@ -1739,7 +2029,7 @@ async function archiveProject({ folder }) {
   const target = path.join(path.dirname(project.fullPath), renamed);
   if (mode === 'FULL' && (await isFolder(target))) return { code: 409, body: { error: `A folder called "${renamed}" already exists, so nothing was changed.` } };
   // Two entries with one title would leave dependencies on it pointing at the first.
-  const entryTitle = `${folderOwner(project.name)} ${projectTitle(project.name)}`;
+  const entryTitle = `${folderTentacle(project.name)} ${projectTitle(project.name)}`;
   if (mode === 'HEADERS' && (await readArchive()).some((e) => dependencyKey(e.title) === dependencyKey(entryTitle))) {
     return { code: 409, body: { error: `_Archive.md already has an entry called "${entryTitle}", so nothing was changed. Remove or rename it on the Archive Index first.` } };
   }
@@ -1751,12 +2041,12 @@ async function archiveProject({ folder }) {
   if (mode === 'HEADERS') {
     const content = await readProjectFile(project, file);
     const header = parseHeader(content, []);
-    await appendNamedEntry(ARCHIVE_FILE, 'Archive', entryTitle, archiveLines({
+    await appendNamedEntry(at().ARCHIVE_FILE, 'Archive', entryTitle, archiveLines({
       created: createdValue(content),
       closed: today,
       timeframe: header.timeframe.value,
       dependency: header.dependency.value,
-      owner: header.leader ? header.leader.value : '',
+      leader: header.leader ? header.leader.value : '',
     }));
     return { code: 200, body: { ok: true } };
   }
@@ -1770,14 +2060,14 @@ async function archiveProject({ folder }) {
   return { code: 200, body: { ok: true } };
 }
 
-// ---------- the Incubator: ideas in _Incubator.md, each "## OWNERID Title" ----------
+// ---------- the Incubator: ideas in _Incubator.md, each "## TENTACLEID Title" ----------
 
-// An idea's title split into its entity's ID and the rest, or null if it doesn't start with
-// an ID from Owners.csv.
-function ideaOwner(title, owners) {
+// An idea's title split into its tentacle's ID and the rest, or null if it doesn't start with
+// an ID from Tentacles.csv.
+function ideaTentacle(title, tentacles) {
   const [id, ...rest] = title.trim().split(/\s+/);
-  const owner = owners.find((o) => o.id === id);
-  return owner && rest.length ? { owner, name: rest.join(' ') } : null;
+  const tentacle = tentacles.find((o) => o.id === id);
+  return tentacle && rest.length ? { tentacle, name: rest.join(' ') } : null;
 }
 
 // Ideas still waiting: those without an Archived or Promoted date.
@@ -1790,44 +2080,64 @@ async function ideaDependencyChoices() {
 
 // What the Incubator page shows, and the choices for its forms.
 async function readIncubatorPage() {
-  const text = await readIfExists(INCUBATOR_FILE);
-  const [owners, leaders, dirs] = await Promise.all([readOwners(), readLeaders(), readProjectDirs()]);
+  const text = await readIfExists(at().INCUBATOR_FILE);
+  const [tentacles, leaders, dirs, projects, archive] = await Promise.all([readTentacles(), readLeaders(), readProjectDirs(), listProjects('milestone'), dependableArchive()]);
+  // Each idea's text below its heading, as the Scratchpad edits a block's.
+  const blocks = text === null ? [] : parseBlocks(text);
   return {
-    location: path.basename(INCUBATOR_FILE),
+    // Named like a document page's file, so the Raw view and double-click edits can save it.
+    folder: INCUBATOR_FOLDER,
+    file: path.basename(at().INCUBATOR_FILE),
+    content: text || '',
+    todos: [],
+    location: path.basename(at().INCUBATOR_FILE),
     exists: text !== null,
     dateFormat: await readDateFormat(),
-    owners: owners.map(({ id, name }) => ({ id, name })),
+    tentacles: tentacles.map(({ id, name }) => ({ id, name })),
     leaders: leaders.map(({ id, name }) => ({ id, name })),
     directories: dirs.map((d) => d.name),
     dependencyChoices: await ideaDependencyChoices(),
     ideas: waitingIdeas(text).map(({ title, line, fields, notes }) => {
-      const split = ideaOwner(title, owners);
-      return { title, line, ownerId: split ? split.owner.id : '', ownerName: split ? split.owner.name : '', name: split ? split.name : title, dependency: fields.dependency.value, notes };
+      const split = ideaTentacle(title, tentacles);
+      const block = blocks.find((b) => b.line === line);
+      return {
+        title,
+        line,
+        tentacleId: split ? split.tentacle.id : '',
+        tentacleName: split ? split.tentacle.name : '',
+        name: split ? split.name : title,
+        dependency: fields.dependency.value,
+        target: resolveDependency(fields.dependency.value, projects, archive),
+        // The dependency's line and value as written, for editing. An idea without one has no line.
+        raw: { line: fields.dependency.line, value: fields.dependency.value },
+        body: block ? block.body : null,
+        notes,
+      };
     }),
   };
 }
 
 // Runs `transform` over _Incubator.md and saves the result. Null means the idea has changed.
 async function updateIncubator(transform) {
-  const content = await readIfExists(INCUBATOR_FILE);
+  const content = await readIfExists(at().INCUBATOR_FILE);
   if (content === null) return NOT_FOUND;
   const updated = transform(content);
   if (updated === null) return { code: 409, body: { error: 'That idea has changed in the file, so nothing was updated.' } };
-  if (updated !== content) await writeFileSafely(INCUBATOR_FILE, updated);
+  if (updated !== content) await writeFileSafely(at().INCUBATOR_FILE, updated);
   return { code: 200, body: { ok: true } };
 }
 
 // Adds an idea at the end of _Incubator.md, which is created if it's missing. Its notes are
 // kept as they're typed, but can't hold headings, which would start a new idea.
-async function saveIdea({ title, owner, dependency, notes }) {
+async function saveIdea({ title, tentacle, dependency, notes }) {
   const name = title.trim().replace(/\s+/g, ' ');
   const error = projectTitleError(name);
   if (error) return { code: 400, body: { error } };
-  if (!(await readOwners()).some((o) => o.id === owner)) return { code: 400, body: { error: 'Choose an entity.' } };
+  if (!(await readTentacles()).some((o) => o.id === tentacle)) return { code: 400, body: { error: 'Choose a tentacle.' } };
   if (dependency && !(await ideaDependencyChoices()).includes(dependency)) return { code: 400, body: { error: "That project can't be chosen as a dependency." } };
   const text = notes.replace(/\r\n?/g, '\n').trim();
   if (/^#{1,6}\s/m.test(text)) return { code: 400, body: { error: 'Notes can\'t contain headings. Take out the # at the start of the line.' } };
-  await appendNamedEntry(INCUBATOR_FILE, 'Incubator', `${owner} ${name}`, [`**${INCUBATOR_FIELDS.dependency}**: ${dependency}`, ...(text ? ['', ...text.split('\n')] : [])]);
+  await appendNamedEntry(at().INCUBATOR_FILE, 'Incubator', `${tentacle} ${name}`, [`**${INCUBATOR_FIELDS.dependency}**: ${dependency}`, ...(text ? ['', ...text.split('\n')] : [])]);
   return { code: 200, body: { ok: true } };
 }
 
@@ -1837,15 +2147,15 @@ function archiveIdea({ line, title }) {
   return updateIncubator((content) => addEntryMark(content, INCUBATOR_FIELDS, line, title, INCUBATOR_FIELDS.archived, today));
 }
 
-// Promote to Project: makes a Milestone project from the idea, with the timeframe and owner
+// Promote to Project: makes a Milestone project from the idea, with the timeframe and tentacle
 // asked for, then dates the idea as promoted, which hides it. The directory only needs
 // choosing when PROJECTS names more than one.
 async function promoteIdea({ line, title, start, end, leader, directory }) {
-  const text = await readIfExists(INCUBATOR_FILE);
+  const text = await readIfExists(at().INCUBATOR_FILE);
   const idea = waitingIdeas(text).find((e) => e.line === line && e.title === title);
   if (!idea) return { code: 409, body: { error: 'That idea has changed in the file, so nothing was updated.' } };
-  const split = ideaOwner(title, await readOwners());
-  if (!split) return { code: 400, body: { error: "This idea's title doesn't start with an entity ID from Owners.csv. Correct it in _Incubator.md first." } };
+  const split = ideaTentacle(title, await readTentacles());
+  if (!split) return { code: 400, body: { error: "This idea's title doesn't start with a tentacle ID from Tentacles.csv. Correct it in _Incubator.md first." } };
   const format = await readDateFormat();
   const timeframeProblem = timeframeError(start, end, format);
   if (timeframeProblem) return { code: 400, body: { error: timeframeProblem } };
@@ -1853,7 +2163,7 @@ async function promoteIdea({ line, title, start, end, leader, directory }) {
   if (dirs.length > 1 && !dirs.some((d) => d.name === directory)) return { code: 400, body: { error: 'Choose a directory.' } };
 
   const result = await makeProject(
-    { title: split.name, entity: split.owner.id, owner: leader, type: 'Milestone', notes: idea.notes, dir: dirs.length > 1 ? directory : undefined },
+    { title: split.name, tentacle: split.tentacle.id, leader, type: 'Milestone', notes: idea.notes, dir: dirs.length > 1 ? directory : undefined },
     { 'Active Timeframe': `${toStoredDate(start, format)} to ${toStoredDate(end, format)}`, 'Project Dependency': idea.fields.dependency.value }
   );
   if (result.code !== 200) return result;
@@ -1862,7 +2172,7 @@ async function promoteIdea({ line, title, start, end, leader, directory }) {
   return result;
 }
 
-// Adds a markdown file to a project or entity folder, with the fields and headings
+// Adds a markdown file to a project or tentacle folder, with the fields and headings
 // that folder's files need.
 async function saveNewFile({ folder, name }) {
   const title = name.trim().replace(/\.md$/i, '').trim().replace(/\s+/g, ' ');
@@ -1874,12 +2184,12 @@ async function saveNewFile({ folder, name }) {
   let dir;
   let files;
   let content;
-  if (folder.startsWith(ENTITY_PREFIX)) {
-    const place = entityPlace(await readOwners(), folder.slice(ENTITY_PREFIX.length));
+  if (folder.startsWith(TENTACLE_PREFIX)) {
+    const place = tentaclePlace(await readTentacles(), folder.slice(TENTACLE_PREFIX.length));
     if (!place) return NOT_FOUND;
     dir = place.dir;
-    files = await entityFiles(dir);
-    content = newEntityFile({ name: title, today, taskLists });
+    files = await tentacleFiles(dir);
+    content = newTentacleFile({ name: title, today, taskLists });
   } else {
     const project = (await listProjects()).find((p) => p.folder === folder);
     if (!project) return NOT_FOUND;
@@ -1887,7 +2197,7 @@ async function saveNewFile({ folder, name }) {
     files = project.files;
     const leader = parseHeader(await readProjectFile(project, primaryFile(project)), []).leader;
     content = newProjectFiles({
-      ownerId: folderOwner(project.name),
+      tentacleId: folderTentacle(project.name),
       leaderTag: leader ? leader.value : '',
       title,
       notes: '',
@@ -1936,27 +2246,31 @@ async function changeProjectType({ folder, type }) {
 }
 
 // An event is found by its heading's line, sent as `key`, with its title as `file`.
-const fixCompatibility = ({ type, key, file, main, owner }) => {
-  if (type === 'projects') return fixProject(key, file, main, owner);
+const fixCompatibility = ({ type, key, file, main, leader }) => {
+  // An archive entry is found by its heading's line, sent as archive:LINE, with its title as `file`.
+  const archived = type === 'projects' && /^archive:([1-9]\d*)$/.exec(key);
+  if (archived) return file ? fixArchiveLeader(Number(archived[1]), file) : { code: 400, body: { error: 'Invalid request' } };
+  if (type === 'projects') return fixProject(key, file, main, leader);
   if (type === 'events') return /^[1-9]\d*$/.test(key) && file ? fixEvent(Number(key), file) : { code: 400, body: { error: 'Invalid request' } };
-  return fixEntity(key, file);
+  if (type === 'core') return fixCoreFile(key, file);
+  return fixTentacle(key, file);
 };
 
-// Projects and entities never reviewed, or flagged for review.
+// Projects and tentacles never reviewed, or flagged for review.
 const wantsReview = (content) => {
   const { dates, flagged } = parseHeader(content, []);
   return !dates.reviewed.value || flagged;
 };
 
-// An entity as the Review page lists it, with its main file's content, or null if it has no file.
-async function entityEntry(owners, owner) {
-  const place = entityPlace(owners, owner.id);
-  const files = place ? await entityFiles(place.dir) : [];
+// A tentacle as the Review page lists it, with its main file's content, or null if it has no file.
+async function tentacleEntry(tentacles, tentacle) {
+  const place = tentaclePlace(tentacles, tentacle.id);
+  const files = place ? await tentacleFiles(place.dir) : [];
   if (!files.length) return null;
-  const file = primaryEntityFile(owner, files);
+  const file = primaryTentacleFile(tentacle, files);
   const content = await fs.promises.readFile(path.join(place.dir, file), 'utf8');
-  const parent = place.chain.length > 1 ? owners.find((o) => o.id === owner.parent).name : null;
-  return { entry: { folder: ENTITY_PREFIX + owner.id, file, id: owner.id, root: place.chain[0], name: owner.name, parentName: parent }, content };
+  const parent = place.chain.length > 1 ? tentacles.find((o) => o.id === tentacle.parent).name : null;
+  return { entry: { folder: TENTACLE_PREFIX + tentacle.id, file, id: tentacle.id, root: place.chain[0], name: tentacle.name, parentName: parent }, content };
 }
 
 async function collectToReview() {
@@ -1966,56 +2280,61 @@ async function collectToReview() {
     const file = primaryFile(project);
     if (wantsReview(await readProjectFile(project, file))) projects.push({ folder: project.folder, file });
   }
-  const owners = await readOwners();
-  const entities = [];
-  for (const owner of owners) {
-    const found = await entityEntry(owners, owner);
-    if (found && wantsReview(found.content)) entities.push(found.entry);
+  const tentacles = await readTentacles();
+  const due = [];
+  for (const tentacle of tentacles) {
+    const found = await tentacleEntry(tentacles, tentacle);
+    if (found && wantsReview(found.content)) due.push(found.entry);
   }
-  return { projects, entities };
+  return { projects, tentacles: due };
 }
+
+// Every task with a WAITING type status, from the same places as the Todos sidebar, for the
+// Review page's yellow box and the yellow number beside Review in the menu.
+const waitingTasks = async () => (await collectTodos()).items.filter((item) => item.type === 'WAITING');
 
 // ---------- review agenda ----------
 
 const readAgenda = async () => {
-  const text = await readIfExists(AGENDA_FILE);
+  const text = await readIfExists(at().AGENDA_FILE);
   return { exists: text !== null, rows: text === null ? [] : parseAgenda(text) };
 };
 
-// The one REVIEW target that isn't an entity or a project: the Dashboard's Overview.
+// The one REVIEW target that isn't a tentacle or a project: the Dashboard's Overview.
 const AGENDA_PAGE = 'Dashboard';
-const isAgendaPage = (rule) => !rule.project && rule.owner.toLowerCase() === AGENDA_PAGE.toLowerCase();
+const isAgendaPage = (rule) => !rule.project && rule.tentacle.toLowerCase() === AGENDA_PAGE.toLowerCase();
 
 // The Agenda tab's rows, with what each rule's dropdown can offer after the pipe.
 async function readAgendaTable() {
-  const [agenda, owners, dirs, projects] = await Promise.all([readAgenda(), readOwners(), readProjectDirs(), listProjects()]);
+  const [agenda, tentacles, dirs, projects] = await Promise.all([readAgenda(), readTentacles(), readProjectDirs(), listProjects()]);
   const option = (value, label) => ({ value, label: label || value });
-  // A project's name is its owner's ID then its title, so the ID is the first word.
+  // A project's name is its tentacle's ID then its title, so the ID is the first word.
   const projectOptions = projects
     .filter((p) => !isArchived(p))
     .map((p) => projectName(p.name).split(' '))
     .map(([id, ...title]) => option(id + '#' + title.join(' '), id + ' ' + title.join(' ')))
     .sort((a, b) => a.label.localeCompare(b.label));
-  const parents = owners.filter((o) => owners.some((child) => child.parent === o.id));
+  const parents = tentacles.filter((o) => tentacles.some((child) => child.parent === o.id));
   return Object.assign(agenda, {
     choices: {
-      REVIEW: [option(AGENDA_PAGE), ...owners.map((o) => option(o.id, o.id + ' (' + o.name + ')')), ...projectOptions],
+      REVIEW: [option(AGENDA_PAGE), ...tentacles.map((o) => option(o.id, o.id + ' (' + o.name + ')')), ...projectOptions],
       REVIEW_ALL: [
-        ...['Entities', 'Tentacles'].map((g) => option(g)),
+        option('TopTentacles', 'Top-level tentacles'),
+        option('Tentacles', 'Tentacles (all with a parent)'),
         ...parents.map((o) => option('Tentacles#' + o.id, 'Tentacles of ' + o.id)),
         ...dirs.map((d) => option(d.name, d.name + ' (projects directory)')),
-        ...AGENDA_GROUPS.filter((g) => !['Entities', 'Tentacles'].includes(g)).map((g) => option(g)),
+        ...AGENDA_GROUPS.filter((g) => !['TopTentacles', 'Tentacles'].includes(g)).map((g) => option(g)),
       ],
     },
   });
 }
 
 // The heading of a REVIEW_ALL card.
-function agendaAllTitle(rule, owners) {
-  const entity = rule.entity && owners.find((o) => o.id === rule.entity);
-  if (rule.group === 'Tentacles') return entity ? 'Review All Tentacles of ' + entity.name : 'Review All Tentacles';
+function agendaAllTitle(rule, tentacles) {
+  const tentacle = rule.tentacle && tentacles.find((o) => o.id === rule.tentacle);
+  if (rule.group === 'Tentacles') return tentacle ? 'Review All Tentacles of ' + tentacle.name : 'Review All Tentacles';
   const nouns = {
-    Entities: 'Entities',
+    TopTentacles: 'Top-level Tentacles',
     Active: 'Active Projects',
     Inactive: 'Inactive Projects',
     Scheduled: 'Scheduled Projects',
@@ -2027,36 +2346,36 @@ function agendaAllTitle(rule, owners) {
   return 'Review All ' + (nouns[rule.group] || rule.group);
 }
 
-// What one rule lists: { title, entries } (projects and entities to mark as reviewed),
+// What one rule lists: { title, entries } (projects and tentacles to mark as reviewed),
 // { title, links } (pages to look at, with an optional date or note) or { title, error }.
 // `live` is every non-archived project with its main file's content.
-async function agendaCard(rule, { owners, live, dirs, events, today }) {
+async function agendaCard(rule, { tentacles, live, dirs, events, today }) {
   const eventLink = (title, date, end) => ({ label: title, href: 'networking.html?page=events#' + encodeURIComponent(title), date, end: end || null });
   if (rule.kind === 'review' && isAgendaPage(rule)) return { title: 'Review Dashboard', links: [{ label: 'Dashboard', href: 'home.html' }] };
   const projectEntry = ({ project, file, content }) => ({ entry: { folder: project.folder, file }, content });
-  const entityEntries = async (list) => (await Promise.all(list.map((o) => entityEntry(owners, o)))).filter(Boolean);
+  const tentacleEntries = async (list) => (await Promise.all(list.map((o) => tentacleEntry(tentacles, o)))).filter(Boolean);
   if (rule.kind === 'review') {
-    const owner = owners.find((o) => o.id === rule.owner);
+    const tentacle = tentacles.find((o) => o.id === rule.tentacle);
     if (!rule.project) {
-      const found = owner && (await entityEntry(owners, owner));
-      if (found) return { title: 'Review Entity: ' + owner.name, entries: [found] };
-      return { title: 'Review Entity: ' + rule.owner, error: "Can't find an entity called " + rule.owner + '.' };
+      const found = tentacle && (await tentacleEntry(tentacles, tentacle));
+      if (found) return { title: 'Review Tentacle: ' + tentacle.name, entries: [found] };
+      return { title: 'Review Tentacle: ' + rule.tentacle, error: "Can't find a tentacle called " + rule.tentacle + '.' };
     }
-    // Matched as a Project Dependency is: the owner's ID and the title, ignoring case and spacing.
-    const key = dependencyKey(rule.owner + ' ' + rule.project);
+    // Matched as a Project Dependency is: the tentacle's ID and the title, ignoring case and spacing.
+    const key = dependencyKey(rule.tentacle + ' ' + rule.project);
     const match = live.find(({ project }) => dependencyKey(projectName(project.name)) === key);
     if (match) return { title: 'Review Project: ' + rule.project, entries: [projectEntry(match)] };
-    return { title: 'Review Project: ' + rule.project, error: "Can't find a project called " + rule.owner + ' ' + rule.project + '.' };
+    return { title: 'Review Project: ' + rule.project, error: "Can't find a project called " + rule.tentacle + ' ' + rule.project + '.' };
   }
-  const title = agendaAllTitle(rule, owners);
+  const title = agendaAllTitle(rule, tentacles);
   switch (rule.group) {
-    case 'Entities':
-      return { title, entries: await entityEntries(owners.filter((o) => !o.parent)) };
+    case 'TopTentacles':
+      return { title, entries: await tentacleEntries(tentacles.filter((o) => !o.parent)) };
     case 'Tentacles': {
-      if (rule.entity && !owners.some((o) => o.id === rule.entity)) return { title, error: "Can't find an entity called " + rule.entity + '.' };
-      // Anything with a parent, or only those somewhere under the named entity.
-      const under = (o) => o.parent && (!rule.entity || (ownerChain(owners, o.id) || []).slice(0, -1).includes(rule.entity));
-      return { title, entries: await entityEntries(owners.filter(under)) };
+      if (rule.tentacle && !tentacles.some((o) => o.id === rule.tentacle)) return { title, error: "Can't find a tentacle called " + rule.tentacle + '.' };
+      // Anything with a parent, or only those somewhere under the named tentacle.
+      const under = (o) => o.parent && (!rule.tentacle || (tentacleChain(tentacles, o.id) || []).slice(0, -1).includes(rule.tentacle));
+      return { title, entries: await tentacleEntries(tentacles.filter(under)) };
     }
     case 'Active':
     case 'Inactive': {
@@ -2070,7 +2389,7 @@ async function agendaCard(rule, { owners, live, dirs, events, today }) {
     case 'Bookings':
       return { title, links: events.filter((e) => e.booked && (e.end || e.start) >= today).map((e) => eventLink(e.title, e.start, e.end)) };
     case 'Incubator':
-      return { title, links: waitingIdeas(await readIfExists(INCUBATOR_FILE)).map((idea) => ({ label: idea.title, href: 'incubator.html' })) };
+      return { title, links: waitingIdeas(await readIfExists(at().INCUBATOR_FILE)).map((idea) => ({ label: idea.title, href: 'incubator.html' })) };
     case 'Catalogs':
       return {
         title,
@@ -2087,7 +2406,7 @@ async function agendaCard(rule, { owners, live, dirs, events, today }) {
 }
 
 // The agenda as the Review page shows it: text items in one list, and a card per rule. Each
-// project and entity says when it was last reviewed, and whether that was since the last
+// project and tentacle says when it was last reviewed, and whether that was since the last
 // logged review.
 async function collectAgenda(lastReview) {
   const { exists, rows } = await readAgenda();
@@ -2097,13 +2416,13 @@ async function collectAgenda(lastReview) {
   if (!rules.length) return { exists, text, cards: [] };
 
   const today = formatDate(new Date(), STORAGE_FORMAT);
-  const [owners, dirs, events, projects] = await Promise.all([readOwners(), readProjectDirs(), timelineEvents(), listProjects()]);
+  const [tentacles, dirs, events, projects] = await Promise.all([readTentacles(), readProjectDirs(), timelineEvents(), listProjects()]);
   const live = [];
   for (const project of projects.filter((p) => !isArchived(p))) {
     const file = primaryFile(project);
     live.push({ project, file, content: await readProjectFile(project, file) });
   }
-  const context = { owners, live, dirs, events, today };
+  const context = { tentacles, live, dirs, events, today };
   const cards = [];
   for (const row of rules) {
     const rule = parseAgendaRule(row.item);
@@ -2124,7 +2443,7 @@ const isAgendaRow = (body) =>
   (body.checked === undefined || typeof body.checked === 'string');
 const isAgendaCheck = (body) => Number.isInteger(body.index) && body.index >= 0 && typeof body.item === 'string' && typeof body.checked === 'boolean';
 
-const saveAgendaRow = (body) => editLabelFile(AGENDA_FILE, AGENDA_HEADER, editAgendaCsv, body);
+const saveAgendaRow = (body) => editLabelFile(at().AGENDA_FILE, AGENDA_HEADER, editAgendaCsv, body);
 
 // Ticks or unticks an item on the Review page, leaving its type and text as they are.
 async function checkAgendaItem({ index, item, checked }) {
@@ -2135,7 +2454,7 @@ async function checkAgendaItem({ index, item, checked }) {
 
 // Logging a review starts the next agenda with nothing ticked.
 async function uncheckAgenda() {
-  const text = await readIfExists(AGENDA_FILE);
+  const text = await readIfExists(at().AGENDA_FILE);
   if (text === null) return;
   const rows = parseAgenda(text);
   let after = text;
@@ -2145,7 +2464,7 @@ async function uncheckAgenda() {
     if (result.error) return;
     after = result.text;
   }
-  if (after !== text) await writeFileSafely(AGENDA_FILE, after);
+  if (after !== text) await writeFileSafely(at().AGENDA_FILE, after);
 }
 
 // Reviewing also takes away any Flagged for Review.
@@ -2156,26 +2475,26 @@ function markReviewed({ folder, file }) {
 
 const flagForReview = ({ folder, file, on }) => updateProjectFile(folder, file, (content) => setReviewFlag(content, on));
 
-// Every markdown file of every entity and tentacle.
-async function allEntityFiles() {
-  const owners = await readOwners();
+// Every markdown file of every tentacle.
+async function allTentacleFiles() {
+  const tentacles = await readTentacles();
   const files = [];
-  for (const owner of owners) {
-    const place = entityPlace(owners, owner.id);
+  for (const tentacle of tentacles) {
+    const place = tentaclePlace(tentacles, tentacle.id);
     if (!place) continue;
-    for (const file of await entityFiles(place.dir)) {
+    for (const file of await tentacleFiles(place.dir)) {
       const full = path.join(place.dir, file);
-      files.push({ folder: ENTITY_PREFIX + owner.id, file, full, name: owner.name, content: await fs.promises.readFile(full, 'utf8') });
+      files.push({ folder: TENTACLE_PREFIX + tentacle.id, file, full, name: tentacle.name, content: await fs.promises.readFile(full, 'utf8') });
     }
   }
   return files;
 }
 
-// The Leads and Events files. `entryAt` finds the contact or event a line belongs to.
+// The Contacts and Events files. `entryAt` finds the contact or event a line belongs to.
 async function networkingFiles() {
   const files = [];
   for (const [name, page] of Object.entries(NETWORKING)) {
-    const full = path.join(NETWORKING_DIR, page.file);
+    const full = path.join(at().NETWORKING_DIR, page.file);
     const content = await readIfExists(full);
     if (content === null) continue;
     const sections = parseEntries(content, page.level);
@@ -2188,7 +2507,7 @@ async function networkingFiles() {
 // Every file a review covers. `sourceOf` names where a line came from, or gives null if the
 // line isn't part of anything to review. Projects are named by their folder instead.
 async function reviewableFiles() {
-  const entities = (await allEntityFiles()).map((f) => Object.assign(f, { sourceOf: () => f.name }));
+  const tentacles = (await allTentacleFiles()).map((f) => Object.assign(f, { sourceOf: () => f.name }));
   const networking = (await networkingFiles()).map((f) =>
     Object.assign(f, {
       sourceOf: (line) => {
@@ -2197,7 +2516,7 @@ async function reviewableFiles() {
       },
     })
   );
-  return [...(await liveProjectFiles()), ...entities, ...networking];
+  return [...(await liveProjectFiles()), ...tentacles, ...networking];
 }
 
 const doneRows = (content, match, sourceOf) => findTodos(content, match).filter((item) => item.type === 'DONE' && (!sourceOf || sourceOf(item.line) !== null));
@@ -2219,7 +2538,7 @@ async function doneItems(statuses) {
 const closedSince = (closed, lastReview) => !lastReview || !closed || closed >= lastReview;
 
 const readLastReview = async () => {
-  const review = await readIfExists(REVIEW_FILE);
+  const review = await readIfExists(at().REVIEW_FILE);
   return review === null ? null : lastReviewDate(review);
 };
 
@@ -2243,6 +2562,8 @@ async function collectWeeklyReview() {
     archiveTo: statuses.find((s) => s.type === 'ARCHIVED').name,
     groups: doneStatuses.filter((s) => groups.get(s.name).length).map((s) => ({ status: s.name, items: groups.get(s.name) })),
     toReview: await collectToReview(),
+    waiting: await waitingTasks(),
+    statuses,
     agenda: await collectAgenda(lastReview),
     dateFormat: await readDateFormat(),
   };
@@ -2272,7 +2593,7 @@ function finishedMilestones(content, statuses) {
 // How many of the latest Plan's focus items are done: a task finished since, or a milestone
 // with nothing left in it. Both null when there's no Plan made since the last review.
 async function planFollowThrough(statuses, done, lastReview, projectContents) {
-  const text = await readIfExists(FOCUS_FILE);
+  const text = await readIfExists(at().FOCUS_FILE);
   const planned = text === null ? null : lastReviewDate(text);
   if (!planned || (lastReview && planned < lastReview)) return { planItems: null, planDone: null };
   const finished = new Set(done.map((d) => focusKey(d.item.editText || '')));
@@ -2321,7 +2642,7 @@ async function measureReport(statuses, lastReview, today, wins) {
 }
 
 async function collectReports() {
-  const text = await readIfExists(REPORTS_FILE);
+  const text = await readIfExists(at().REPORTS_FILE);
   return {
     fields: REPORT_FIELDS,
     reports: text === null ? [] : parseReports(text),
@@ -2355,9 +2676,9 @@ async function submitWeeklyReview({ wins }) {
     if (after !== content) changes.push({ full, before: content, after });
   }
 
-  const review = await readIfExists(REVIEW_FILE);
+  const review = await readIfExists(at().REVIEW_FILE);
   const updatedReview = addReview(review === null ? `# Review\n**Created:** ${today}\n` : review, today, text);
-  const reports = await readIfExists(REPORTS_FILE);
+  const reports = await readIfExists(at().REPORTS_FILE);
   const updatedReports = addReport(reports || '', today, figures);
 
   const written = [];
@@ -2367,19 +2688,19 @@ async function submitWeeklyReview({ wins }) {
       written.push(change);
     }
     if (reports === null) {
-      await fs.promises.mkdir(ENTITY_DIR, { recursive: true });
-      await fs.promises.writeFile(REPORTS_FILE, updatedReports, { encoding: 'utf8', flag: 'wx' });
-      await recordCreated(REPORTS_FILE, updatedReports);
+      await fs.promises.mkdir(at().TENTACLE_DIR, { recursive: true });
+      await fs.promises.writeFile(at().REPORTS_FILE, updatedReports, { encoding: 'utf8', flag: 'wx' });
+      await recordCreated(at().REPORTS_FILE, updatedReports);
     } else {
-      await writeFileSafely(REPORTS_FILE, updatedReports);
+      await writeFileSafely(at().REPORTS_FILE, updatedReports);
     }
-    written.push({ full: REPORTS_FILE, before: reports });
+    written.push({ full: at().REPORTS_FILE, before: reports });
     if (review === null) {
-      await fs.promises.mkdir(TIME_MANAGEMENT_DIR, { recursive: true });
-      await fs.promises.writeFile(REVIEW_FILE, updatedReview, 'utf8');
-      await recordCreated(REVIEW_FILE, updatedReview);
+      await fs.promises.mkdir(at().TIME_MANAGEMENT_DIR, { recursive: true });
+      await fs.promises.writeFile(at().REVIEW_FILE, updatedReview, 'utf8');
+      await recordCreated(at().REVIEW_FILE, updatedReview);
     } else {
-      await writeFileSafely(REVIEW_FILE, updatedReview);
+      await writeFileSafely(at().REVIEW_FILE, updatedReview);
     }
   } catch (err) {
     // A Reports.md this review created is removed again rather than left empty.
@@ -2391,15 +2712,31 @@ async function submitWeeklyReview({ wins }) {
   return { code: 200, body: { ok: true, archived, archivedTo: target } };
 }
 
+// A task that becomes recurring for the first time is scheduled one period from today.
+// Changing an existing period, or removing R, leaves its date alone.
 async function changePriority({ folder, file, line, status, priority }) {
   const statuses = await readStatuses();
-  return updateProjectFile(folder, file, (content) => setPriority(content, line, status, priority, statuses));
+  const today = formatDate(new Date(), STORAGE_FORMAT);
+  return updateProjectFile(folder, file, (content) => {
+    const before = scanLines(content, createMatcher(statuses)).find((i) => i.line === line);
+    const updated = setPriority(content, line, status, priority, statuses);
+    const recur = priority && priority.match(RECUR_VALUE);
+    if (updated === null || !recur || (before && before.recur)) return updated;
+    return setPlanningDate(updated, line, 'SCHEDULED', addPeriod(today, Number(recur[1]), recur[2]));
+  });
 }
 
-async function changeOwner({ folder, file, line, from, to }) {
-  const owners = await readOwners();
-  if (!owners.some((o) => o.id === to)) return { code: 400, body: { error: `"${to}" is not in Owners.csv.` } };
-  return updateProjectFile(folder, file, (content) => setOwner(content, line, from, to, owners));
+// Clicking a recurring task's status or tick box: its schedule moves on a period.
+async function advanceRecurringTask({ folder, file, line, status, text }) {
+  const statuses = await readStatuses();
+  const today = formatDate(new Date(), STORAGE_FORMAT);
+  return updateProjectFile(folder, file, (content) => advanceRecurring(content, line, status, text, statuses, today));
+}
+
+async function changeTentacle({ folder, file, line, from, to }) {
+  const tentacles = await readTentacles();
+  if (!tentacles.some((o) => o.id === to)) return { code: 400, body: { error: `"${to}" is not in Tentacles.csv.` } };
+  return updateProjectFile(folder, file, (content) => setTentacle(content, line, from, to, tentacles));
 }
 
 async function changeLeader({ folder, file, line, from, to }) {
@@ -2438,7 +2775,7 @@ async function isReservedBlock(folder, title) {
   const page = pageOfFolder(folder);
   if (page) return Boolean(page.section && page.section.test(title.trim()));
   if (!isTaskList(await readTaskLists(), title)) return false;
-  return folder.startsWith(ENTITY_PREFIX) || (await listProjects('ongoing')).some((p) => p.folder === folder);
+  return folder.startsWith(TENTACLE_PREFIX) || (await listProjects('ongoing')).some((p) => p.folder === folder);
 }
 
 async function saveText({ folder, file, kind, line, from, to }) {
@@ -2447,8 +2784,8 @@ async function saveText({ folder, file, kind, line, from, to }) {
   const error = kind === 'value' && !text ? null : lineError(text);
   if (error) return { code: 400, body: { error } };
   if (kind === 'block' && (await isReservedBlock(folder, text))) return RESERVED_ERROR;
-  const [statuses, owners] = await Promise.all([readStatuses(), readOwners()]);
-  return updateProjectFile(folder, file, (content) => editText(content, kind, line, from, text, statuses, owners));
+  const [statuses, tentacles] = await Promise.all([readStatuses(), readTentacles()]);
+  return updateProjectFile(folder, file, (content) => editText(content, kind, line, from, text, statuses, tentacles));
 }
 
 // Replaces a whole file with the text from the Raw view, as long as it hasn't changed since
@@ -2518,9 +2855,9 @@ async function promoteTask({ folder, file, line, status, text }) {
   return updateProjectFile(folder, file, (content) => promoteRow(content, line, status, text, statuses));
 }
 
-// What a link from inside `folder` names it by: a project's name, or an entity's ID.
+// What a link from inside `folder` names it by: a project's name, or a tentacle's ID.
 async function linkTarget(folder) {
-  if (folder.startsWith(ENTITY_PREFIX)) return folder.slice(ENTITY_PREFIX.length);
+  if (folder.startsWith(TENTACLE_PREFIX)) return folder.slice(TENTACLE_PREFIX.length);
   const project = (await listProjects()).find((p) => p.folder === folder);
   return project ? projectName(project.name) : null;
 }
@@ -2531,7 +2868,7 @@ async function linkTaskToBlock({ folder, file, line, status, text }) {
   const title = text.trim();
   if (/[#[\]|]/.test(title)) return { code: 400, body: { error: "A task whose text has # [ ] or | in it can't link to a block." } };
   const target = await linkTarget(folder);
-  if (!target) return { code: 400, body: { error: 'Linked blocks are only for project and entity pages.' } };
+  if (!target) return { code: 400, body: { error: 'Linked blocks are only for project and tentacle pages.' } };
   const full = await editableFile(folder, file);
   if (!full) return NOT_FOUND;
   const existing = parseBlocks(await fs.promises.readFile(full, 'utf8')).some((b) => b.title !== null && b.title.trim().toLowerCase() === title.toLowerCase());
@@ -2549,7 +2886,7 @@ async function finishWholeMilestone({ folder, file, line, title }) {
 }
 
 // Promote to new project: a Milestone project named after the milestone, in the same
-// directory, for the same entity and owner, depending on this project. Its tasks go under
+// directory, for the same tentacle and tentacle, depending on this project. Its tasks go under
 // "### Milestone 1", and the milestone leaves this project.
 async function promoteMilestone({ folder, file, line, title }) {
   const project = (await listProjects()).find((p) => p.folder === folder);
@@ -2558,9 +2895,9 @@ async function promoteMilestone({ folder, file, line, title }) {
   const body = milestoneBody(content, line, title);
   if (body === null) return { code: 409, body: { error: 'That milestone has changed in the file, so nothing was updated.' } };
   const leader = parseHeader(content, []).leader;
-  if (!leader || !leader.value) return { code: 400, body: { error: "Choose this project's Owner first, so the new project has one too." } };
+  if (!leader || !leader.value) return { code: 400, body: { error: "Choose this project's Leader first, so the new project has one too." } };
   const made = await makeProject(
-    { title, entity: folderOwner(project.name), owner: leader.value, type: 'Milestone', notes: '', dir: project.directory },
+    { title, tentacle: folderTentacle(project.name), leader: leader.value, type: 'Milestone', notes: '', dir: project.directory },
     { 'Project Dependency': projectName(project.name) },
     ['### Milestone 1', ...body]
   );
@@ -2587,9 +2924,9 @@ async function makeProject(body, header = {}, milestones = []) {
   const title = body.title.trim().replace(/\s+/g, ' ');
   const error = projectTitleError(title);
   if (error) return { code: 400, body: { error } };
-  const [owners, leaders] = await Promise.all([readOwners(), readLeaders()]);
-  if (!owners.some((o) => o.id === body.entity)) return { code: 400, body: { error: 'Choose an entity.' } };
-  if (!leaders.some((l) => l.id === body.owner)) return { code: 400, body: { error: 'Choose an owner.' } };
+  const [tentacles, leaders] = await Promise.all([readTentacles(), readLeaders()]);
+  if (!tentacles.some((o) => o.id === body.tentacle)) return { code: 400, body: { error: 'Choose a tentacle.' } };
+  if (!leaders.some((l) => l.id === body.leader)) return { code: 400, body: { error: 'Choose a leader.' } };
   if (!PROJECT_TYPES.includes(body.type)) return { code: 400, body: { error: 'Choose a project type.' } };
   const dirs = await readProjectDirs();
   const directory = body.dir === undefined ? dirs[0] : dirs.find((d) => d.name === body.dir);
@@ -2598,8 +2935,8 @@ async function makeProject(body, header = {}, milestones = []) {
   const spec = newProjectFiles({
     projectType: body.type,
     taskLists: await readTaskLists(),
-    ownerId: body.entity,
-    leaderTag: body.owner,
+    tentacleId: body.tentacle,
+    leaderTag: body.leader,
     title,
     notes: body.notes.replace(/\r\n?/g, '\n').trim(),
     today: formatDate(new Date(), STORAGE_FORMAT),
@@ -2610,7 +2947,7 @@ async function makeProject(body, header = {}, milestones = []) {
   // The same project under a different status prefix still counts as a duplicate.
   const key = (folder) => folder.replace(STATUS_PREFIX, '').toLowerCase();
   const duplicate = (await listProjects()).some((p) => key(p.name) === key(spec.folder));
-  if (duplicate) return { code: 409, body: { error: 'A project with that entity and title already exists.' } };
+  if (duplicate) return { code: 409, body: { error: 'A project with that tentacle and title already exists.' } };
 
   const dir = path.resolve(directory.fullPath, spec.folder);
   if (!isInside(directory.fullPath, dir)) return { code: 400, body: { error: 'Invalid request' } };
@@ -2629,18 +2966,18 @@ async function makeProject(body, header = {}, milestones = []) {
 // What the Statuses tab lists, and what its dropdowns offer. Defaults can be chosen as a
 // Next status, but only the file's own rows are listed.
 async function readStatusTable() {
-  const text = await readIfExists(STATUS_FILE);
+  const text = await readIfExists(at().STATUS_FILE);
   const rows = text === null ? [] : parseStatuses(text);
   return { exists: text !== null, rows, types: STATUS_TYPES, choices: withDefaultStatuses(rows).map((s) => s.name) };
 }
 
 async function readLeaderTable() {
-  const text = await readIfExists(LEADERS_FILE);
+  const text = await readIfExists(at().LEADERS_FILE);
   return { exists: text !== null, rows: text === null ? [] : parseLeaders(text) };
 }
 
 async function readColourTable() {
-  const text = await readIfExists(COLOURS_FILE);
+  const text = await readIfExists(at().COLOURS_FILE);
   return { exists: text !== null, rows: text === null ? [] : parseColours(text) };
 }
 
@@ -2658,14 +2995,14 @@ async function editLabelFile(file, header, edit, body) {
   return { code: 200, body: { ok: true } };
 }
 
-const saveStatusRow = (body) => editLabelFile(STATUS_FILE, 'Type,Name,Next', editStatusCsv, body);
-const saveLeaderRow = (body) => editLabelFile(LEADERS_FILE, 'Tag,Name', editLeaderCsv, body);
-const saveColourRow = (body) => editLabelFile(COLOURS_FILE, 'Name,Colour,Used for', editColourCsv, body);
+const saveStatusRow = (body) => editLabelFile(at().STATUS_FILE, 'Type,Name,Next', editStatusCsv, body);
+const saveLeaderRow = (body) => editLabelFile(at().LEADERS_FILE, 'Tag,Name', editLeaderCsv, body);
+const saveColourRow = (body) => editLabelFile(at().COLOURS_FILE, 'Name,Colour,Used for', editColourCsv, body);
 
 async function saveOptions({ values }) {
   let text;
   try {
-    text = await fs.promises.readFile(OPTIONS_FILE, 'utf8');
+    text = await fs.promises.readFile(at().OPTIONS_FILE, 'utf8');
   } catch (err) {
     if (err.code === 'ENOENT') return { code: 404, body: { error: 'Options.csv not found.' } };
     throw err;
@@ -2686,21 +3023,22 @@ async function saveOptions({ values }) {
   if (dirError) return { code: 400, body: { error: `PROJECTS: ${dirError}` } };
   const reservedList = 'TASKLISTS' in updates && splitList(updates.TASKLISTS).find(isReservedTitle);
   if (reservedList) return { code: 400, body: { error: `TASKLISTS: "${reservedList}" is already used for its own section.` } };
-  await writeFileSafely(OPTIONS_FILE, updateOptionsCsv(text, updates));
+  await writeFileSafely(at().OPTIONS_FILE, updateOptionsCsv(text, updates));
   return { code: 200, body: { ok: true } };
 }
 
 // What the first-time setup form still needs. It's needed if any expected CSV is missing, or
-// no owner is at the top level of Owners.csv.
+// no tentacle is at the top level of Tentacles.csv.
 async function setupState() {
-  const files = await Promise.all(SETUP_FILES.map(readIfExists));
-  const missing = SETUP_FILES.filter((_, i) => files[i] === null);
-  const [owners, leaders] = await Promise.all([readOwners(), readLeaders()]);
-  const entity = !owners.some((o) => !o.parent);
+  const expected = setupFiles();
+  const files = await Promise.all(expected.map(readIfExists));
+  const missing = expected.filter((_, i) => files[i] === null);
+  const [tentacles, leaders] = await Promise.all([readTentacles(), readLeaders()]);
+  const tentacle = !tentacles.some((o) => !o.parent);
   return {
-    needed: missing.length > 0 || entity,
+    needed: missing.length > 0 || tentacle,
     missing: missing.map((file) => `_Labels/${path.basename(file)}`),
-    fields: { entity, leader: leaders.length === 0, dateFormat: missing.includes(OPTIONS_FILE) },
+    fields: { tentacle, leader: leaders.length === 0, dateFormat: missing.includes(at().OPTIONS_FILE) },
     dateFormats: SETUP_DATE_FORMATS,
   };
 }
@@ -2713,47 +3051,47 @@ async function saveSetup(body) {
   const state = await setupState();
   if (!state.needed) return badSetup('Setup is already complete.', 409);
   const { fields, missing } = state;
-  const entityName = cleanName(body.entityName || '');
-  const entityId = (body.entityId || '').trim();
+  const tentacleName = cleanName(body.tentacleName || '');
+  const tentacleId = (body.tentacleId || '').trim();
   const leaderName = cleanName(body.leaderName || '');
-  if (fields.entity) {
-    const error = entityError(entityName, entityId);
+  if (fields.tentacle) {
+    const error = tentacleError(tentacleName, tentacleId);
     if (error) return badSetup(error);
-    if ((await readOwners()).some((o) => o.id.toLowerCase() === entityId.toLowerCase())) {
-      return badSetup(`An entity with the ID "${entityId}" already exists.`, 409);
+    if ((await readTentacles()).some((o) => o.id.toLowerCase() === tentacleId.toLowerCase())) {
+      return badSetup(`A tentacle with the ID "${tentacleId}" already exists.`, 409);
     }
   }
   if (fields.leader && !leaderTag(leaderName)) return badSetup('Enter your name.');
   if (fields.dateFormat && !SETUP_DATE_FORMATS.includes(body.dateFormat)) return badSetup('Choose a date format.');
 
-  await fs.promises.mkdir(LABELS_DIR, { recursive: true });
+  await fs.promises.mkdir(at().LABELS_DIR, { recursive: true });
   const isMissing = (file) => missing.includes(`_Labels/${path.basename(file)}`);
-  if (isMissing(OPTIONS_FILE)) {
+  if (isMissing(at().OPTIONS_FILE)) {
     const text = newOptionsCsv({ dateFormat: body.dateFormat, roundup: DEFAULT_ROUNDUP_DAYS, projects: FALLBACK_PROJECT_DIRS, taskLists: FALLBACK_TASK_LISTS });
-    await fs.promises.writeFile(OPTIONS_FILE, text, 'utf8');
-    await fs.promises.mkdir(path.resolve(ROOT_DIR, FALLBACK_PROJECT_DIRS), { recursive: true });
+    await fs.promises.writeFile(at().OPTIONS_FILE, text, 'utf8');
+    await fs.promises.mkdir(path.resolve(currentRoot(), FALLBACK_PROJECT_DIRS), { recursive: true });
   }
-  if (isMissing(COLOURS_FILE)) await fs.promises.copyFile(DEFAULT_COLOURS_FILE, COLOURS_FILE);
+  if (isMissing(at().COLOURS_FILE)) await fs.promises.copyFile(DEFAULT_COLOURS_FILE, at().COLOURS_FILE);
   if (fields.leader) {
     const result = await saveLeaderRow({ action: 'add', name: leaderName });
     if (result.code !== 200) return result;
   }
-  if (isMissing(STATUS_FILE)) {
+  if (isMissing(at().STATUS_FILE)) {
     const [first] = await readLeaders();
-    await fs.promises.writeFile(STATUS_FILE, newStatusCsv(first ? first.name : ''), 'utf8');
+    await fs.promises.writeFile(at().STATUS_FILE, newStatusCsv(first ? first.name : ''), 'utf8');
   }
-  if (fields.entity) {
+  if (fields.tentacle) {
     try {
-      await writeEntityFile(path.join(ENTITY_DIR, entityId), entityName);
+      await writeTentacleFile(path.join(at().TENTACLE_DIR, tentacleId), tentacleName);
     } catch (err) {
       if (err.code !== 'EEXIST') throw err; // an existing file is simply kept
     }
-    const existing = await readIfExists(OWNERS_FILE);
-    const text = appendOwnerCsv(existing && existing.trim() ? existing : 'id,Name,Parent\r\n', { id: entityId, name: entityName, parent: '' });
-    if (existing === null) await fs.promises.writeFile(OWNERS_FILE, text, 'utf8');
-    else await writeFileSafely(OWNERS_FILE, text);
-  } else if (isMissing(OWNERS_FILE)) {
-    await fs.promises.writeFile(OWNERS_FILE, 'id,Name,Parent\r\n', 'utf8');
+    const existing = await readIfExists(at().TENTACLES_FILE);
+    const text = appendTentacleCsv(existing && existing.trim() ? existing : 'id,Name,Parent\r\n', { id: tentacleId, name: tentacleName, parent: '' });
+    if (existing === null) await fs.promises.writeFile(at().TENTACLES_FILE, text, 'utf8');
+    else await writeFileSafely(at().TENTACLES_FILE, text);
+  } else if (isMissing(at().TENTACLES_FILE)) {
+    await fs.promises.writeFile(at().TENTACLES_FILE, 'id,Name,Parent\r\n', 'utf8');
   }
   return { code: 200, body: { ok: true } };
 }
@@ -2798,7 +3136,7 @@ function readBody(req) {
 async function listCatalogs() {
   let names;
   try {
-    names = await fs.promises.readdir(CATALOGS_DIR);
+    names = await fs.promises.readdir(at().CATALOGS_DIR);
   } catch (err) {
     if (err.code === 'ENOENT') return [];
     throw err;
@@ -2806,7 +3144,7 @@ async function listCatalogs() {
   return names.map(parseCatalogFileName).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name));
 }
 
-const readCatalogFile = (catalog) => fs.promises.readFile(path.join(CATALOGS_DIR, catalog.file), 'utf8');
+const readCatalogFile = (catalog) => fs.promises.readFile(path.join(at().CATALOGS_DIR, catalog.file), 'utf8');
 
 async function collectCatalogs() {
   const catalogs = await listCatalogs();
@@ -2830,9 +3168,9 @@ async function createCatalog({ tag, name }) {
   if (error) return { code: 400, body: { error } };
   if ((await listCatalogs()).some((c) => c.tag === upper)) return { code: 409, body: { error: `A catalog already uses the tag ${upper}.` } };
   const file = catalogFileName(upper, name);
-  await fs.promises.mkdir(CATALOGS_DIR, { recursive: true });
+  await fs.promises.mkdir(at().CATALOGS_DIR, { recursive: true });
   try {
-    await fs.promises.writeFile(path.join(CATALOGS_DIR, file), newCatalogCsv(), { encoding: 'utf8', flag: 'wx' });
+    await fs.promises.writeFile(path.join(at().CATALOGS_DIR, file), newCatalogCsv(), { encoding: 'utf8', flag: 'wx' });
   } catch (err) {
     if (err.code === 'EEXIST') return { code: 409, body: { error: 'That catalog already exists.' } };
     throw err;
@@ -2863,7 +3201,7 @@ async function saveCatalogRow(body) {
   }
   const result = editCatalogCsv(text, catalog.tag, edit);
   if (result.error) return { code: result.code || 400, body: { error: result.error } };
-  await writeFileSafely(path.join(CATALOGS_DIR, catalog.file), result.text);
+  await writeFileSafely(path.join(at().CATALOGS_DIR, catalog.file), result.text);
   return { code: 200, body: { ok: true } };
 }
 
@@ -2881,7 +3219,7 @@ async function handleEdit(req, res, isValid, apply) {
   if (!isValid(body)) return sendJson(res, 400, { error: 'Invalid request' });
   const user = await loggedInUser(req);
   if (!user && (await readSwitch('MULTIUSER'))) return sendJson(res, 401, { error: 'Please log in again before making changes.' });
-  const result = await enqueueWrite(() => requestContext.run({ user }, () => apply(body)));
+  const result = await enqueueWrite(() => requestContext.run(Object.assign({}, requestContext.getStore(), { user }), () => apply(body)));
   return sendJson(res, result.code, result.body);
 }
 
@@ -2890,18 +3228,8 @@ async function handleEdit(req, res, isValid, apply) {
 // The logged-in leader's name from the request's cookie, or null if it doesn't name a
 // leader in Leaders.csv. There are no passwords: logging in says who you are, for the change log.
 async function loggedInUser(req) {
-  const cookie = (req.headers.cookie || '')
-    .split(';')
-    .map((part) => part.trim())
-    .find((part) => part.startsWith(`${USER_COOKIE}=`));
-  if (!cookie) return null;
-  let name;
-  try {
-    name = decodeURIComponent(cookie.slice(USER_COOKIE.length + 1));
-  } catch {
-    return null;
-  }
-  return (await readLeaders()).some((leader) => leader.name === name) ? name : null;
+  const name = readCookie(req, USER_COOKIE);
+  return name !== null && (await readLeaders()).some((leader) => leader.name === name) ? name : null;
 }
 
 const userCookie = (value, maxAge) => `${USER_COOKIE}=${encodeURIComponent(value)}; Path=/; Max-Age=${maxAge}; SameSite=Lax; HttpOnly`;
@@ -2924,6 +3252,22 @@ async function handleLogin(req, res) {
 function handleLogout(req, res) {
   if (!isTrustedRequest(req)) return sendJson(res, 403, { error: 'Forbidden' });
   res.setHeader('Set-Cookie', userCookie('', 0));
+  return sendJson(res, 200, { ok: true });
+}
+
+// Switches this browser to another entity. Nothing is written, so it skips handleEdit.
+async function handleEntitySelect(req, res) {
+  if (!isTrustedRequest(req)) return sendJson(res, 403, { error: 'Forbidden' });
+  let body;
+  try {
+    body = JSON.parse(await readBody(req)) || {};
+  } catch {
+    return sendJson(res, 400, { error: 'Invalid request' });
+  }
+  const entity = (await readEntities()).find((e) => e.dir === body.dir);
+  if (!entity) return sendJson(res, 400, { error: 'Choose an entity from the list.' });
+  await prepareEntity(entityRootOf(entity));
+  res.setHeader('Set-Cookie', `${ENTITY_COOKIE}=${encodeURIComponent(entity.dir)}; Path=/; Max-Age=${60 * 60 * 24 * 365}; SameSite=Lax; HttpOnly`);
   return sendJson(res, 200, { ok: true });
 }
 
@@ -2976,9 +3320,11 @@ async function settleConflict({ folder, file, name, action }) {
 const inFile = ({ folder, file }) => typeof folder === 'string' && typeof file === 'string';
 const isReviewFlag = (body) => inFile(body) && typeof body.on === 'boolean';
 const hasLine = (body) => inFile(body) && Number.isInteger(body.line) && body.line >= 1;
-// `from` is null for an untagged checkbox, or a title with no owner.
+// `from` is null for an untagged checkbox, or a title with no tentacle.
 const isKeywordEdit = (body) => hasLine(body) && typeof body.to === 'string' && (typeof body.from === 'string' || body.from === null);
-const isPriorityEdit = (body) => hasLine(body) && typeof body.status === 'string' && (body.priority === null || PRIORITIES.includes(body.priority));
+const isPriorityEdit = (body) =>
+  hasLine(body) && typeof body.status === 'string' && (body.priority === null || PRIORITIES.includes(body.priority) || (typeof body.priority === 'string' && RECUR_VALUE.test(body.priority)));
+const isRecurAdvance = (body) => hasLine(body) && typeof body.status === 'string' && typeof body.text === 'string';
 const isTimeframeEdit = (body) => inFile(body) && typeof body.start === 'string' && typeof body.end === 'string';
 const EDITABLE_TEXT = ['title', 'milestone', 'block', 'todo', 'entry', 'value'];
 const isRawEdit = (body) => inFile(body) && typeof body.from === 'string' && typeof body.to === 'string';
@@ -3006,14 +3352,15 @@ const isBodyEdit = (body) =>
 const isNewTitled = (body) => inFile(body) && typeof body.title === 'string';
 const isNewItem = (body) => hasLine(body) && typeof body.title === 'string' && typeof body.text === 'string';
 const isNewTask = (body) => inFile(body) && typeof body.text === 'string' && typeof body.list === 'string';
-const isSetup = (body) => ['entityName', 'entityId', 'leaderName', 'dateFormat'].every((key) => body[key] === undefined || typeof body[key] === 'string');
-const isNewEntity = ({ parent, name, id }) => [parent, name, id].every((v) => typeof v === 'string');
+const isSetup = (body) => ['tentacleName', 'tentacleId', 'leaderName', 'dateFormat'].every((key) => body[key] === undefined || typeof body[key] === 'string');
+const isNewTentacle = ({ parent, name, id }) => [parent, name, id].every((v) => typeof v === 'string');
 const isRowEdit = (fields) => (body) =>
   ['add', 'update', 'delete'].includes(body.action) &&
   (body.action === 'add' || typeof body.from === 'string') &&
   (body.action === 'delete' || fields.every((field) => typeof body[field] === 'string'));
 const isStatusRow = isRowEdit(['type', 'name', 'next']);
 const isLeaderRow = isRowEdit(['name']);
+const isEntityRow = isRowEdit(['name', 'dir']);
 const isColourRow = (body) => typeof body.from === 'string' && typeof body.colour === 'string';
 const isReviewSubmit = (body) => typeof body.wins === 'string';
 const isStatusSwitch = ({ folder, status }) => typeof folder === 'string' && typeof status === 'string';
@@ -3023,13 +3370,13 @@ const isTypeChange = (body) => inFile(body) && typeof body.type === 'string';
 const isFolderRequest = ({ folder }) => typeof folder === 'string';
 // An entry in _Incubator.md or _Archive.md, found by its heading's line and title.
 const isNamedEntryRow = ({ line, title }) => Number.isInteger(line) && line >= 1 && typeof title === 'string';
-const isArchiveEntry = (body) => ['owner', 'title', 'created', 'closed', 'start', 'end', 'dependency', 'leader'].every((k) => typeof body[k] === 'string');
-const isNewIdea = (body) => ['title', 'owner', 'dependency', 'notes'].every((k) => typeof body[k] === 'string');
+const isArchiveEntry = (body) => ['tentacle', 'title', 'created', 'closed', 'start', 'end', 'dependency', 'leader'].every((k) => typeof body[k] === 'string');
+const isNewIdea = (body) => ['title', 'tentacle', 'dependency', 'notes'].every((k) => typeof body[k] === 'string');
 const isPromotion = (body) => isNamedEntryRow(body) && ['start', 'end', 'leader'].every((k) => typeof body[k] === 'string') && (body.directory === undefined || typeof body.directory === 'string');
 const isEventField = (body) =>
   Number.isInteger(body.line) && typeof body.title === 'string' && typeof body.label === 'string' && ['start', 'end', 'value'].every((k) => body[k] === undefined || typeof body[k] === 'string');
-const isCompatibilityFix = ({ type, key, file, main, owner }) =>
-  ['projects', 'entities', 'events'].includes(type) && typeof key === 'string' && [file, main, owner].every((v) => v === undefined || typeof v === 'string');
+const isCompatibilityFix = ({ type, key, file, main, leader }) =>
+  ['projects', 'tentacles', 'events', 'core'].includes(type) && typeof key === 'string' && [file, main, leader].every((v) => v === undefined || typeof v === 'string');
 const isHelpRead = ({ read }) => typeof read === 'boolean';
 const isFocusSubmit = ({ items }) =>
   Array.isArray(items) && items.every((i) => i && typeof i.folder === 'string' && typeof i.text === 'string');
@@ -3045,8 +3392,8 @@ const isRowAction = (body) =>
   hasLine(body) && (typeof body.status === 'string' || body.status === null) && typeof body.text === 'string' && ['cancel', 'delete'].includes(body.action);
 // Date Reviewed is only ever set by marking something as reviewed on the Review page.
 const isDateEdit = (body) => inFile(body) && typeof body.value === 'string' && body.field === 'closed';
-const isNewProject = ({ entity, title, owner, notes, type, dir }) =>
-  [entity, title, owner, notes, type].every((v) => typeof v === 'string') && (dir === undefined || typeof dir === 'string');
+const isNewProject = ({ tentacle, title, leader, notes, type, dir }) =>
+  [tentacle, title, leader, notes, type].every((v) => typeof v === 'string') && (dir === undefined || typeof dir === 'string');
 const isConflictAction = (body) => inFile(body) && typeof body.name === 'string' && ['keep', 'use'].includes(body.action);
 const isOptionsEdit = ({ values }) =>
   typeof values === 'object' && values !== null && Object.values(values).every((v) => typeof v === 'string');
@@ -3096,21 +3443,35 @@ async function sendFileFrom(res, root, rel) {
   }
 }
 
+// Every request works on one entity's data, chosen by the browser's cookie.
 const server = http.createServer(async (req, res) => {
   try {
+    const entity = await selectedEntity(req);
+    return await requestContext.run({ root: entityRootOf(entity), entity }, () => route(req, res));
+  } catch (err) {
+    console.error(err);
+    send(res, 500, 'Internal server error');
+  }
+});
+
+async function route(req, res) {
+  try {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    if (url.pathname === '/api/entity-select' && req.method === 'POST') return handleEntitySelect(req, res);
     if (url.pathname === '/api/status' && req.method === 'POST') return handleEdit(req, res, isKeywordEdit, changeStatus);
-    if (url.pathname === '/api/owner' && req.method === 'POST') return handleEdit(req, res, isKeywordEdit, changeOwner);
+    if (url.pathname === '/api/tentacle-tag' && req.method === 'POST') return handleEdit(req, res, isKeywordEdit, changeTentacle);
     if (url.pathname === '/api/leader' && req.method === 'POST') return handleEdit(req, res, isKeywordEdit, changeLeader);
     if (url.pathname === '/api/timeframe' && req.method === 'POST') return handleEdit(req, res, isTimeframeEdit, saveTimeframe);
     if (url.pathname === '/api/timeframe-change' && req.method === 'POST') return handleEdit(req, res, isTimeframeChange, changeTimeframe);
     if (url.pathname === '/api/priority' && req.method === 'POST') return handleEdit(req, res, isPriorityEdit, changePriority);
+    if (url.pathname === '/api/recur' && req.method === 'POST') return handleEdit(req, res, isRecurAdvance, advanceRecurringTask);
     if (url.pathname === '/api/project-status' && req.method === 'POST') return handleEdit(req, res, isStatusSwitch, changeProjectStatus);
     if (url.pathname === '/api/file-add' && req.method === 'POST') return handleEdit(req, res, isNamedInFile, saveNewFile);
     if (url.pathname === '/api/planning' && req.method === 'POST') return handleEdit(req, res, isPlanningEdit, savePlanningDate);
     if (url.pathname === '/api/project-type' && req.method === 'POST') return handleEdit(req, res, isTypeChange, changeProjectType);
     if (url.pathname === '/api/compatibility-fix' && req.method === 'POST') return handleEdit(req, res, isCompatibilityFix, fixCompatibility);
     if (url.pathname === '/api/project-archive' && req.method === 'POST') return handleEdit(req, res, isFolderRequest, archiveProject);
+    if (url.pathname === '/api/open-folder' && req.method === 'POST') return handleEdit(req, res, isFolderRequest, openFolder);
     if (url.pathname === '/api/event-field' && req.method === 'POST') return handleEdit(req, res, isEventField, saveEventField);
     if (url.pathname === '/api/incubator' && req.method === 'POST') return handleEdit(req, res, isNewIdea, saveIdea);
     if (url.pathname === '/api/incubator-archive' && req.method === 'POST') return handleEdit(req, res, isNamedEntryRow, archiveIdea);
@@ -3138,11 +3499,12 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/milestone-item' && req.method === 'POST') return handleEdit(req, res, isNewItem, saveNewItem);
     if (url.pathname === '/api/status-table' && req.method === 'POST') return handleEdit(req, res, isStatusRow, saveStatusRow);
     if (url.pathname === '/api/leader-table' && req.method === 'POST') return handleEdit(req, res, isLeaderRow, saveLeaderRow);
+    if (url.pathname === '/api/entity-table' && req.method === 'POST') return handleEdit(req, res, isEntityRow, saveEntityRow);
     if (url.pathname === '/api/agenda-table' && req.method === 'POST') return handleEdit(req, res, isAgendaRow, saveAgendaRow);
     if (url.pathname === '/api/agenda-check' && req.method === 'POST') return handleEdit(req, res, isAgendaCheck, checkAgendaItem);
     if (url.pathname === '/api/colour-table' && req.method === 'POST') return handleEdit(req, res, isColourRow, saveColourRow);
     if (url.pathname === '/api/task' && req.method === 'POST') return handleEdit(req, res, isNewTask, saveNewTask);
-    if (url.pathname === '/api/entities' && req.method === 'POST') return handleEdit(req, res, isNewEntity, createEntity);
+    if (url.pathname === '/api/tentacles' && req.method === 'POST') return handleEdit(req, res, isNewTentacle, createTentacle);
     if (url.pathname === '/api/file-body' && req.method === 'POST') return handleEdit(req, res, isRawEdit, saveRawFile);
     if (url.pathname === '/api/entry-field' && req.method === 'POST') return handleEdit(req, res, isFieldEdit, saveEntryField);
     if (url.pathname === '/api/entry-add' && req.method === 'POST') return handleEdit(req, res, isNewEntry, saveNewEntry);
@@ -3178,20 +3540,23 @@ const server = http.createServer(async (req, res) => {
       return catalog ? sendJson(res, 200, catalog) : sendJson(res, 404, { error: 'Catalog not found.' });
     }
     if (url.pathname === '/api/timeline') {
+      // A tentacle page's Timeline has only its own projects, and no event or release lines.
+      const tentacle = url.searchParams.get('tentacle');
+      if (tentacle) return sendJson(res, 200, { rows: await tentacleTimeline(tentacle), events: [], releases: [], dateFormat: await readDateFormat() });
       return sendJson(res, 200, { rows: await collectTimeline(), events: await timelineEvents(), releases: await timelineReleases(), dateFormat: await readDateFormat() });
     }
     if (url.pathname === '/api/history') {
-      const file = { review: REVIEW_FILE, focus: FOCUS_FILE }[url.searchParams.get('page')];
+      const file = { review: at().REVIEW_FILE, focus: at().FOCUS_FILE }[url.searchParams.get('page')];
       if (!file) return sendJson(res, 404, { error: 'Not found' });
       return sendJson(res, 200, await readHistory(file));
     }
-    if (url.pathname === '/api/owner-tags.js') {
-      const ids = (await readOwners()).map((o) => o.id);
+    if (url.pathname === '/api/tags.js') {
+      const ids = (await readTentacles()).map((o) => o.id);
       const archived = (await readStatuses()).filter((s) => s.type === 'ARCHIVED').map((s) => s.name);
       const showArchived = await readShowArchived();
       const flags = {
-        PMS_OWNER_IDS: ids,
-        // [[OWNERID Title]] links go to that project. Keyed as dependencyKey does.
+        PMS_TENTACLE_IDS: ids,
+        // [[TENTACLEID Title]] links go to that project. Keyed as dependencyKey does.
         PMS_PROJECTS: Object.fromEntries((await listProjects()).filter((p) => !isArchived(p)).map((p) => [dependencyKey(projectName(p.name)), p.folder])),
         PMS_ARCHIVED_STATUSES: archived,
         PMS_SHOW_ARCHIVED: showArchived,
@@ -3199,6 +3564,9 @@ const server = http.createServer(async (req, res) => {
         PMS_SYNC_CONFLICTS: await readSwitch('SYNCCONFLICTS'),
         PMS_ARCHIVE_MODE: await readArchiveMode(),
         PMS_USER: await loggedInUser(req),
+        // The dropdown at the top of the menu, and which entity this browser has chosen.
+        PMS_ENTITIES: (await readEntities()).filter((e) => e.dir),
+        PMS_ENTITY: requestContext.getStore().entity.dir,
       };
       // JSON can hold "</script>"-like text in a name, so "<" is escaped as well.
       const script = Object.entries(flags).map(([key, value]) => `window.${key} = ${JSON.stringify(value).replace(/</g, '\\u003c')};\n`).join('');
@@ -3210,8 +3578,9 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/compatibility') {
       const type = url.searchParams.get('type');
       if (type === 'projects') return sendJson(res, 200, await incompatibleProjects());
-      if (type === 'entities') return sendJson(res, 200, await incompatibleEntities());
+      if (type === 'tentacles') return sendJson(res, 200, await incompatibleTentacles());
       if (type === 'events') return sendJson(res, 200, await incompatibleEvents());
+      if (type === 'core') return sendJson(res, 200, await incompatibleCoreFiles());
       return sendJson(res, 404, { error: 'Page not found' });
     }
     if (url.pathname === '/api/networking') {
@@ -3221,6 +3590,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/setup') return sendJson(res, 200, await setupState());
     if (url.pathname === '/api/status-table') return sendJson(res, 200, await readStatusTable());
     if (url.pathname === '/api/leader-table') return sendJson(res, 200, await readLeaderTable());
+    if (url.pathname === '/api/entity-table') return sendJson(res, 200, await readEntityTable());
     if (url.pathname === '/api/agenda-table') return sendJson(res, 200, await readAgendaTable());
     if (url.pathname === '/api/colour-table') return sendJson(res, 200, await readColourTable());
     if (url.pathname === '/api/colours.css') return send(res, 200, coloursStylesheet((await readColourTable()).rows), MIME['.css']);
@@ -3236,13 +3606,13 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/weekly-review') return sendJson(res, 200, await collectWeeklyReview());
     if (url.pathname === '/api/nav') return sendJson(res, 200, await collectNav());
     if (url.pathname === '/api/project-options') {
-      const [owners, leaders] = await Promise.all([readOwners(), readLeaders()]);
-      return sendJson(res, 200, { owners, leaders, types: PROJECT_TYPES });
+      const [tentacles, leaders] = await Promise.all([readTentacles(), readLeaders()]);
+      return sendJson(res, 200, { tentacles, leaders, types: PROJECT_TYPES });
     }
-    if (url.pathname === '/api/entity') {
-      const entity = await readEntity(url.searchParams.get('id') || '', url.searchParams.get('tab'), url.searchParams.get('file'));
-      if (!entity) return sendJson(res, 404, { error: 'Entity not found' });
-      return sendJson(res, 200, Object.assign(entity, { dateFormat: await readDateFormat() }));
+    if (url.pathname === '/api/tentacle') {
+      const tentacle = await readTentacle(url.searchParams.get('id') || '', url.searchParams.get('tab'), url.searchParams.get('file'));
+      if (!tentacle) return sendJson(res, 404, { error: 'Tentacle not found' });
+      return sendJson(res, 200, Object.assign(tentacle, { dateFormat: await readDateFormat() }));
     }
 
     if (url.pathname === '/api/projects') {
@@ -3266,21 +3636,41 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, project);
     }
     if (url.pathname.startsWith('/images/')) return serveImage(res, url.pathname);
+    // Tentacle pages were entity pages, so old links and bookmarks still arrive here.
+    if (url.pathname === '/entity.html') {
+      res.writeHead(302, { Location: 'tentacle.html' + url.search, 'Cache-Control': 'no-store' });
+      return res.end();
+    }
     return serveStatic(req, res, url.pathname);
   } catch (err) {
     console.error(err);
     send(res, 500, 'Internal server error');
   }
-});
+}
 
 // Every folder the dashboard expects, and the Networking files its pages open. Anything
 // already there is left alone.
-const REQUIRED_DIRS = [NETWORKING_DIR, IMAGES_DIR, LABELS_DIR, ENTITY_DIR, path.join(ROOT_DIR, 'Projects'), TIME_MANAGEMENT_DIR, CATALOGS_DIR];
-const STARTER_FILES = [
-  [path.join(NETWORKING_DIR, 'Leads.md'), '# Leads\n\n## Contacts\n'],
-  [path.join(NETWORKING_DIR, 'Events.md'), '# Events\n\n## Upcoming\n'],
-  [REPORTS_FILE, ''], // blank until the first review adds a report
-];
+function requiredDirs(root) {
+  const p = dataPaths(root);
+  return [p.NETWORKING_DIR, p.LABELS_DIR, p.TENTACLE_DIR, path.join(root, 'Projects'), p.TIME_MANAGEMENT_DIR, p.CATALOGS_DIR];
+}
+function starterFiles(root) {
+  const p = dataPaths(root);
+  return [
+    [path.join(p.NETWORKING_DIR, contactsFile(p.NETWORKING_DIR)), '# Contacts\n\n## Contacts\n'],
+    [path.join(p.NETWORKING_DIR, 'Events.md'), '# Events\n\n## Upcoming\n'],
+    [p.REPORTS_FILE, ''], // blank until the first review adds a report
+  ];
+}
+
+// Tentacles.csv was called Owners.csv. It's renamed once, and never over a Tentacles.csv.
+async function renameOldTentaclesFile(root) {
+  const { TENTACLES_FILE, LABELS_DIR } = dataPaths(root);
+  const old = path.join(LABELS_DIR, 'Owners.csv');
+  if ((await readIfExists(TENTACLES_FILE)) !== null || (await readIfExists(old)) === null) return;
+  await fs.promises.rename(old, TENTACLES_FILE);
+  console.log(`Renamed ${path.relative(ROOT_DIR, old)} to Tentacles.csv`);
+}
 
 // The Help Guide, its screenshots and the logo ship in _Dashboard/defaults.
 const DEFAULTS_DIR = path.join(__dirname, 'defaults');
@@ -3302,11 +3692,19 @@ async function copyFolderIfMissing(from, to) {
 
 // Adds anything missing and never replaces a file that's there, so edits and the guide's
 // "Mark as read" tick are kept. Any logo of the user's own counts as the logo.
-async function createMissingFolders() {
-  for (const dir of REQUIRED_DIRS) await fs.promises.mkdir(dir, { recursive: true });
-  for (const [file, content] of STARTER_FILES) {
+// An entity's folders and starter files, for an entity added to entities.csv since start-up
+// as well as the ones there already.
+async function prepareEntity(root) {
+  for (const dir of requiredDirs(root)) await fs.promises.mkdir(dir, { recursive: true });
+  await renameOldTentaclesFile(root);
+  for (const [file, content] of starterFiles(root)) {
     await fs.promises.writeFile(file, content, { encoding: 'utf8', flag: 'wx' }).catch(unlessExists);
   }
+}
+
+async function createMissingFolders() {
+  for (const entity of await readEntities()) await prepareEntity(entityRootOf(entity));
+  await fs.promises.mkdir(IMAGES_DIR, { recursive: true });
   await copyIfMissing(path.join(DEFAULTS_DIR, '_Help_Guide.md'), HELP_FILE);
   await copyFolderIfMissing(path.join(DEFAULTS_DIR, 'Screenshots'), path.join(IMAGES_DIR, 'Screenshots'));
   if (!(await findLogo())) await copyIfMissing(path.join(DEFAULTS_DIR, 'Logo.png'), path.join(IMAGES_DIR, 'Logo.png'));
@@ -3317,6 +3715,6 @@ createMissingFolders()
   .finally(() => {
     server.listen(PORT, HOST, () => {
       console.log(`Octapu System ${VERSION} running at http://${HOST}:${PORT}`);
-      console.log(`Reading projects from the directories named in ${OPTIONS_FILE}`);
+      readEntities().then((entities) => console.log('Entities: ' + entities.map((e) => `${e.name} (${e.dir || 'main folder'})`).join(', ')));
     });
   });

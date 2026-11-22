@@ -1,16 +1,16 @@
 // Review: the agenda, done items since the last review, and the form that logs the wins.
 (function () {
   'use strict';
-  const { parseFolder, displayDate, setDateFormat, markdown: md, status, component, element, getJson, postJson, loadError, showFormError, UNREACHABLE, entityHref, openDialog } = window.PMS;
+  const { parseFolder, displayDate, setDateFormat, markdown: md, status, component, element, getJson, postJson, loadError, showFormError, UNREACHABLE, tentacleHref, openDialog } = window.PMS;
 
   const contentEl = document.getElementById('content');
   let groups = [];
   let toReview = []; // the rows in the two "to review" boxes, indexed by data-review
 
-  const pageOf = (entry) => (entry.root ? entityHref(entry.root, entry.id) : 'project.html?folder=' + encodeURIComponent(entry.folder));
+  const pageOf = (entry) => (entry.root ? tentacleHref(entry.root, entry.id) : 'project.html?folder=' + encodeURIComponent(entry.folder));
 
   const nameOf = (entry) => (entry.root ? entry.name : parseFolder(entry.folder).title);
-  const detailOf = (entry) => (entry.root ? entry.parentName || '' : parseFolder(entry.folder).owner);
+  const detailOf = (entry) => (entry.root ? entry.parentName || '' : parseFolder(entry.folder).tentacle);
 
   // `kind` matches the colour of this list's number beside Review in the menu.
   function reviewBox(heading, entries, kind) {
@@ -28,14 +28,42 @@
 
   function reviewBoxes(data) {
     toReview = [];
-    return reviewBox('Projects to review', data.projects, 'projects') + reviewBox('Entities to review', data.entities, 'entities');
+    return reviewBox('Projects to review', data.projects, 'projects') + reviewBox('Tentacles to review', data.tentacles, 'tentacles');
   }
+
+  // Tasks with a WAITING type status, in yellow like their status, each with its status
+  // control and menu as in the Todos sidebar.
+  function waitingBox(items) {
+    const rows = items.map((item) => {
+      const { label, href } = status.itemLink(item);
+      return component('todo-item', {
+        ticked: false,
+        checkbox: item.mark === null ? '' : status.checkbox(item),
+        control: status.control(item),
+        menu: status.rowMenu(item),
+        href,
+        location: item.file + ', line ' + item.line,
+        label,
+        text: item.text ? md.inline(item.text) : '',
+        dates: item.dates.map((d) => component('todo-date', { kind: d.kind, value: window.PMS.displayDates(d.value) })).join(''),
+      });
+    });
+    return component('review-queue-box', {
+      kind: 'waiting',
+      heading: 'Waiting tasks',
+      count: items.length,
+      body: rows.length ? component('review-items', { items: rows.join('') }) : component('no-tasks', { message: 'No tasks waiting.' }),
+    });
+  }
+
+  // The yellow box comes first, then the projects and tentacles to review.
+  const queueHtml = (data) => waitingBox(data.waiting) + reviewBoxes(data.toReview);
 
   // ---------- the agenda (AgendaItems.csv) ----------
 
   const agendaCheck = (row) => component('agenda-check', { index: row.index, item: row.item, checked: row.checked });
 
-  // A project or entity on a rule card. Reviewed since the last logged review shows as done.
+  // A project or tentacle on a rule card. Reviewed since the last logged review shows as done.
   function agendaEntry(entry) {
     toReview.push(entry);
     const reviewed = entry.reviewed ? 'Reviewed ' + displayDate(entry.reviewed) : 'Not reviewed yet';
@@ -80,7 +108,7 @@
       .then((data) => {
         const queue = contentEl.querySelector('#review-queue');
         const agenda = contentEl.querySelector('#agenda');
-        if (queue) queue.innerHTML = reviewBoxes(data.toReview);
+        if (queue) queue.innerHTML = queueHtml(data);
         if (agenda) {
           agenda.innerHTML = agendaHtml(data.agenda);
           agenda.hidden = !agenda.innerHTML;
@@ -134,7 +162,8 @@
     groups = data.groups;
     const since = data.lastReview ? 'Done since the last review on ' + displayDate(data.lastReview) + '.' : 'No reviews logged yet, so this is everything done so far.';
     const count = data.totalDone + (data.totalDone === 1 ? ' done item' : ' done items');
-    const queue = reviewBoxes(data.toReview);
+    status.setStatuses(data.statuses);
+    const queue = queueHtml(data);
     const agenda = agendaHtml(data.agenda);
     contentEl.innerHTML = component('review-page', {
       queue,
@@ -190,5 +219,7 @@
       });
   }
 
+  // A status changed here or in the sidebar can move a task in or out of the waiting box.
+  status.onChange(refreshReviewBoxes);
   load();
 })();

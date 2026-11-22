@@ -6,19 +6,42 @@
   </span>
 </template>
 
-<template name="nav-link"><a class="nav-link{{#if extra}} {{{extra}}}{{/if}}" href="{{href}}"{{#if current}} aria-current="page"{{/if}}>{{label}}{{{counts}}}{{#if note}}<span class="nav-note">{{note}}</span>{{/if}}</a></template>
+<!-- The label stays on one line, cut short with an ellipsis if the menu is too narrow, with the
+     whole name in its tooltip. -->
+<template name="nav-link"><a class="nav-link{{#if extra}} {{{extra}}}{{/if}}" href="{{href}}"{{#if current}} aria-current="page"{{/if}}><span class="nav-label" title="{{label}}">{{label}}</span>{{{counts}}}{{#if note}}<span class="nav-note">{{note}}</span>{{/if}}</a></template>
+
+<!-- Collapses a sidebar to a thin rail, or opens it again (layout.js). On a wide screen it's a
+     round button on the sidebar's edge; on a narrow one, a bar above the sidebar with its name. -->
+<template name="sidebar-toggle"><button type="button" class="sidebar-toggle sidebar-toggle-{{{side}}}" data-toggle-sidebar="{{{side}}}" aria-controls="{{{controls}}}" aria-expanded="true"><span class="sidebar-toggle-name">{{name}}</span></button></template>
+
+<!-- The handle on a sidebar's inner edge, dragged to change its width. -->
+<template name="sidebar-resizer"><div class="sidebar-resizer sidebar-resizer-{{{side}}}" data-resize="{{{side}}}" role="separator" aria-orientation="vertical" aria-label="{{label}}" tabindex="0" title="Drag to resize, double-click to reset"></div></template>
+
+<!-- Which entity, from _Dashboard/entities.csv, the dashboard is working on. -->
+<template name="entity-select">
+  <label class="entity-select"><span class="visually-hidden">Entity</span><select data-entity-select>{{{options}}}</select></label>
+</template>
 
 <template name="nav-logo"><a class="nav-logo" href="./" title="Dashboard"><img src="{{{src}}}" alt="Logo"><span class="nav-brand">Octapu System</span></a></template>
 
 <template name="nav-group">
   <details class="nav-group" data-group="{{key}}"{{#if open}} open{{/if}}>
-    <summary class="nav-link">{{label}}</summary>
+    <summary class="nav-link"><span class="nav-label" title="{{label}}">{{label}}</span></summary>
     {{#if links}}<div class="nav-children">{{{links}}}</div>{{else}}<p class="nav-empty">{{empty}}</p>{{/if}}
   </details>
 </template>
 
+<!-- A tentacle with others under it. The link opens its page, and the rest of the row shows
+     or hides those under it. -->
+<template name="nav-branch">
+  <details class="nav-branch" data-branch="{{key}}"{{#if open}} open{{/if}}>
+    <summary class="nav-branch-head" title="Show or hide the tentacles under {{name}}">{{{link}}}</summary>
+    <div class="nav-children">{{{links}}}</div>
+  </details>
+</template>
+
 <template name="todo-item">
-  <li class="todo{{#if ticked}} ticked{{/if}}{{#if tint}} tint tint-{{{tint}}}{{/if}}"{{#if tint}} title="{{note}}"{{/if}}>
+  <li class="todo{{#if ticked}} ticked{{/if}}{{#if tint}} tint tint-{{{tint}}}{{/if}}{{#if recur}} tint recur-{{{recur}}}{{/if}}"{{#if note}} title="{{note}}"{{/if}}>
     <div class="todo-head">
       {{{checkbox}}}
       {{{control}}}

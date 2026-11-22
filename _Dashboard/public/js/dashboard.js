@@ -44,7 +44,7 @@
 
   // Left out of the saved file: what only works inside the dashboard (hover layers, menus, and
   // add, drag and collapse buttons), and the table of every report, which stays on the tab.
-  const LEFT_OUT = '.chart-tip, .chart-crosshair, .chart-hit, .report-actions, .add-button, .status-caret, .check-caret, [data-drag], .collapse-button, .report-table, .gantt-toolbar, .gantt-none';
+  const LEFT_OUT = '.folder-button, .chart-tip, .chart-crosshair, .chart-hit, .report-actions, .add-button, .status-caret, .check-caret, [data-drag], .collapse-button, .report-table, .gantt-toolbar, .gantt-none';
 
   // The Timeline hides rows away from the months on screen, so for the copy it shows every
   // row and redraws its arrows, then goes back. That needs the Overview laid out, so a

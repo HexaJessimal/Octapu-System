@@ -1,4 +1,5 @@
-// Options page: an edit form for _Labels/Options.csv, plus the Statuses, Leaders, Colours and Agenda tabs.
+// Options page: an edit form for _Labels/Options.csv, plus the Statuses, Leaders, Colours, Agenda
+// and Entities tabs.
 (function () {
   'use strict';
   const { labelTables, component, getJson, postJson, loadError, UNREACHABLE } = window.PMS;
@@ -11,12 +12,14 @@
     leaders: document.getElementById('leaders-panel'),
     colours: document.getElementById('colours-panel'),
     agenda: document.getElementById('agenda-panel'),
+    entities: document.getElementById('entities-panel'),
   };
   const tables = {
     statuses: labelTables.create('statuses', panels.statuses),
     leaders: labelTables.create('leaders', panels.leaders),
     colours: labelTables.create('colours', panels.colours),
     agenda: labelTables.create('agenda', panels.agenda),
+    entities: labelTables.create('entities', panels.entities),
   };
 
   function show(tab) {
@@ -38,7 +41,7 @@
 
   // What each on/off option does, shown under its name.
   const TOGGLE_NOTES = {
-    SHOWARCHIVED: 'Show archived tasks on project, entity, Leads and Events pages',
+    SHOWARCHIVED: 'Show archived tasks on project, tentacle, Contacts and Events pages',
     SYNCCONFLICTS: 'Warn at the top of a page when Syncthing has left a conflicting copy of its file, and show how they differ',
     MULTIUSER: 'Ask people to log in by choosing their name from Leaders, and log who changed each file in a Changelog tab',
   };

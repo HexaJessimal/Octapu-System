@@ -63,13 +63,13 @@
   function planBody(plan) {
     if (!plan.current) return component('home-plan-link', { last: plan.date ? 'The last plan was made on ' + displayDate(plan.date) + '. ' : '' });
     if (!plan.entries.length) return component('empty-text', { message: 'The latest plan has nothing in it.' });
-    const owners = new Map();
+    const tentacles = new Map();
     plan.entries.forEach((entry) => {
-      if (!owners.has(entry.owner)) owners.set(entry.owner, []);
-      owners.get(entry.owner).push(entry);
+      if (!tentacles.has(entry.tentacle)) tentacles.set(entry.tentacle, []);
+      tentacles.get(entry.tentacle).push(entry);
     });
     return component('home-plan', {
-      owners: [...owners].map(([owner, entries]) => component('home-plan-owner', { owner: owner || '', projects: entries.map(planProject).join('') })).join(''),
+      tentacles: [...tentacles].map(([tentacle, entries]) => component('home-plan-tentacle', { tentacle: tentacle || '', projects: entries.map(planProject).join('') })).join(''),
     });
   }
 

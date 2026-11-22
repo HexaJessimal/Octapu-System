@@ -103,6 +103,29 @@ a:hover {
   flex-wrap: wrap;
   margin-bottom: 24px;
 }
+/* A page's view tabs and buttons, kept at the top of the window as it scrolls, so a long
+   title below has the whole width. The back link sits on the left, everything else right. */
+.view-bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: -16px 0 18px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+.view-bar .back {
+  margin-right: auto;
+}
+/* Room above whatever a link scrolls to, so it isn't hidden under the view bar. */
+html:has(.view-bar) {
+  scroll-padding-top: 84px;
+}
 .topbar h1 {
   margin: 0;
   font-size: 1.5rem;
@@ -286,7 +309,7 @@ a:hover {
   font-weight: 560;
   overflow-wrap: anywhere;
 }
-.project-link .owner {
+.project-link .tentacle {
   color: var(--text-soft);
   font-size: 0.85rem;
 }
@@ -344,8 +367,37 @@ a:hover {
 /* ---------- pretty view ---------- */
 
 .summary {
+  position: relative;
   padding: 22px 24px;
   margin-bottom: 18px;
+}
+/* The folder button, at the summary's top right, in the colour of the summary's fact box
+   borders: cyan on a project, and the raised purple everywhere else. */
+.folder-button {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--surface-raised);
+  cursor: pointer;
+}
+.project-page .folder-button {
+  color: var(--cyan);
+}
+.folder-button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: currentColor;
+  -webkit-mask: url('../img/folder-outline.svg') center / contain no-repeat;
+  mask: url('../img/folder-outline.svg') center / contain no-repeat;
+}
+.folder-button:hover {
+  filter: brightness(1.3);
 }
 .summary h2 {
   margin: 0 0 12px;
@@ -395,7 +447,7 @@ a:hover {
 .facts-grid > div {
   grid-column: auto;
 }
-/* An entity: four boxes a row, below the full-width Owner. */
+/* A tentacle: four boxes a row, below the full-width Leader. */
 .facts-quarters {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
@@ -889,6 +941,10 @@ li:hover > .row-menu-control .row-menu-button,
 .prio-c {
   color: var(--pink);
 }
+/* R, a recurring task. */
+.prio-r {
+  color: var(--cyan);
+}
 
 .error {
   padding: 18px 20px;
@@ -897,10 +953,137 @@ li:hover > .row-menu-control .row-menu-button,
 
 /* ---------- todo sidebar ---------- */
 
+/* The sidebars' widths come from layout.js, as dragged, and shrink with the window so they
+   never crowd out the page. A collapsed one is a thin rail. */
 .shell {
+  --nav-col: clamp(160px, var(--nav-width, 220px), 30vw);
+  --todo-col: clamp(260px, var(--todo-width, 340px), 38vw);
+  --rail: 36px;
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr) 340px;
+  grid-template-columns: var(--nav-col) minmax(0, 1fr) var(--todo-col);
   align-items: start;
+}
+.shell.nav-collapsed {
+  --nav-col: var(--rail);
+}
+.shell.todos-collapsed {
+  --todo-col: var(--rail);
+}
+/* A title too long for a sidebar is cut short, never widening it or scrolling it sideways. */
+.nav-sidebar,
+.sidebar {
+  min-width: 0;
+  overflow-x: hidden;
+}
+.nav-collapsed .nav-sidebar {
+  padding: 0;
+}
+.nav-collapsed .nav-sidebar > * {
+  display: none;
+}
+/* The Todos rail keeps only its count, below the button. */
+.todos-collapsed .sidebar > :not(.sidebar-head),
+.todos-collapsed .sidebar-head h2 {
+  display: none;
+}
+.todos-collapsed .sidebar-head {
+  justify-content: center;
+  padding: 100px 2px 0;
+}
+
+/* The collapse button, a circle on the sidebar's inner edge near the top. Its name is only
+   shown on narrow screens. */
+.sidebar-toggle {
+  position: fixed;
+  top: 64px;
+  z-index: 15;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text-soft);
+  cursor: pointer;
+}
+.sidebar-toggle:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.sidebar-toggle-nav {
+  left: calc(var(--nav-col) - 11px);
+}
+.sidebar-toggle-todos {
+  right: calc(var(--todo-col) - 11px);
+}
+.sidebar-toggle-name {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+/* A chevron pointing the way the sidebar will go: in to hide it, out to show it. */
+.sidebar-toggle::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  border: solid currentColor;
+  border-width: 0 0 2px 2px;
+  transform: translate(-35%, -50%) rotate(45deg);
+}
+.sidebar-toggle-todos::before,
+.nav-collapsed .sidebar-toggle-nav::before {
+  transform: translate(-65%, -50%) rotate(-135deg);
+}
+.todos-collapsed .sidebar-toggle-todos::before {
+  transform: translate(-35%, -50%) rotate(45deg);
+}
+
+/* The drag handles: a strip along each sidebar's inner edge that lights up when pointed at. */
+.sidebar-resizer {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  z-index: 14;
+  width: 8px;
+  cursor: col-resize;
+  touch-action: none;
+}
+.sidebar-resizer-nav {
+  left: calc(var(--nav-col) - 4px);
+}
+.sidebar-resizer-todos {
+  right: calc(var(--todo-col) - 4px);
+}
+.sidebar-resizer::after {
+  content: '';
+  position: absolute;
+  inset: 0 3px;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.sidebar-resizer:hover::after,
+.sidebar-resizer:focus-visible::after,
+.is-resizing .sidebar-resizer::after {
+  opacity: 0.6;
+}
+.sidebar-resizer:focus-visible {
+  outline: none;
+}
+.nav-collapsed .sidebar-resizer-nav,
+.todos-collapsed .sidebar-resizer-todos {
+  display: none;
+}
+/* No text gets selected while a handle is dragged across it. */
+.is-resizing {
+  cursor: col-resize;
+  user-select: none;
 }
 
 /* ---------- menu ---------- */
@@ -915,6 +1098,20 @@ li:hover > .row-menu-control .row-menu-button,
   padding: 24px 10px 0;
   background: var(--surface);
   border-right: 1px solid var(--border);
+}
+.entity-select {
+  display: block;
+  margin: 0 0 14px;
+}
+.entity-select select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--surface-raised);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
 }
 /* Rests at the bottom of the menu, and stays in view when a long menu scrolls past it. */
 .nav-logo {
@@ -952,13 +1149,24 @@ li:hover > .row-menu-control .row-menu-button,
   line-height: 1.1;
   text-transform: uppercase;
 }
+/* A row of its own: the label on one line, then any counts and note, which wrap below if
+   there's no room beside it. */
 .nav-link {
-  display: block;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  min-width: 0;
   padding: 7px 10px;
   border-radius: var(--radius-sm);
   color: var(--text-soft);
   text-decoration: none;
-  overflow-wrap: anywhere;
+}
+.nav-label {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .nav-link:hover {
   background: var(--surface-raised);
@@ -980,6 +1188,48 @@ summary.nav-link {
   padding: 5px 10px;
   font-size: 0.9rem;
 }
+/* Tentacles in the menu, coloured by level like their tabs (the org-level classes). */
+.nav-link.nav-tentacle {
+  color: var(--level);
+}
+.nav-link.nav-tentacle:hover,
+.nav-link.nav-tentacle[aria-current='page'] {
+  color: color-mix(in srgb, var(--level), white 30%);
+}
+/* A tentacle with others under it: the caret at the end of its row shows or hides them. */
+.nav-branch-head {
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-sm);
+  list-style: none;
+  cursor: pointer;
+}
+.nav-branch-head::-webkit-details-marker {
+  display: none;
+}
+.nav-branch-head .nav-link {
+  flex: 1;
+  min-width: 0;
+}
+.nav-branch-head::after {
+  content: '';
+  flex: none;
+  margin: 0 8px 0 4px;
+  border: 4px solid transparent;
+  border-left-color: var(--text-soft);
+  border-right-width: 0;
+  transition: transform 0.15s;
+}
+.nav-branch[open] > .nav-branch-head::after {
+  transform: rotate(90deg);
+}
+.nav-branch-head:hover::after {
+  border-left-color: var(--text);
+}
+.nav-branch > .nav-children {
+  margin-top: 0;
+}
+
 /* The list page's link, set apart from the project links below it. */
 .nav-children .nav-link.nav-all {
   display: flex;
@@ -1021,8 +1271,15 @@ summary.nav-link {
 .nav-count-projects {
   color: var(--cyan);
 }
-.nav-count-entities {
+.nav-count-tentacles {
   color: var(--purple);
+}
+.nav-count-waiting {
+  color: var(--yellow);
+}
+/* Problems on a Compatibility page, in the colour Compatibility uses for unexpected files. */
+.nav-count-issues {
+  color: var(--orange);
 }
 .nav-link.nav-due {
   box-shadow: inset 0 0 0 1px var(--green);
@@ -1433,8 +1690,8 @@ textarea.inline-field {
   position: relative;
   flex: none;
   appearance: none;
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   padding: 0;
   border: 0;
   border-radius: 50%;
@@ -1442,13 +1699,34 @@ textarea.inline-field {
   color: var(--text-soft);
   cursor: pointer;
 }
-.add-button:hover {
+/* Every plus button, whatever it adds: a plus in a hollow circle, 16px, in the raised colour,
+   lit up in the accent colour when pointed at. Pencils and crosses keep the soft text colour.
+   The circle in these SVGs fills 80% of the image, hence the 125% in the masks below. */
+.add-button,
+.timeframe-add:not(.is-set),
+.entry-date-button:not(.is-set) {
+  --button-icon: url('../img/circle-plus-outline.svg');
+  color: var(--surface-raised);
+}
+.add-button:hover,
+.timeframe-add:not(.is-set):hover,
+.timeframe-add:not(.is-set)[aria-expanded='true'],
+.entry-date-button:not(.is-set):hover {
   color: var(--accent);
 }
-/* Plus and cross buttons. The circle in these SVGs fills 80% of the image, hence the 125%. */
-.add-button,
-.timeframe-add {
-  --button-icon: url('../img/circle-plus-solid-full.svg');
+/* On a project page, the plus buttons and the summary's fact boxes are cyan, like a project's
+   review flag and its box on the Review page. */
+.project-page .add-button,
+.project-page .timeframe-add:not(.is-set) {
+  color: var(--cyan);
+}
+.project-page .add-button:hover,
+.project-page .timeframe-add:not(.is-set):hover,
+.project-page .timeframe-add:not(.is-set)[aria-expanded='true'] {
+  color: var(--accent);
+}
+.project-page .facts div {
+  border-color: var(--cyan);
 }
 .timeframe-add.is-set {
   --button-icon: url('../img/pencil-solid-full.svg');
@@ -1456,7 +1734,14 @@ textarea.inline-field {
 .timeframe-remove {
   --button-icon: url('../img/circle-xmark-solid-full.svg');
 }
-/* The flag on the Reviewed box: grey until it's on, then orange with a note beside it. */
+/* The flag on the Reviewed box: grey until it's on, then with a note beside it, in the colour of
+   the Review page box it puts the page in: cyan for projects, purple for tentacles. */
+.review-flag-projects {
+  --flag-colour: var(--cyan);
+}
+.review-flag-tentacles {
+  --flag-colour: var(--purple);
+}
 .review-flag-control {
   margin-left: 8px;
   vertical-align: -3px;
@@ -1484,14 +1769,14 @@ textarea.inline-field {
   opacity: 1;
 }
 .review-flag-button.is-on {
-  color: var(--orange);
+  color: var(--flag-colour);
   opacity: 1;
 }
 .review-flagged {
   display: block;
   margin-top: 2px;
   font-size: 0.8rem;
-  color: var(--orange);
+  color: var(--flag-colour);
 }
 .row-remove {
   --button-icon: url('../img/circle-minus-solid-full.svg');
@@ -1590,14 +1875,13 @@ textarea.inline-field {
   position: relative;
   appearance: none;
   flex: none;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   padding: 0;
   border: 0;
   background: transparent;
   color: var(--text-soft);
   cursor: pointer;
-  --button-icon: url('../img/circle-plus-solid-full.svg');
 }
 .entry-date-button.is-set {
   --button-icon: url('../img/pencil-solid-full.svg');
@@ -1640,7 +1924,7 @@ textarea.inline-field {
   color: var(--text);
   font-weight: 600;
 }
-/* Entity tabs are coloured by level, with the priority colours: the top-level entity like
+/* Tentacle tabs are coloured by level, with the priority colours: the top-level tentacle like
    priority A, its tentacles like B, the next level orange, and anything deeper grey like an
    unset priority. The open tab is underlined in its own colour. */
 .org-tab[class*='org-level-'] {
@@ -1667,6 +1951,21 @@ textarea.inline-field {
 .org-tab-add,
 .org-tabs [data-add='file'] {
   margin-left: 8px;
+}
+/* A tentacle page's tabs: a row per level down to the open tab, then those under it. */
+.org-tab-rows {
+  margin-bottom: 18px;
+}
+.org-tab-rows .org-tab-row {
+  margin-bottom: 0;
+}
+.org-tab-row + .org-tab-row {
+  padding-left: 12px;
+  font-size: 0.95rem;
+}
+.org-tab.is-on-path {
+  border-bottom-color: color-mix(in srgb, var(--level), transparent 55%);
+  color: var(--level);
 }
 
 .section-row {
@@ -1840,6 +2139,18 @@ textarea.inline-field {
   font-size: 0.8rem;
   color: var(--text-soft);
 }
+/* The count of boxes, with Fix all issues at the other end of the line. */
+.compat-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.compat-top .review-since {
+  margin: 0;
+}
 .compat-choices select {
   padding: 6px 10px;
   border: 1px solid var(--surface-raised);
@@ -1855,8 +2166,12 @@ textarea.inline-field {
 .review-box-projects {
   --review-colour: var(--cyan);
 }
-.review-box-entities {
+.review-box-tentacles {
   --review-colour: var(--purple);
+}
+/* Waiting tasks, yellow like the WAITING statuses. */
+.review-box-waiting {
+  --review-colour: var(--yellow);
 }
 .review-queue .review-box {
   border-color: var(--review-colour);
@@ -1929,6 +2244,8 @@ textarea.inline-field {
   margin: 0 auto 0 0;
 }
 .embedded .nav-sidebar,
+.embedded .sidebar-toggle,
+.embedded .sidebar-resizer,
 .embedded .sidebar,
 .embedded .back {
   display: none;
@@ -2576,6 +2893,10 @@ a.home-stat:hover {
   min-height: 100vh;
   padding: 24px 16px;
 }
+/* The entity dropdown on setup and login, lined up with the form below it. */
+#entity-picker .entity-select {
+  margin: 20px 22px 0;
+}
 #setup-fields:not([hidden]) {
   display: grid;
   gap: 12px;
@@ -2757,7 +3078,7 @@ a.home-stat:hover {
   color: var(--accent);
 }
 /* The Todos filter: six controls of the same size in two columns. Type, Status, Priority,
-   Entity and Project each open a list of tick boxes, and Sort is a plain dropdown. */
+   Tentacle and Project each open a list of tick boxes, and Sort is a plain dropdown. */
 .sidebar-controls {
   position: relative; /* each dropdown's list spans the whole filter, not just its button */
   display: grid;
@@ -3032,13 +3353,13 @@ a.home-stat:hover {
   filter: brightness(1.3);
 }
 
-.owner-control {
+.header-control {
   display: inline;
   margin-right: 0.3em;
   vertical-align: baseline;
   line-height: inherit;
 }
-.owner-button {
+.header-button {
   appearance: none;
   border: 0;
   padding: 0;
@@ -3064,7 +3385,7 @@ a.home-stat:hover {
 .project-type-label {
   color: var(--text-soft);
 }
-.owner-button::after {
+.header-button::after {
   content: '';
   display: inline-block;
   margin-left: 0.25em;
@@ -3073,23 +3394,27 @@ a.home-stat:hover {
   border-top: 0.26em solid var(--text-soft);
   border-bottom: 0;
 }
-.owner-button:hover {
+.header-button:hover {
   color: var(--accent);
 }
-.owner-button:hover::after,
-.owner-button[aria-expanded='true']::after {
+.header-button:hover::after,
+.header-button[aria-expanded='true']::after {
   border-top-color: var(--accent);
 }
 
+/* Centred on the text beside it, rather than sitting on its baseline. */
 .timeframe-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   margin-left: 6px;
-  vertical-align: 0.05em;
+  vertical-align: middle;
 }
 .timeframe-add {
   position: relative;
   appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   padding: 0;
   border: 0;
   border-radius: 50%;
@@ -3205,6 +3530,8 @@ a.home-stat:hover {
 }
 
 .facts dt.fact-heading {
+  display: flex;
+  align-items: center;
   padding-bottom: 6px;
   border-bottom: 1px solid var(--border);
   font-size: 0.82rem;
@@ -3378,6 +3705,13 @@ a.home-stat:hover {
 .todo.tint-inactive {
   border-color: var(--pink);
 }
+/* Recurring tasks due within three days, and those overdue, which the list puts first. */
+.todo.recur-due {
+  border-color: var(--yellow);
+}
+.todo.recur-overdue {
+  border-color: var(--pink);
+}
 .check-box.has-icon:not(:disabled):hover {
   border-color: transparent;
   color: var(--accent);
@@ -3487,6 +3821,48 @@ select optgroup {
 @media (max-width: 1100px) {
   .shell {
     grid-template-columns: minmax(0, 1fr);
+  }
+  /* Stacked, the sidebars are full width: no handles, and each button is a bar above its
+     sidebar that hides it altogether. */
+  .sidebar-resizer {
+    display: none;
+  }
+  .sidebar-toggle,
+  .sidebar-toggle-nav,
+  .sidebar-toggle-todos {
+    position: static;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    height: auto;
+    padding: 8px 16px;
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
+    font: inherit;
+    font-size: 0.85rem;
+  }
+  .sidebar-toggle-name {
+    position: static;
+    width: auto;
+    height: auto;
+    clip-path: none;
+  }
+  /* Up to hide, down to show. */
+  .sidebar-toggle::before,
+  .sidebar-toggle-todos::before {
+    position: static;
+    order: 2;
+    transform: rotate(135deg);
+  }
+  .nav-collapsed .sidebar-toggle-nav::before,
+  .todos-collapsed .sidebar-toggle-todos::before {
+    transform: rotate(-45deg);
+  }
+  .nav-collapsed .nav-sidebar,
+  .todos-collapsed .sidebar {
+    display: none;
   }
   .nav-logo {
     display: none;

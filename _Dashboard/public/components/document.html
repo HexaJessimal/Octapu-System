@@ -1,4 +1,4 @@
-<!-- The parts of a project, entity or networking page. -->
+<!-- The parts of a project, tentacle or networking page. -->
 
 <template name="edit-attrs"> data-edit="{{{kind}}}" data-line="{{{line}}}" data-from="{{value}}"</template>
 
@@ -56,13 +56,26 @@
 
 <template name="doc-title"><span{{{attrs}}}>{{{text}}}</span></template>
 
+<!-- The summary at the top of a project or tentacle Overview. `corner` goes at its top right. -->
 <template name="summary-card">
   <section class="card summary">
+    {{{corner}}}
     <h2>{{{title}}}</h2>
     <dl class="facts{{#if grid}} facts-grid{{/if}}{{#if quarters}} facts-quarters{{/if}}">{{{facts}}}</dl>
     {{{footer}}}
   </section>
 </template>
+
+<!-- Where a tentacle's Overview puts its Timeline, below the summary. -->
+<template name="tentacle-timeline">
+  <section class="tentacle-timeline">
+    <h2 class="section-title">Timeline</h2>
+    <div data-timeline-slot></div>
+  </section>
+</template>
+
+<!-- Opens the project's or tentacle's folder in the computer's file browser. -->
+<template name="folder-button"><button type="button" class="folder-button" data-open-folder="{{folder}}" title="Open this folder" aria-label="Open this folder in your file browser"></button></template>
 
 <template name="fact"><div{{#if className}} class="{{{className}}}"{{/if}}><dt>{{label}}</dt><dd>{{{value}}}</dd></div></template>
 
@@ -110,11 +123,14 @@
 
 <template name="back-link"><span aria-hidden="true">‹</span> {{label}}</template>
 
-<!-- An entity tab, coloured by how deep it is: level-0 for the top-level entity, then 1, 2,
-     and level-deep for anything below that. -->
-<template name="org-tab"><a class="org-tab org-level-{{{level}}}" href="{{href}}"{{#if current}} aria-current="page"{{/if}}>{{name}}</a></template>
+<!-- A tentacle tab, coloured by how deep it is: level-0 for the top-level tentacle, then 1, 2,
+     and level-deep for anything below that. On the path means it's above the open tab. -->
+<template name="org-tab"><a class="org-tab org-level-{{{level}}}{{#if onPath}} is-on-path{{/if}}" href="{{href}}"{{#if current}} aria-current="page"{{/if}}>{{name}}</a></template>
 
-<template name="org-tab-add"><button type="button" class="add-button org-tab-add" data-new-entity title="New tentacle" aria-label="New tentacle"></button></template>
+<!-- One row of tentacle tabs: a tentacle's, below the row with its parent's. -->
+<template name="org-tab-row"><div class="org-tabs org-tab-row">{{{tabs}}}{{{add}}}</div></template>
+
+<template name="org-tab-add"><button type="button" class="add-button org-tab-add" data-new-tentacle title="New tentacle" aria-label="New tentacle"></button></template>
 
 <template name="entry-field">
   <div class="entry-field{{#if intro}} entry-intro{{/if}}">

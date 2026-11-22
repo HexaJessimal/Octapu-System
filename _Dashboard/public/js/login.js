@@ -2,7 +2,10 @@
 // made each change.
 (function () {
   'use strict';
-  const { component, getJson, postJson, showFormError, UNREACHABLE } = window.PMS;
+  const { component, getJson, postJson, showFormError, entityPicker, UNREACHABLE } = window.PMS;
+
+  // Each entity has its own leaders, so the entity is chosen first.
+  document.getElementById('entity-picker').innerHTML = entityPicker();
 
   const form = document.getElementById('login-form');
   const fieldsEl = document.getElementById('login-fields');

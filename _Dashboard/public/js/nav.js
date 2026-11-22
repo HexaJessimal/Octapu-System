@@ -1,21 +1,24 @@
 // Left-hand menu, shared by every page.
 (function () {
   'use strict';
-  const { parseFolder, status, component, storedList } = window.PMS;
+  const { parseFolder, status, component, storedList, entityPicker, tentacleHref } = window.PMS;
 
   const root = document.getElementById('main-nav');
   if (!root) return;
 
   const STORAGE_KEY = 'pms.nav';
+  const OPEN_KEY = 'pms.nav.open'; // tentacles opened to show those under them
   const DUE_SOON_DAYS = 2; // how long before its due date a roundup page turns yellow
 
+  // Groups are open until closed, and tentacles closed until opened.
   const closed = new Set(storedList(STORAGE_KEY));
+  const opened = new Set(storedList(OPEN_KEY));
 
-  function saveClosed() {
+  function save(key, set) {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify([...closed]));
+      localStorage.setItem(key, JSON.stringify([...set]));
     } catch (_) {
-      /* storage unavailable: groups just won't stay collapsed */
+      /* storage unavailable: groups just won't stay as they were left */
     }
   }
 
@@ -29,11 +32,13 @@
 
   const countBadge = ({ value, className, label }) => component('nav-count', { className, label, value });
 
+  const itemIsCurrent = (item) => (item.current !== undefined ? item.current : isCurrent(item.href));
+
   function link(item) {
     return component('nav-link', {
       extra: item.className,
       href: item.href,
-      current: isCurrent(item.href),
+      current: itemIsCurrent(item),
       label: item.label,
       counts: (item.counts || []).map(countBadge).join(''),
       note: item.note,
@@ -64,7 +69,7 @@
   function group(key, label, items, emptyText) {
     return component('nav-group', {
       key,
-      open: items.some((item) => isCurrent(item.href)) || !closed.has(key),
+      open: items.some(itemIsCurrent) || !closed.has(key),
       label,
       links: items.map((item) => link(item)).join(''),
       empty: emptyText,
@@ -76,10 +81,54 @@
     label: project.title,
   });
 
-  const entityLink = (owner) => ({
-    href: 'entity.html?id=' + encodeURIComponent(owner.id),
-    label: owner.name,
+  // The tentacle open on this page: its tab, or else the one named by id.
+  const here = new URLSearchParams(location.search);
+  const hereTentacle = /\/tentacle\.html$/.test(location.pathname) ? here.get('tab') || here.get('id') : null;
+
+  // Coloured by level, as on the tentacle page's tabs, with every level below the third in grey.
+  const tentacleLink = (tentacle) => ({
+    href: tentacleHref(tentacle.root, tentacle.id),
+    label: tentacle.name,
+    className: 'nav-tentacle org-level-' + (tentacle.level > 2 ? 'deep' : tentacle.level),
+    current: tentacle.id === hereTentacle,
   });
+
+  // A tentacle, with those under it in a group that's closed until opened, or while it holds
+  // the page that's open.
+  function tentacleBranch(tentacle, all) {
+    const children = all.filter((t) => t.parent === tentacle.id);
+    if (!children.length) return link(tentacleLink(tentacle));
+    const below = (t) => all.filter((c) => c.parent === t.id).flatMap((c) => [c, ...below(c)]);
+    const key = tentacle.id;
+    return component('nav-branch', {
+      key,
+      open: opened.has(key) || below(tentacle).some((t) => t.id === hereTentacle),
+      name: tentacle.name,
+      link: link(tentacleLink(tentacle)),
+      links: children.map((c) => tentacleBranch(c, all)).join(''),
+    });
+  }
+
+  function tentacleGroup(tentacles) {
+    const key = 'tentacle';
+    return component('nav-group', {
+      key,
+      open: tentacles.some((t) => t.id === hereTentacle) || !closed.has(key),
+      label: 'Tentacles',
+      links: tentacles.filter((t) => !t.parent).map((t) => tentacleBranch(t, tentacles)).join(''),
+      empty: 'No tentacles found.',
+    });
+  }
+
+  // A Compatibility page, with an orange count of what it lists. None is shown when it's clear.
+  function compatibilityLink(type, label, counts) {
+    const count = counts && counts[type];
+    return {
+      href: 'compatibility.html?type=' + type,
+      label,
+      counts: count ? [{ value: count, className: 'nav-count-issues', label: 'Compatibility issues' }] : [],
+    };
+  }
 
   function render(data) {
     const byTitle = (a, b) => a.title.localeCompare(b.title);
@@ -100,13 +149,16 @@
         : [
             { value: roundup.doneToReview, className: 'nav-count-done', label: 'Done since the last review' },
             { value: roundup.projectsToReview, className: 'nav-count-projects', label: 'Projects to review' },
-            { value: roundup.entitiesToReview, className: 'nav-count-entities', label: 'Entities to review' },
+            { value: roundup.tentaclesToReview, className: 'nav-count-tentacles', label: 'Tentacles to review' },
+            // Tasks with a WAITING type status, only while there are any.
+            ...(roundup.waitingTasks ? [{ value: roundup.waitingTasks, className: 'nav-count-waiting', label: 'Waiting tasks' }] : []),
           ];
 
     root.innerHTML =
+      entityPicker() +
       link({ href: './', label: 'Dashboard' }) +
       link({ href: 'incubator.html', label: 'Incubator' }) +
-      group('entity', 'Entities', data.entities.map(entityLink), 'No entities found.') +
+      tentacleGroup(data.tentacles) +
       group('roundup', 'Time Management', [
         Object.assign(roundupLink('weekly-review.html', 'Review', roundup.review, roundup.interval), { counts: reviewCounts }),
         roundupLink('weekly-plan.html', 'Plan', roundup.plan, roundup.interval),
@@ -122,12 +174,13 @@
         ),
         ''
       ) +
-      link({ href: 'networking.html?page=leads', label: 'Leads' }) +
+      link({ href: 'networking.html?page=contacts', label: 'Contacts' }) +
       link({ href: 'networking.html?page=events', label: 'Events' }) +
       group('compatibility', 'Compatibility', [
-        { href: 'compatibility.html?type=entities', label: 'Entities' },
-        { href: 'compatibility.html?type=projects', label: 'Projects' },
-        { href: 'compatibility.html?type=events', label: 'Events' },
+        compatibilityLink('tentacles', 'Tentacles', data.compatibility),
+        compatibilityLink('projects', 'Projects', data.compatibility),
+        compatibilityLink('events', 'Events', data.compatibility),
+        compatibilityLink('core', 'Core files', data.compatibility),
       ], '') +
       link({ href: 'options.html', label: 'Options' }) +
       link({ href: 'help.html', label: 'Help Guide', className: data.helpUnread ? 'nav-unread' : '' }) +
@@ -147,23 +200,28 @@
   root.addEventListener(
     'toggle',
     (e) => {
-      const key = e.target.dataset && e.target.dataset.group;
-      if (!key) return;
-      if (e.target.open) closed.delete(key);
-      else closed.add(key);
-      saveClosed();
+      const data = e.target.dataset || {};
+      if (data.branch) {
+        if (e.target.open) opened.add(data.branch);
+        else opened.delete(data.branch);
+        save(OPEN_KEY, opened);
+      }
+      if (!data.group) return;
+      if (e.target.open) closed.delete(data.group);
+      else closed.add(data.group);
+      save(STORAGE_KEY, closed);
     },
     true
   );
 
   function load() {
     return fetch('api/nav')
-      .then((r) => (r.ok ? r.json() : { entities: [], directories: [] }))
-      .catch(() => ({ entities: [], directories: [] }))
+      .then((r) => (r.ok ? r.json() : { tentacles: [], directories: [] }))
+      .catch(() => ({ tentacles: [], directories: [] }))
       .then(render);
   }
 
   status.onChange(load); // marking something as reviewed changes the counts beside Review
-  render({ entities: [], directories: [] });
+  render({ tentacles: [], directories: [] });
   load();
 })();

@@ -7,13 +7,12 @@
     <link rel="stylesheet" href="css/style.css" />
     <link rel="stylesheet" href="api/colours.css" />
   </head>
-  <body>
+  <body class="project-page">
     <div class="shell">
     <nav class="nav-sidebar" id="main-nav" aria-label="Main menu"></nav>
     <main class="wrap">
-      <header class="topbar">
+      <div class="view-bar">
         <a class="back" href="projects.html" id="back"><span aria-hidden="true">‹</span> Projects</a>
-        <h1 id="page-title">Loading…</h1>
         <div class="project-type" id="project-type"></div>
         <button type="button" class="plain-button archive-button" id="archive-project" hidden>Archive</button>
         <div class="toggle" role="group" aria-label="View mode">
@@ -22,6 +21,9 @@
           <button type="button" data-view="raw" aria-pressed="false">Raw</button>
           <button type="button" data-view="changelog" aria-pressed="false" hidden>Changelog</button>
         </div>
+      </div>
+      <header class="topbar">
+        <h1 id="page-title">Loading…</h1>
       </header>
 
       <div id="conflicts"></div>
@@ -33,7 +35,8 @@
 
     <script src="api/components.js"></script>
     <script src="js/projects.js"></script>
-    <script src="api/owner-tags.js"></script>
+    <script src="js/layout.js"></script>
+    <script src="api/tags.js"></script>
     <script src="js/markdown.js"></script>
     <script src="js/status.js"></script>
     <script src="js/nav.js"></script>

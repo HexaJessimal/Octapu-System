@@ -1,9 +1,14 @@
 // The Timeline on the Home page: a month-accurate Gantt chart of every project's Active Timeframes.
+// A tentacle page has one too, with data-tentacle on its element: only that tentacle's own
+// projects, and no event or release lines.
 (function () {
   'use strict';
   const { parseFolder, STATUS_LABELS, legendItems, dependencyTitle, dependencyHref, markdown: md, status, component, getJson, loadError } = window.PMS;
 
   const contentEl = document.getElementById('timeline');
+  if (!contentEl) return;
+  const tentacle = contentEl.dataset.tentacle || '';
+  const LINE_KINDS = ['deadlines', 'bookings', 'releases'];
   const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   // The same states and colours as the milestone progress bar.
   const STATE_COLOURS = { done: 'var(--green)', partial: 'var(--yellow)', todo: 'var(--orange)', none: 'var(--pink)' };
@@ -184,7 +189,7 @@
     { kind: 'deadlines', label: 'Deadlines' },
     { kind: 'bookings', label: 'Bookings' },
     { kind: 'releases', label: 'Releases' },
-  ].filter(({ kind }) => kind !== 'archive' || window.PMS_SHOW_ARCHIVED);
+  ].filter(({ kind }) => (kind !== 'archive' || window.PMS_SHOW_ARCHIVED) && !(tentacle && LINE_KINDS.includes(kind)));
   const HIDDEN_KEY = 'pms.timeline.hidden';
   function readHidden() {
     try {
@@ -388,10 +393,14 @@
       component('legend-no-milestones'),
       rows.some((row) => row.kind === 'archive') ? component('legend-archived') : '',
       rows.some((row) => row.dependency) ? component('legend-depends') : '',
-      component('legend-line', { kind: 'deadline', label: 'Application deadline' }),
-      component('legend-line', { kind: 'event', label: 'Booked event' }),
-      component('legend-line', { kind: 'unbooked', label: 'Event not booked' }),
-      component('legend-line', { kind: 'release', label: 'Release' }),
+      ...(tentacle
+        ? []
+        : [
+            component('legend-line', { kind: 'deadline', label: 'Application deadline' }),
+            component('legend-line', { kind: 'event', label: 'Booked event' }),
+            component('legend-line', { kind: 'unbooked', label: 'Event not booked' }),
+            component('legend-line', { kind: 'release', label: 'Release' }),
+          ]),
     ];
     contentEl.innerHTML =
       toggles() +
@@ -446,7 +455,7 @@
   });
 
   function load() {
-    return getJson('api/timeline')
+    return getJson('api/timeline' + (tentacle ? '?tentacle=' + encodeURIComponent(tentacle) : ''))
       .then((data) => {
         window.PMS.setDateFormat(data.dateFormat);
         render(data);
