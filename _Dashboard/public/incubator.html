@@ -11,9 +11,17 @@
     <div class="shell">
       <nav class="nav-sidebar" id="main-nav" aria-label="Main menu"></nav>
       <main class="wrap">
+        <div class="view-bar">
+          <div class="toggle" role="group" aria-label="View mode">
+            <button type="button" data-view="ideas" aria-pressed="true">Ideas</button>
+            <button type="button" data-view="raw" aria-pressed="false">Raw</button>
+            <button type="button" data-view="changelog" aria-pressed="false" hidden>Changelog</button>
+          </div>
+        </div>
         <header class="topbar">
           <h1>Incubator</h1>
         </header>
+        <div id="conflicts"></div>
         <div id="content"></div>
       </main>
       <aside class="sidebar" id="todo-sidebar" aria-label="Todos"></aside>
@@ -21,10 +29,14 @@
 
     <script src="api/components.js"></script>
     <script src="js/projects.js"></script>
-    <script src="api/owner-tags.js"></script>
+    <script src="js/layout.js"></script>
+    <script src="api/tags.js"></script>
     <script src="js/markdown.js"></script>
     <script src="js/status.js"></script>
     <script src="js/nav.js"></script>
+    <script src="js/edit.js"></script>
+    <script src="js/document-view.js"></script>
+    <script src="js/changes.js"></script>
     <script src="js/incubator.js"></script>
     <script src="js/sidebar.js"></script>
   </body>

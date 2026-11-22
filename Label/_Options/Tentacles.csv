@@ -1,0 +1,4 @@
+id,Name,Parent
+LABEL,Record Label Studios,
+MUSART,Musician Artist,LABEL
+MAV,Musician Artist Videos,MUSART

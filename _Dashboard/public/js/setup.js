@@ -1,7 +1,10 @@
 // First-time setup form. It only asks for what the server says is still missing.
 (function () {
   'use strict';
-  const { component, getJson, postJson, showFormError, suggestIdFrom, UNREACHABLE } = window.PMS;
+  const { component, getJson, postJson, showFormError, suggestIdFrom, entityPicker, UNREACHABLE } = window.PMS;
+
+  // A new entity starts here, so another one can still be chosen instead.
+  document.getElementById('entity-picker').innerHTML = entityPicker();
 
   const form = document.getElementById('setup-form');
   const fieldsEl = document.getElementById('setup-fields');
@@ -15,9 +18,9 @@
       location.replace('./');
       return;
     }
-    const { entity, leader, dateFormat } = state.fields;
+    const { tentacle, leader, dateFormat } = state.fields;
     const parts = [];
-    if (entity) parts.push(textField('Entity name', 'entityName'), textField('Entity ID', 'entityId'));
+    if (tentacle) parts.push(textField('Tentacle name', 'tentacleName'), textField('Tentacle ID', 'tentacleId'));
     if (leader) parts.push(textField('Your name', 'leaderName'));
     if (dateFormat) {
       parts.push(
@@ -37,14 +40,14 @@
       filesEl.textContent = 'This will create: ' + state.missing.join(', ');
       filesEl.hidden = false;
     }
-    if (entity) suggestIdFrom(form.elements.entityName, form.elements.entityId);
+    if (tentacle) suggestIdFrom(form.elements.tentacleName, form.elements.tentacleId);
   }
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     error.hidden = true;
     const values = {};
-    ['entityName', 'entityId', 'leaderName', 'dateFormat'].forEach((key) => {
+    ['tentacleName', 'tentacleId', 'leaderName', 'dateFormat'].forEach((key) => {
       if (form.elements[key]) values[key] = form.elements[key].value;
     });
     try {

@@ -6,16 +6,19 @@
   const root = document.getElementById('todo-sidebar');
   if (!root) return;
 
-  const STORAGE_KEY = 'pms.sidebar';
-  const FILE_ORDER = 'file';
+  const STORAGE_KEY = 'pms.sidebar.' + (window.PMS_ENTITY || ''); // its filters name this entity's projects and tentacles
+  const DEFAULT_SORT = 'project';
+  // Sort values saved by earlier versions, and what they've become. Anything else, such as the
+  // old "first" orders, goes back to the default.
+  const OLD_SORTS = { file: 'project', 'by-status': 'status', 'by-type': 'type' };
   const NO_PRIORITY = 'none';
   // The filter's dropdowns, in the order they're laid out. Any number of choices can be
-  // ticked in each. Ticking none in Status, Priority, Entity or Project lets everything through.
+  // ticked in each. Ticking none in Status, Priority, Tentacle or Project lets everything through.
   const FILTERS = [
     ['type', 'Type'],
     ['status', 'Status'],
     ['priority', 'Priority'],
-    ['entity', 'Entity'],
+    ['tentacle', 'Tentacle'],
     ['project', 'Project'],
   ];
   const HIGHLIGHT_NOTES = {
@@ -31,8 +34,8 @@
   // The filter. `shown` holds the ticked status types, or null until the first load ticks
   // every type but ARCHIVED.
   let shown = null;
-  let picked = { status: [], priority: [], entity: [], project: [] };
-  let sort = FILE_ORDER;
+  let picked = { status: [], priority: [], tentacle: [], project: [] };
+  let sort = DEFAULT_SORT;
   let shellReady = false;
 
   const isArchived = (type) => type === 'ARCHIVED';
@@ -64,25 +67,15 @@
     }
   }
 
-  // "first-status:JESSIE" -> { kind: 'first-status', name: 'JESSIE' }
-  function split(value) {
-    const at = value.indexOf(':');
-    return { kind: value.slice(0, at), name: value.slice(at + 1) };
-  }
-
-  function matches(item, kind, name) {
-    return kind === 'status' ? item.status === name : item.type === name;
-  }
-
-  // Items from an entity's own files belong to no project.
-  const projectOf = (item) => (item.entity ? null : item.folder);
+  // Items from a tentacle's own files, Contacts or Events belong to no project.
+  const projectOf = (item) => (item.tentacle || item.networking ? null : item.folder);
 
   // Each dropdown's test for one choice. An item passes a dropdown if it matches any ticked
   // choice, or if nothing is ticked.
   const TESTS = {
     status: (item, value) => item.status === value,
     priority: (item, value) => (value === NO_PRIORITY ? !item.priority : item.priority === value),
-    entity: (item, value) => item.entityName === value,
+    tentacle: (item, value) => item.tentacleName === value,
     project: (item, value) => projectOf(item) === value,
   };
 
@@ -93,40 +86,43 @@
 
   const visibleItems = () => items.filter((item) => passes(item));
 
+  const byText = (a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' });
+  // Earlier comes first, and nothing comes last.
+  const byMissingLast = (a, b) => (a === b ? 0 : a === null ? 1 : b === null ? -1 : a < b ? -1 : 1);
+  // The YYYY-MM-DD a task is scheduled or due, the start of a range, or null.
+  const dateOf = (item, kind) => {
+    const found = item.dates.find((d) => d.kind === kind);
+    const day = found && found.value.match(/\d{4}-\d{2}-\d{2}/);
+    return day ? day[0] : null;
+  };
+  const statusRank = (item) => statuses.findIndex((s) => s.name === item.status);
+
+  // The Sort list, in order, each with how it compares two items.
+  const SORTS = [
+    ['project', 'Project', (a, b) => byText(status.itemLink(a).label, status.itemLink(b).label)],
+    ['status', 'Status (alphabetical)', (a, b) => byText(a.status || '', b.status || '')],
+    ['type', 'Status (type)', (a, b) => types.indexOf(a.type) - types.indexOf(b.type) || statusRank(a) - statusRank(b)],
+    ['priority', 'Priority', (a, b) => byMissingLast(a.priority || null, b.priority || null)],
+    ['scheduled', 'Scheduled date', (a, b) => byMissingLast(dateOf(a, 'SCHEDULED'), dateOf(b, 'SCHEDULED'))],
+    ['deadline', 'Deadline date', (a, b) => byMissingLast(dateOf(a, 'DEADLINE'), dateOf(b, 'DEADLINE'))],
+  ];
+
+  // Array#sort is stable, so ties keep file order.
   function sorted(list) {
-    if (sort === FILE_ORDER) return list;
-    const copy = list.slice(); // Array#sort is stable, so ties keep file order.
-    if (sort === 'by-status') {
-      const rank = new Map(statuses.map((s, i) => [s.name, i]));
-      return copy.sort((a, b) => rank.get(a.status) - rank.get(b.status));
-    }
-    if (sort === 'by-type') {
-      return copy.sort((a, b) => types.indexOf(a.type) - types.indexOf(b.type));
-    }
-    const { kind, name } = split(sort); // "first-status:X" / "first-type:X"
-    const key = kind.replace('first-', '');
-    const rankOf = (i) => (matches(i, key, name) ? 0 : 1);
-    return copy.sort((a, b) => rankOf(a) - rankOf(b));
-  }
-
-  function option(value, label, selected) {
-    return component('option', { value, selected: value === selected, label });
-  }
-
-  function group(label, options) {
-    return options.length ? component('optgroup', { label, options: options.join('') }) : '';
+    const chosen = SORTS.find(([value]) => value === sort) || SORTS[0];
+    return list.slice().sort(chosen[2]);
   }
 
   const byLabel = (a, b) => a[1].localeCompare(b[1]);
 
-  function entityList() {
-    const names = [...new Set(items.map((i) => i.entityName).filter(Boolean))];
+  function tentacleList() {
+    const names = [...new Set(items.map((i) => i.tentacleName).filter(Boolean))];
     return names.map((name) => [name, name]).sort(byLabel);
   }
 
-  // Projects with items of a ticked type, and only those of the ticked entities if there are any.
+  // Projects with items of a ticked type, and only those of the ticked tentacles if there are any.
   function projectList() {
-    const folders = new Set(items.filter((i) => projectOf(i) && shown.has(i.type) && (!picked.entity.length || picked.entity.includes(i.entityName))).map(projectOf));
+    const folders = new Set(items.filter((i) => projectOf(i) && shown.has(i.type) && (!picked.tentacle.length || picked.tentacle.includes(i.tentacleName))).map(projectOf));
     return [...folders].map((folder) => [folder, parseFolder(folder).title]).sort(byLabel);
   }
 
@@ -135,7 +131,7 @@
     type: () => types.map((t) => [t, t]),
     status: () => statuses.map((s) => [s.name, s.name]),
     priority: () => [...priorities.map((p) => [p, p]), [NO_PRIORITY, 'None']],
-    entity: entityList,
+    tentacle: tentacleList,
     project: projectList,
   };
 
@@ -185,17 +181,8 @@
     else picked[key] = [];
   }
 
-  function sortOptions() {
-    // Archived items are never mixed with others and done items always go last,
-    // so putting either of them first would do nothing.
-    const liveTypes = types.filter((t) => !isArchived(t) && !isDone(t));
-    const liveStatuses = statuses.filter((s) => !isArchived(s.type) && !isDone(s.type));
-    return (
-      group('Order', [option(FILE_ORDER, 'Project order', sort), option('by-status', 'Status', sort), option('by-type', 'Status type', sort)]) +
-      group('Type first', liveTypes.map((t) => option('first-type:' + t, t + ' first', sort))) +
-      group('Status first', liveStatuses.map((s) => option('first-status:' + s.name, s.name + ' first', sort)))
-    );
-  }
+  // Done items always stay below the divider, whichever order is chosen.
+  const sortOptions = () => SORTS.map(([value, label]) => component('option', { value, label, selected: value === sort })).join('');
 
   // Drops any choice that no longer exists, such as a renamed status or a closed project.
   function validateChoices() {
@@ -203,27 +190,41 @@
     const known = {
       status: statuses.map((s) => s.name),
       priority: [...priorities, NO_PRIORITY],
-      entity: entityList().map(([value]) => value),
+      tentacle: tentacleList().map(([value]) => value),
       project: projectList().map(([value]) => value),
     };
     Object.keys(picked).forEach((key) => {
       picked[key] = picked[key].filter((value) => known[key].includes(value));
     });
-    if (![FILE_ORDER, 'by-status', 'by-type'].includes(sort)) {
-      const { kind, name } = split(sort);
-      const key = kind.replace('first-', '');
-      const type = key === 'status' ? (statuses.find((s) => s.name === name) || {}).type : name;
-      const exists = key === 'status' ? known.status.includes(name) : types.includes(name);
-      if (!exists || !type || isArchived(type) || isDone(type)) sort = FILE_ORDER;
-    }
+    if (OLD_SORTS[sort]) sort = OLD_SORTS[sort];
+    if (!SORTS.some(([value]) => value === sort)) sort = DEFAULT_SORT;
+  }
+
+  // A recurring task due within this many days is outlined yellow, and an overdue one red.
+  const RECUR_SOON_DAYS = 3;
+  const isoDay = (date) => date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+
+  // 'overdue', 'due' or null, for an open recurring task, from its SCHEDULED date.
+  function recurState(item) {
+    if (item.priority !== 'R' || isDone(item.type) || isArchived(item.type)) return null;
+    const scheduled = item.dates.find((d) => d.kind === 'SCHEDULED');
+    const day = scheduled && scheduled.value.slice(0, 10);
+    if (!day) return null;
+    const now = new Date();
+    const today = isoDay(now);
+    if (day < today) return 'overdue';
+    const soon = isoDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() + RECUR_SOON_DAYS));
+    return day <= soon ? 'due' : null;
   }
 
   function renderItem(item) {
     const { label, href } = status.itemLink(item);
+    const recur = recurState(item);
     return component('todo-item', {
+      recur,
+      note: recur === 'overdue' ? 'Recurring task, overdue' : recur === 'due' ? 'Recurring task, due within ' + RECUR_SOON_DAYS + ' days' : HIGHLIGHT_NOTES[item.highlight],
       ticked: item.mark === 'x',
-      tint: item.highlight,
-      note: HIGHLIGHT_NOTES[item.highlight],
+      tint: recur ? null : item.highlight,
       checkbox: item.mark === null ? '' : status.checkbox(item),
       control: status.control(item),
       menu: status.rowMenu(item), // Cancel and Delete only, here
@@ -239,7 +240,9 @@
   function renderList() {
     FILTERS.forEach(([key]) => renderFilter(key));
     const list = sorted(visibleItems());
-    const open = list.filter((i) => !isDone(i.type));
+    // Overdue recurring tasks come first, then those due soon, each in the chosen order.
+    const rank = (i) => ({ overdue: 0, due: 1 }[recurState(i)] ?? 2);
+    const open = list.filter((i) => !isDone(i.type)).sort((a, b) => rank(a) - rank(b));
     const done = list.filter((i) => isDone(i.type));
     root.querySelector('#todo-count').textContent = list.length;
     root.querySelector('#todo-list').innerHTML = list.length
@@ -248,7 +251,7 @@
   }
 
   const changed = () => {
-    validateChoices(); // a new entity can rule out the chosen project
+    validateChoices(); // a new tentacle can rule out the chosen project
     savePrefs();
     renderList();
   };

@@ -2,7 +2,7 @@
 // Each edit checks the text it replaces is still there, and returns null if it isn't.
 'use strict';
 
-const { PLANNING_LINE, setPlanningDate, stripComments, titleIndex, findField, setHeaderField, editLine, insertLine, createMatcher, scanLines, parseHeader, moveToStatus } = require('./todos');
+const { PLANNING_LINE, setPlanningDate, addPeriod, stripComments, titleIndex, findField, setHeaderField, editLine, insertLine, createMatcher, scanLines, parseHeader, moveToStatus, LEADER_FIELD, OLD_LEADER_FIELD } = require('./todos');
 
 const HEADER_FIELD = /^\s*\*\*[^*]+\*\*\s*:/;
 // Project files also write these with the colon inside the bold. Other files keep such lines
@@ -78,6 +78,17 @@ function deleteRow(markdown, line, status, text, statuses) {
   let last = line;
   while (last < visible.length && PLANNING_LINE.test(visible[last])) last++;
   return removeLines(markdown, line, last);
+}
+
+// Moves a recurring task's SCHEDULED date on by its period: from that date, or from `today`
+// if it hasn't one. Its status and tick box stay as they are. Returns null if the row has
+// changed or isn't recurring.
+function advanceRecurring(markdown, line, status, text, statuses, today) {
+  const item = findRow(markdown, line, status, text, statuses);
+  if (!item || !item.recur) return null;
+  const scheduled = item.dates.find((d) => d.kind === 'SCHEDULED');
+  const day = scheduled && scheduled.value.match(/\d{4}-\d{2}-\d{2}/);
+  return setPlanningDate(markdown, line, 'SCHEDULED', addPeriod(day ? day[0] : today, item.recur.count, item.recur.unit));
 }
 
 // Sets a row's SCHEDULED or DEADLINE date, or removes it if `date` is null.
@@ -379,14 +390,21 @@ const problem = (text) => ({ text, kind: 'error' });
 const missingField = (field) => ({ text: `Missing ${field}`, kind: 'fixable', fix: { field } });
 const missingSection = (section) => ({ text: `Missing ${section} section`, kind: 'fixable', fix: { section } });
 const missingTitle = () => ({ text: 'No page title', kind: 'fixable', fix: { title: true } });
+// The leader's field was called Owner before tentacles. Fix issues renames it, keeping its value.
+const oldLeaderField = () => ({ text: `${OLD_LEADER_FIELD} should be ${LEADER_FIELD}`, kind: 'fixable', fix: { renameLeader: true } });
+
+// Renames an Owner field line to Leader, keeping the rest of the line as it is.
+function renameOldLeader(markdown, lineNo) {
+  return editLine(markdown, lineNo, (text) => text.replace(new RegExp(OLD_LEADER_FIELD, 'i'), LEADER_FIELD));
+}
 
 function missingTaskLists(visible, taskLists) {
   return taskLists.filter((name) => !findSection(visible, taskListHeading(name))).map(missingSection);
 }
 
-// What keeps an entity's file from working with the dashboard.
+// What keeps a tentacle's file from working with the dashboard.
 
-function entityProblems(markdown, taskLists) {
+function tentacleProblems(markdown, taskLists) {
   const header = parseHeader(markdown, []);
   const visible = stripComments(markdown);
   const problems = [];
@@ -420,21 +438,22 @@ function hasDashboardStructure(markdown, taskLists) {
 // What keeps a project's file from working with the dashboard. Ongoing projects have task
 // lists in place of the planning fields and sections. `folderType` is the project's own
 // type, which a file without one of its own follows.
-function projectProblems(markdown, folderOwner, owners, leaders, taskLists, folderType = 'Milestone') {
-  const header = parseHeader(markdown, owners);
+function projectProblems(markdown, folderTentacle, tentacles, leaders, taskLists, folderType = 'Milestone') {
+  const header = parseHeader(markdown, tentacles);
   const visible = stripComments(markdown);
   const problems = [];
   const type = header.projectType;
   if (!type) problems.push(missingField('Project Type'));
   else if (!type.known) problems.push(problem(`Project Type "${type.value}" isn't Milestone or Ongoing`));
-  if (!owners.some((o) => o.id === folderOwner)) problems.push(problem(`Folder's owner "${folderOwner}" isn't in Owners.csv`));
+  if (!tentacles.some((o) => o.id === folderTentacle)) problems.push(problem(`Folder's tentacle "${folderTentacle}" isn't in Tentacles.csv`));
   if (!header.title) problems.push(missingTitle());
-  else if (!header.title.owner) problems.push(problem("Page title doesn't start with an owner from Owners.csv"));
-  // Owner problems let Fix issues set a leader picked on the Compatibility page.
-  const ownerProblem = (text) => (leaders.length ? { text, kind: 'fixable', fix: { owner: true }, choose: 'owner' } : problem(text));
-  if (!header.leader) problems.push(Object.assign(missingField('Owner'), leaders.length ? { choose: 'owner' } : {}));
-  else if (!header.leader.value) problems.push(ownerProblem("Owner hasn't been chosen"));
-  else if (!leaders.some((l) => l.id === header.leader.value)) problems.push(ownerProblem(`Owner "${header.leader.value}" isn't in Leaders.csv`));
+  else if (!header.title.tentacle) problems.push(problem("Page title doesn't start with a tentacle from Tentacles.csv"));
+  // Leader problems let Fix issues set a leader picked on the Compatibility page.
+  const leaderProblem = (text) => (leaders.length ? { text, kind: 'fixable', fix: { leader: true }, choose: 'leader' } : problem(text));
+  if (!header.leader) problems.push(Object.assign(missingField(LEADER_FIELD), leaders.length ? { choose: 'leader' } : {}));
+  else if (!header.leader.value) problems.push(leaderProblem("Leader hasn't been chosen"));
+  else if (!leaders.some((l) => l.id === header.leader.value)) problems.push(leaderProblem(`Leader "${header.leader.value}" isn't in Leaders.csv`));
+  if (header.leader && !findField(visible, LEADER_FIELD)) problems.push(oldLeaderField());
   if (!header.createdLine) problems.push(missingField('Date Created'));
   if (!header.dates.reviewed.line) problems.push(missingField('Date Reviewed'));
   if (!header.dates.closed.line) problems.push(missingField('Date Closed'));
@@ -455,7 +474,7 @@ const NEW_FIELDS = {
   'Date Closed': '**Date Closed**:',
   'Active Timeframe': '**Active Timeframe**:',
   'Project Dependency': '**Project Dependency**:',
-  Owner: '**Owner** :',
+  [LEADER_FIELD]: `**${LEADER_FIELD}** :`,
 };
 const BOLD_FIELD = /^\s*\*\*[^*]+(?:\*\*\s*:|:\*\*)/;
 
@@ -471,15 +490,18 @@ function lastHeaderLine(markdown) {
 }
 
 // Adds what's missing, leaving everything already in the file as it is.
-// `title` is used if the file has none, `owner` is the value of a new Owner field, and
+// `title` is used if the file has none, `leader` is the value of a new Leader field, and
 // `projectType` is the value of a new Project Type.
-function applyFixes(markdown, problems, { title, owner, projectType = 'Milestone' }) {
+function applyFixes(markdown, problems, { title, leader, projectType = 'Milestone' }) {
   const fixes = problems.filter((p) => p.fix).map((p) => p.fix);
   const wanted = (field) => fixes.some((f) => f.field === field);
   let out = markdown;
   if (fixes.some((f) => f.title)) out = insertLine(out, null, `# ${title}`);
-  // An Owner field that's empty or names an unknown leader is only changed once one is picked.
-  if (owner && fixes.some((f) => f.owner)) out = setHeaderField(out, 'Owner', owner);
+  // An old Owner field becomes Leader first, so a leader picked below goes in the renamed line.
+  const old = fixes.some((f) => f.renameLeader) && !findField(stripComments(out), LEADER_FIELD) && findField(stripComments(out), OLD_LEADER_FIELD);
+  if (old) out = renameOldLeader(out, old.line);
+  // A Leader field that's empty or names an unknown leader is only changed once one is picked.
+  if (leader && fixes.some((f) => f.leader)) out = setHeaderField(out, LEADER_FIELD, leader);
 
   // A Project Type with no value already has its line.
   const blankType = wanted('Project Type') && findField(stripComments(out), 'Project Type');
@@ -487,7 +509,7 @@ function applyFixes(markdown, problems, { title, owner, projectType = 'Milestone
   if (blankType) out = editLine(out, blankType.line, () => typeLine);
   const fields = Object.keys(NEW_FIELDS)
     .filter((field) => wanted(field) && !(field === 'Project Type' && blankType))
-    .map((field) => (field === 'Project Type' ? typeLine : field === 'Owner' && owner ? `${NEW_FIELDS.Owner} ${owner}` : NEW_FIELDS[field]));
+    .map((field) => (field === 'Project Type' ? typeLine : field === LEADER_FIELD && leader ? `${NEW_FIELDS[LEADER_FIELD]} ${leader}` : NEW_FIELDS[field]));
   if (fields.length) out = insertLine(out, lastHeaderLine(out), fields);
 
   const sections = fixes.filter((f) => f.section).map((f) => f.section);
@@ -514,7 +536,7 @@ function setProjectType(markdown, type, taskList) {
 // ----- _Archive.md and _Incubator.md: a "## Title" per entry, with bold fields under it -----
 
 // What an archived project's entry keeps from its header, in the order it's written.
-const ARCHIVE_FIELDS = { created: 'Date Created', closed: 'Date Closed', timeframe: 'Active Timeframe', dependency: 'Project Dependency', owner: 'Owner' };
+const ARCHIVE_FIELDS = { created: 'Date Created', closed: 'Date Closed', timeframe: 'Active Timeframe', dependency: 'Project Dependency', leader: LEADER_FIELD };
 // An idea's fields. Archived and Promoted are added with a date, and hide the idea.
 const INCUBATOR_FIELDS = { dependency: 'Project Dependency', archived: 'Archived', promoted: 'Promoted' };
 
@@ -533,7 +555,8 @@ function parseNamedEntries(markdown, labels) {
     const fields = {};
     const fieldLines = new Set();
     for (const [key, label] of Object.entries(labels)) {
-      const field = findField(body, label);
+      // An entry written before tentacles may still call its leader Owner.
+      const field = findField(body, label) || (label === LEADER_FIELD ? findField(body, OLD_LEADER_FIELD) : null);
       fields[key] = field ? { line: head.line + field.line, at: field.at, value: field.value.trim() } : { line: null, at: 0, value: '' };
       if (field) fieldLines.add(field.line);
     }
@@ -673,6 +696,97 @@ function moveRow(markdown, line, status, text, toLine, toTitle, statuses) {
   return insertLine(removeLines(markdown, first, last), at - moved.length, moved);
 }
 
+// ----- the Task Archive -----
+
+// Takes every task in an ARCHIVED type status out of a file, each with everything indented
+// under it (its dates and subtasks), for a review to move into _Task_Archive.md. `keep` says
+// which lines can be taken, as a Contacts or Events task only counts inside an entry. Each
+// task comes back as the heading it was under (its block, as written, or null before the
+// first heading) and its lines, lined up at the left.
+//
+// A milestone whose tasks leave keeps a comment counting them (ARCHIVE_MARKER), so it still
+// shows as complete rather than as having no tasks.
+function takeArchivedRows(markdown, statuses, keep = () => true) {
+  const visible = stripComments(markdown);
+  const raw = rawLines(markdown);
+  const archived = scanLines(markdown, createMatcher(statuses)).filter((item) => item.type === 'ARCHIVED' && keep(item.line));
+  const milestones = milestoneSection(visible);
+  const rows = [];
+  const ranges = [];
+  const taken = new Map(); // a milestone heading's 0-based index -> how many tasks left it
+  for (const item of archived) {
+    if (ranges.length && item.line <= ranges[ranges.length - 1].last) continue; // under one already taken
+    const { first, last, own } = rowExtent(visible, item.line);
+    let heading = first - 2;
+    while (heading >= 0 && !/^#{1,6}\s/.test(visible[heading])) heading--;
+    rows.push({ block: heading >= 0 ? visible[heading].trim() : null, lines: raw.slice(first - 1, last).map((l) => dedent(l, own)) });
+    ranges.push({ first, last });
+    if (milestones && heading > milestones.start && heading < milestones.end && MILESTONE_HEADING.test(visible[heading])) taken.set(heading, (taken.get(heading) || 0) + 1);
+  }
+  // From the bottom up, so the earlier line numbers still hold.
+  let remaining = ranges.reduceRight((text, { first, last }) => removeLines(text, first, last), markdown);
+  // Then each milestone's count, also from the bottom up. A heading moves up by the lines
+  // taken out above it.
+  for (const [heading, count] of [...taken].sort((a, b) => b[0] - a[0])) {
+    const above = ranges.filter((r) => r.last <= heading).reduce((n, r) => n + r.last - r.first + 1, 0);
+    remaining = addArchiveMarker(remaining, heading - above, count);
+  }
+  return { markdown: remaining, rows };
+}
+
+// "<!-- 3 tasks in the Task Archive -->", left where a milestone's archived tasks were. It's a
+// comment, so Obsidian and the dashboard don't show it, but the progress bar counts it as
+// that many finished tasks.
+const ARCHIVE_MARKER = /^\s*<!--\s*(\d+)\s+tasks?\s+in the Task Archive\s*-->\s*$/i;
+const archiveMarker = (count) => `<!-- ${count} ${count === 1 ? 'task' : 'tasks'} in the Task Archive -->`;
+
+// Adds `count` to the marker of the milestone whose heading is at 0-based `heading`, or adds
+// a marker after the milestone's last line.
+function addArchiveMarker(markdown, heading, count) {
+  const raw = rawLines(markdown);
+  const visible = stripComments(markdown);
+  let end = heading + 1;
+  while (end < visible.length && !/^#{1,3}\s/.test(visible[end])) end++;
+  for (let i = heading + 1; i < end; i++) {
+    const found = raw[i].match(ARCHIVE_MARKER);
+    if (found) return editLine(markdown, i + 1, () => archiveMarker(Number(found[1]) + count));
+  }
+  return insertLine(markdown, lastContentLine(raw, heading + 2, end) || heading + 1, archiveMarker(count));
+}
+
+// One file's archived tasks: its name, then each block's tasks under the block's heading.
+function archivedFileLines({ file, rows }) {
+  const lines = [`**File:** ${file}`];
+  let block;
+  for (const row of rows) {
+    if (row.block !== block || lines.length === 1) {
+      block = row.block;
+      lines.push(`**Block:** ${block || '(before the first heading)'}`);
+    }
+    lines.push(...row.lines);
+  }
+  return lines;
+}
+
+// Adds one review's archived tasks to _Task_Archive.md, newest first, under the review's
+// date. `groups` is a list of { heading, files, projects: [{ title, files }] }: a tentacle
+// (or Contacts or Events) with its own files' tasks, then each of its projects'.
+function addTaskArchive(markdown, date, groups) {
+  const section = [`## Date archived: ${date}`, '', '### Tasks', ''];
+  for (const group of groups) {
+    section.push(`#### ${group.heading}`);
+    for (const file of group.files) section.push(...archivedFileLines(file), '');
+    if (!group.files.length) section.push('');
+    for (const project of group.projects) {
+      section.push(`##### ${project.title}`);
+      for (const file of project.files) section.push(...archivedFileLines(file), '');
+    }
+  }
+  if (markdown === null || !markdown.trim()) return ['# Task Archive', '', ...section].join('\n');
+  const title = titleIndex(stripComments(markdown));
+  return title === -1 ? insertLine(markdown, null, ['# Task Archive', '', ...section]) : insertLine(markdown, title + 1, ['', ...section.slice(0, -1)]);
+}
+
 // Makes a task into a new milestone at the end of the Milestones section, named after its
 // text. Its subtasks become the milestone's tasks; its own dates are dropped.
 function promoteRow(markdown, line, status, text, statuses) {
@@ -694,7 +808,7 @@ function promoteRow(markdown, line, status, text, statuses) {
 }
 
 // Adds a "## <task text>" Scratchpad block and makes the task's text a link to it. `target`
-// is what the link names: the project's name, or the entity's ID.
+// is what the link names: the project's name, or the tentacle's ID.
 function linkRowToBlock(markdown, line, status, text, target, statuses) {
   const item = findRow(markdown, line, status, text, statuses);
   if (!item) return null;
@@ -783,11 +897,11 @@ function lastReviewDate(markdown) {
   return dates.length ? dates[dates.length - 1] : null;
 }
 
-// Reads the outline of one focus entry: owner, then project, then everything nested below it.
+// Reads the outline of one focus entry: tentacle, then project, then everything nested below it.
 function parseFocus(body) {
   const entries = [];
   const open = []; // the indents of the bullets this line could be nested under
-  let owner = null;
+  let tentacle = null;
   let current = null;
   for (const line of body.split('\n')) {
     const bullet = line.match(/^(\s*)[-*+]\s+(.*)$/);
@@ -798,9 +912,9 @@ function parseFocus(body) {
     open.push(indent);
     const text = bullet[2].trim();
     if (depth === 0) {
-      owner = text;
+      tentacle = text;
     } else if (depth === 1) {
-      current = { owner, project: text.replace(/\s*:$/, ''), items: [] };
+      current = { tentacle, project: text.replace(/\s*:$/, ''), items: [] };
       entries.push(current);
     } else if (current) {
       current.items.push(text);
@@ -900,10 +1014,10 @@ function swapText(markdown, line, at, from, to) {
 }
 
 // Edits one line of text: a page title, a milestone title, a block title or a todo's text.
-function editText(markdown, kind, line, from, to, statuses, owners) {
+function editText(markdown, kind, line, from, to, statuses, tentacles) {
   const visible = stripComments(markdown);
   if (kind === 'title') {
-    const { title } = parseHeader(markdown, owners);
+    const { title } = parseHeader(markdown, tentacles);
     if (!title || title.line !== line || title.rest !== from) return null;
     return swapText(markdown, line, title.restAt, from, to);
   }
@@ -936,6 +1050,7 @@ function editText(markdown, kind, line, from, to, statuses, owners) {
 }
 
 module.exports = {
+  renameOldLeader,
   isReservedTitle,
   parseBlocks,
   setBlockBody,
@@ -952,13 +1067,16 @@ module.exports = {
   milestoneRows,
   lastReviewDate,
   parseFocus,
-  entityProblems,
+  tentacleProblems,
   projectProblems,
   unknownMarkdown,
   hasDashboardStructure,
   applyFixes,
   setProjectType,
   setRowDate,
+  advanceRecurring,
+  takeArchivedRows,
+  addTaskArchive,
   ARCHIVE_FIELDS,
   INCUBATOR_FIELDS,
   parseNamedEntries,

@@ -6,7 +6,7 @@ const { parseCsv, csvField, cleanName } = require('./todos');
 
 // The columns a new catalog starts with. A catalog keeps whatever columns its file has, so
 // columns added by hand are shown and edited too.
-const CATALOG_COLUMNS = ['Catalog #', 'Image', 'Owner', 'Title', 'Medium', 'Release date'];
+const CATALOG_COLUMNS = ['Catalog #', 'Image', 'Tentacle', 'Title', 'Medium', 'Release date'];
 const NUMBER_COLUMN = 0; // the first column holds each row's catalog number
 const FILE_PATTERN = /^([A-Z]{2,3})_(.+)\.csv$/;
 const NAME_PATTERN = /^[^\\/:*?"<>|_]+$/; // safe in a file name, and no underscores, which stand for spaces

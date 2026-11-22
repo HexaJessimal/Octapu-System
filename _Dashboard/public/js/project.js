@@ -56,7 +56,7 @@
 
   // In the Raw view a double-click always edits the whole file, so the title isn't editable.
   function titleHtml(editable = true) {
-    return status.ownerControl(project) + titleSpan(project, editable);
+    return status.tentacleControl(project) + titleSpan(project, editable);
   }
 
   const renderRaw = () => documentView.renderRaw(project, documentView.headerOptions(project, () => titleHtml(false), true));
@@ -73,7 +73,7 @@
   }
 
   function factValue(v, kind) {
-    if (kind === 'owner' && project.leader) return status.leaderControl(project);
+    if (kind === 'leader' && project.leader) return status.leaderControl(project);
     if (kind === 'reviewed') return status.reviewedValue(project);
     const value = v ? md.inline(v) : '';
     if (kind === 'closed') return value + status.dateControl(project, 'closed', 'Date Closed');
@@ -84,21 +84,21 @@
     return value;
   }
 
-  // On an ongoing project Owner has the row to itself. A milestone project's boxes sit in a
+  // On an ongoing project Leader has the row to itself. A milestone project's boxes sit in a
   // three by three grid instead, laid out by the facts-grid style.
-  const factWidth = (kind) => (project.ongoing && kind === 'owner' ? 'fact-full' : '');
+  const factWidth = (kind) => (project.ongoing && kind === 'leader' ? 'fact-full' : '');
 
   // The title with its status tag, and key details, at the top of the Overview. In the grid,
   // every box is kept, even when empty, so that each one stays in its place.
   function summaryCard(facts, info, meta, footer) {
     const grid = !project.ongoing;
     const rows = facts
-      .filter(([, v, kind]) => v || (kind === 'owner' && (project.leader || grid)) || ['timeframe', 'created', 'reviewed', 'closed', 'dependency'].includes(kind))
+      .filter(([, v, kind]) => v || (kind === 'leader' && (project.leader || grid)) || ['timeframe', 'created', 'reviewed', 'closed', 'dependency'].includes(kind))
       .map(([k, v, kind]) => {
         if (kind === 'timeframe') return timeframeFact();
         return fact(k, factValue(v, kind), factWidth(kind));
       });
-    return component('summary-card', { title: (project.title ? titleHtml() : md.inline(meta.title || info.title)) + status.projectStatusControl(project), facts: rows.join(''), grid, footer });
+    return component('summary-card', { corner: documentView.folderButton(project), title: (project.title ? titleHtml() : md.inline(meta.title || info.title)) + status.projectStatusControl(project), facts: rows.join(''), grid, footer });
   }
 
   function renderOverview() {
@@ -108,12 +108,13 @@
     status.setMilestones(ms.milestones.map((m) => ({ line: m.firstLine - 1, title: m.title })));
 
     // ----- key details -----
-    const owner = meta.fields.owner || info.owner;
+    // Projects written before tentacles call their leader Owner.
+    const leader = meta.fields.leader || meta.fields.owner;
     const milestonesDone = ms.milestones.filter((m) => m.state === 'done').length;
-    // In grid order: Owner and Project Dependency, Created and Reviewed, Milestones and
+    // In grid order: Leader and Project Dependency, Created and Reviewed, Milestones and
     // Closed, with Active Timeframe down the right of all three rows.
     const facts = [
-      ['Owner', owner, 'owner'],
+      ['Leader', leader, 'leader'],
       ['Project Dependency', project.dependency.value, 'dependency'],
       ['Created', meta.fields['date created'] || meta.fields.created, 'created'],
       ['Reviewed', project.dates.reviewed.value, 'reviewed'],
@@ -124,11 +125,11 @@
     // Any other **Key**: value fields in the file also appear here.
     meta.order.forEach((key) => {
       const k = key.toLowerCase();
-      if (!['owner', 'date created', 'created', 'date reviewed', 'date closed', 'active timeframe', 'project dependency', 'project type', 'flagged for review'].includes(k)) facts.push([key, meta.fields[k]]);
+      if (!['leader', 'owner', 'date created', 'created', 'date reviewed', 'date closed', 'active timeframe', 'project dependency', 'project type', 'flagged for review'].includes(k)) facts.push([key, meta.fields[k]]);
     });
 
     if (project.ongoing) {
-      const shown = ['owner', 'created', 'reviewed', 'closed'];
+      const shown = ['leader', 'created', 'reviewed', 'closed'];
       return summaryCard(facts.filter(([, , kind]) => shown.includes(kind)), info, meta, '') + documentView.renderTaskLists(project);
     }
 
@@ -232,7 +233,7 @@
 
   archiveEl.addEventListener('click', archiveProject);
 
-  // Opens the heading named after the # in the address, as a [[OWNERID Title#Heading]] link
+  // Opens the heading named after the # in the address, as a [[TENTACLEID Title#Heading]] link
   // asks: a milestone or task list on the Overview, or a block on the Scratchpad.
   function goToTarget() {
     if (!project || !location.hash) return;
@@ -280,7 +281,7 @@
           backEl.innerHTML = component('back-link', { label: data.directory });
           window.PMS.setDateFormat(data.dateFormat);
           status.setStatuses(data.statuses);
-          status.setHeaderOptions(data.owners, data.leaders, data.dateFormat, data.dependencyOptions, data.projectTypes);
+          status.setHeaderOptions(data.tentacles, data.leaders, data.dateFormat, data.dependencyOptions, data.projectTypes);
           // Only on the first load, so finishing a milestone doesn't close it while you work.
           if (!project) milestoneControls.closeFinished(md.parseMilestones(data.content).milestones);
           project = data;

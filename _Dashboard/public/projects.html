@@ -26,7 +26,7 @@
           <button type="button" class="chip" data-filter="inactive" aria-pressed="false">Inactive <span class="count" data-count="inactive">0</span></button>
           <button type="button" class="chip" data-filter="archived" aria-pressed="false">Archived <span class="count" data-count="archived">0</span></button>
         </div>
-        <input type="search" class="search" id="search" placeholder="Search projects or owners…" aria-label="Search projects" autocomplete="off" />
+        <input type="search" class="search" id="search" placeholder="Search projects or tentacles…" aria-label="Search projects" autocomplete="off" />
       </div>
 
       <section class="card">
@@ -39,9 +39,9 @@
     <dialog class="modal" id="new-project-dialog" aria-labelledby="new-project-heading">
       <form method="dialog">
         <h2 id="new-project-heading">New project</h2>
-        <label>Entity<select name="entity" required></select></label>
+        <label>Tentacle<select name="tentacle" required></select></label>
         <label>Title<input name="title" maxlength="100" autocomplete="off" required /></label>
-        <label>Owner<select name="owner" required></select></label>
+        <label>Leader<select name="leader" required></select></label>
         <label>Project Type<select name="type" required></select></label>
         <label>Notes<textarea name="notes" rows="5"></textarea></label>
         <p class="form-error" role="alert" hidden></p>
@@ -54,7 +54,8 @@
 
     <script src="api/components.js"></script>
     <script src="js/projects.js"></script>
-    <script src="api/owner-tags.js"></script>
+    <script src="js/layout.js"></script>
+    <script src="api/tags.js"></script>
     <script src="js/markdown.js"></script>
     <script src="js/status.js"></script>
     <script src="js/nav.js"></script>

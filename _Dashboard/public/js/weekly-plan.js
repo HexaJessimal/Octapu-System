@@ -4,7 +4,7 @@
   const { parseFolder, displayDates, setDateFormat, badgeClass, markdown: md, status, component, getJson, postJson, loadError, showFormError, storedList, UNREACHABLE } = window.PMS;
 
   const contentEl = document.getElementById('content');
-  const STORAGE_KEY = 'pms.weeklyFocus';
+  const STORAGE_KEY = 'pms.weeklyFocus.' + (window.PMS_ENTITY || ''); // each entity has its own picks
   const COLLAPSED_KEY = 'pms.planCollapsed';
 
   let projects = [];

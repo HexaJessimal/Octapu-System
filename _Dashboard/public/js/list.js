@@ -37,7 +37,7 @@
 
   function matchesSearch(p, q) {
     if (!q) return true;
-    const hay = (p.title + ' ' + p.owner + ' ' + p.folder).toLowerCase();
+    const hay = (p.title + ' ' + p.tentacle + ' ' + p.folder).toLowerCase();
     return q
       .toLowerCase()
       .split(/\s+/)
@@ -67,7 +67,7 @@
     }
 
     listEl.innerHTML = visible
-      .map((p) => projectRow(p, { label: statusLabel(p), ownerShown: true, progress: p.ongoing ? component('project-row-spacer') : progressBar(p.milestones) }))
+      .map((p) => projectRow(p, { label: statusLabel(p), tentacleShown: true, progress: p.ongoing ? component('project-row-spacer') : progressBar(p.milestones) }))
       .join('');
   }
 

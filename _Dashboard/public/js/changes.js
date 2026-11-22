@@ -1,4 +1,4 @@
-// Syncthing conflict warnings and the Changelog view, shared by the project, entity and
+// Syncthing conflict warnings and the Changelog view, shared by the project, tentacle and
 // Networking pages. Each page calls showConflicts after loading its file, and
 // drawChangelog when its Changelog view is open.
 (function (global) {

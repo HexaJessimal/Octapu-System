@@ -5,7 +5,7 @@
 
   const root = document.getElementById('content');
   const folder = new URLSearchParams(location.search).get('folder') || '';
-  const STORAGE_KEY = 'pms.collapsed.' + folder;
+  const STORAGE_KEY = 'pms.collapsed.' + (window.PMS_ENTITY || '') + folder;
 
   function loadCollapsed() {
     try {

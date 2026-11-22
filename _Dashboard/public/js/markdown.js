@@ -53,8 +53,9 @@
 
   // ---------- inline ----------
 
-  // The markdown files [[references]] can link to, by their name in lowercase.
-  const LINKABLE_FILES = ['leads', 'events'];
+  // The markdown files [[references]] can link to, by their name in lowercase, and the page
+  // each opens. Contacts was called Leads, so [[Leads#Name]] links still work.
+  const LINKABLE_FILES = { contacts: 'contacts', leads: 'contacts', events: 'events' };
   let currentNetworkingPage = null; // which file a [[#heading]] with no file name is in
 
   const unescape = (s) => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&');
@@ -70,17 +71,17 @@
     }
     const file = m[1].trim().replace(/\.md$/i, '').toLowerCase();
     const heading = (m[2] || '').trim();
-    const page = file ? (LINKABLE_FILES.includes(file) ? file : null) : heading && currentNetworkingPage;
-    // A project's name ("OWNERID Title") goes to that project. It's checked before owners, as
-    // it starts with one. The lists come from the api/owner-tags.js script each page loads.
+    const page = file ? (Object.hasOwn(LINKABLE_FILES, file) ? LINKABLE_FILES[file] : null) : heading && currentNetworkingPage;
+    // A project's name ("TENTACLEID Title") goes to that project. It's checked before tentacles, as
+    // it starts with one. The lists come from the api/tags.js script each page loads.
     const name = unescape(m[1]).trim().replace(/\s+/g, ' ').toLowerCase();
     const project = !page && name ? (global.PMS_PROJECTS || {})[name] : null;
-    // Anything else starting with an owner's id goes to that owner's page.
+    // Anything else starting with a tentacle's id goes to that tentacle's page.
     const firstWord = unescape(m[1].trim().split(/\s+/)[0]);
-    const owner = !page && !project && (global.PMS_OWNER_IDS || []).includes(firstWord) ? firstWord : null;
-    if (!page && !project && !owner) return null;
+    const tentacle = !page && !project && (global.PMS_TENTACLE_IDS || []).includes(firstWord) ? firstWord : null;
+    if (!page && !project && !tentacle) return null;
     const hash = heading ? '#' + encodeURIComponent(unescape(heading)) : '';
-    const target = page ? 'networking.html?page=' + page : project ? 'project.html?folder=' + encodeURIComponent(project) : 'entity.html?id=' + encodeURIComponent(owner);
+    const target = page ? 'networking.html?page=' + page : project ? 'project.html?folder=' + encodeURIComponent(project) : 'tentacle.html?id=' + encodeURIComponent(tentacle);
     const href = target + hash;
     return component('md-wikilink', { href, label: m[3] ? m[3].trim() : heading || m[1].trim() });
   }
@@ -110,11 +111,12 @@
     if (status) {
       // The status control also shows the priority, so its token is dropped from the text.
       const name = esc(status.name).replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
-      const pattern = new RegExp('^([*_\\s]*)' + name + '(\\*\\*|__|\\*|_)?(\\s*\\[#[A-C]\\])?');
+      // A recurring task's is R and its period, as in [#R|5D].
+      const pattern = new RegExp('^([*_\\s]*)' + name + '(\\*\\*|__|\\*|_)?(\\s*\\[#(?:[A-C]|R\\|(?:10|[1-9])[DWMY])\\])?');
       s = s.replace(pattern, (_, pre, closer) => pre + hold(status.html) + (closer || ''));
     }
-    // any other org-style priority [#A]
-    s = s.replace(/\[#([A-C])\]/g, (_, p) => hold(component('md-priority', { level: p.toLowerCase(), priority: p })));
+    // any other org-style priority [#A], or a recurring [#R|5D] shown as R
+    s = s.replace(/\[#([A-C]|R)(?:\|(?:10|[1-9])[DWMY])?\]/g, (_, p) => hold(component('md-priority', { level: p.toLowerCase(), priority: p })));
 
     // Code and URLs are already held aside, so they keep their exact characters.
     s = global.PMS.displayDates(s);
@@ -159,6 +161,13 @@
     let i = start;
     while (i < lines.length) {
       const line = lines[i];
+      // A comment on a line of its own, such as a milestone's count of tasks in the Task
+      // Archive, isn't shown, as in Obsidian.
+      if (/^\s*<!--.*-->\s*$/.test(line)) {
+        i++;
+        continue;
+      }
+
       if (line.trim() === '') {
         // Blank line: continue only if the next non-blank line is still part of the list.
         let j = i + 1;
@@ -213,7 +222,7 @@
   }
 
   // True if the scanner found an ARCHIVED type status on this line, and SHOWARCHIVED in
-  // _Labels/Options.csv isn't on (that comes from the api/owner-tags.js script too).
+  // _Options/Options.csv isn't on (that comes from the api/tags.js script too).
   const isArchivedRow = (no, ctx) => {
     if (global.PMS_SHOW_ARCHIVED) return false;
     const item = ctx.todos.get(no);
@@ -391,7 +400,7 @@
   }
 
   // True if a checkbox's text opens with a status of the ARCHIVED type. Those names come from
-  // _Labels/Status.csv, by way of the api/owner-tags.js script each page loads first.
+  // _Options/Status.csv, by way of the api/tags.js script each page loads first.
   function startsWithArchivedStatus(text) {
     const words = text.replace(/^[*_\s]+/, '').split(/[\s:*_]/, 1);
     return (global.PMS_ARCHIVED_STATUSES || []).includes(words[0]);
@@ -427,6 +436,13 @@
       }
       if (!current) continue;
       current.body.push(lines[i]);
+      // Tasks a review moved to the Task Archive still count as finished.
+      const moved = lines[i].match(/^\s*<!--\s*(\d+)\s+tasks?\s+in the Task Archive\s*-->\s*$/i);
+      if (moved) {
+        current.total += Number(moved[1]);
+        current.done += Number(moved[1]);
+        continue;
+      }
       const m = lines[i].match(/^\s*(?:[-*+]|\d+[.)])\s+\[([ xX/-])\]\s*(.*)$/);
       if (!m) continue;
       if (archivedIndent !== null && indentOf(lines[i]) > archivedIndent) continue;

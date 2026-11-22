@@ -1,8 +1,8 @@
 // Helpers shared by every page: folder names, dates, HTML components and server requests.
 // Folder names:
-//   +OWNER_Project_Title          -> active
-//   -OWNER_Project_Title          -> inactive
-//   YYYY-MM-DD_OWNER_Project_Title -> archived (separator may be '-', '.' or '_')
+//   +TENTACLE_Project_Title          -> active
+//   -TENTACLE_Project_Title          -> inactive
+//   YYYY-MM-DD_TENTACLE_Project_Title -> archived (separator may be '-', '.' or '_')
 (function (global) {
   'use strict';
 
@@ -34,10 +34,10 @@
     }
 
     const parts = rest.split('_').filter(Boolean);
-    const owner = parts.length > 1 ? parts[0] : '';
+    const tentacle = parts.length > 1 ? parts[0] : '';
     const title = (parts.length > 1 ? parts.slice(1) : parts).join(' ') || name;
 
-    return { folder, status, archivedOn, owner, title };
+    return { folder, status, archivedOn, tentacle, title };
   }
 
   const STATUS_LABELS = {
@@ -47,8 +47,8 @@
     unknown: 'Unsorted',
   };
 
-  // A suggested ID for a new entity, in the style of the others.
-  const suggestEntityId = (name) => name.toUpperCase().replace(/[^A-Z0-9]+/g, '');
+  // A suggested ID for a new tentacle, in the style of the others.
+  const suggestTentacleId = (name) => name.toUpperCase().replace(/[^A-Z0-9]+/g, '');
 
   function escapeHtml(s) {
     return String(s)
@@ -200,7 +200,7 @@
     if (selection) selection.removeAllRanges(); // a double-click selects a word
   }
 
-  const entityHref = (root, id) => 'entity.html?id=' + encodeURIComponent(root) + (id === root ? '' : '&tab=' + encodeURIComponent(id));
+  const tentacleHref = (root, id) => 'tentacle.html?id=' + encodeURIComponent(root) + (id === root ? '' : '&tab=' + encodeURIComponent(id));
 
   // A YYYY-MM-DD date as a whole number of days, so two can be subtracted.
   const dayNumber = (date) => {
@@ -214,7 +214,7 @@
   function suggestIdFrom(nameField, idField) {
     let edited = false;
     nameField.addEventListener('input', () => {
-      if (!edited) idField.value = suggestEntityId(nameField.value);
+      if (!edited) idField.value = suggestTentacleId(nameField.value);
     });
     idField.addEventListener('input', () => {
       edited = true;
@@ -317,13 +317,13 @@
     return STATUS_LABELS[project.status] + (project.archivedOn ? ' · ' + displayDate(project.archivedOn) : '');
   }
 
-  // One row of a project list. `timeframes` and `ownerShown` are optional extras.
-  function projectRow(project, { label, timeframes, ownerShown, progress }) {
+  // One row of a project list. `timeframes` and `tentacleShown` are optional extras.
+  function projectRow(project, { label, timeframes, tentacleShown, progress }) {
     return component('project-row', {
       folder: encodeURIComponent(project.folder),
       pill: component('pill', { status: project.status, label }),
       title: project.title,
-      owner: ownerShown ? project.owner : '',
+      tentacle: tentacleShown ? project.tentacle : '',
       dates: (timeframes || []).map((t) => component('project-row-date', { date: displayDates(t) })).join(''),
       progress,
     });
@@ -349,7 +349,7 @@
     return text.replace(/(?<![0-9])(?<![0-9][-./_])\d{4}-\d{2}-\d{2}(?![0-9])(?![-./_][0-9])/g, displayDate);
   }
 
-  // The fixed status types, in order. Status names always come from _Labels/Status.csv.
+  // The fixed status types, in order. Status names always come from _Options/Status.csv.
   const TYPES = ['UNASSIGNED', 'ASSIGNED', 'WAITING', 'DONE', 'ARCHIVED'];
 
   function presentTypes(statuses) {
@@ -360,7 +360,35 @@
     return 'badge type-' + TYPES.indexOf(type);
   }
 
+  // The entities from _Dashboard/entities.csv as a dropdown. With only one there's nothing to
+  // choose. It's on every page with the menu, and on setup and login, which have none.
+  function entityPicker() {
+    const entities = global.PMS_ENTITIES || [];
+    if (entities.length < 2) return '';
+    const options = entities.map((e) => component('option', { value: e.dir, label: e.name, selected: e.dir === global.PMS_ENTITY })).join('');
+    return component('entity-select', { options });
+  }
+
+  // Pages about one project, tentacle or catalog may not exist in the other entity, so they
+  // go to the Dashboard. Other pages reload as they are, keeping only the query of pages
+  // whose query names a kind of page rather than one item.
+  const SINGLE_ITEM_PAGES = ['project.html', 'tentacle.html', 'catalog.html'];
+  const KEEP_QUERY_PAGES = ['networking.html', 'compatibility.html', 'options.html'];
+  document.addEventListener('change', async (e) => {
+    const select = e.target.closest('[data-entity-select]');
+    if (!select) return;
+    try {
+      await postJson('api/entity-select', { dir: select.value });
+    } catch (_) {
+      /* the reload below shows whichever entity the server has */
+    }
+    const page = location.pathname.split('/').pop();
+    if (SINGLE_ITEM_PAGES.includes(page)) location.assign('./');
+    else location.assign((page || './') + (KEEP_QUERY_PAGES.includes(page) ? location.search : ''));
+  });
+
   global.PMS = Object.assign(global.PMS || {}, {
+    entityPicker,
     parseFolder,
     STATUS_LABELS,
     STATE_LABELS,
@@ -372,7 +400,7 @@
     statusLabel,
     projectRow,
     escapeHtml,
-    suggestEntityId,
+    suggestTentacleId,
     presentTypes,
     badgeClass,
     setDateFormat,
@@ -391,7 +419,7 @@
     hashReference,
     setViewInAddress,
     clearSelection,
-    entityHref,
+    tentacleHref,
     byFolderTitle,
     dayNumber,
     suggestIdFrom,

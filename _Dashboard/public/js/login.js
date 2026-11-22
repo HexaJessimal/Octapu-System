@@ -2,7 +2,10 @@
 // made each change.
 (function () {
   'use strict';
-  const { component, getJson, postJson, showFormError, UNREACHABLE } = window.PMS;
+  const { component, getJson, postJson, showFormError, entityPicker, UNREACHABLE } = window.PMS;
+
+  // Each entity has its own leaders, so the entity is chosen first.
+  document.getElementById('entity-picker').innerHTML = entityPicker();
 
   const form = document.getElementById('login-form');
   const fieldsEl = document.getElementById('login-fields');
@@ -15,7 +18,7 @@
       return;
     }
     if (!info.leaders.length) {
-      showFormError(error, 'There are no leaders to choose from yet. Add one to _Labels/Leaders.csv.');
+      showFormError(error, 'There are no leaders to choose from yet. Add one to _Options/Leaders.csv.');
       return;
     }
     const options = info.leaders.map((name) => component('option', { value: name, selected: name === info.user, label: name }));

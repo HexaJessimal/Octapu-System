@@ -1,4 +1,5 @@
-// The Statuses, Leaders, Colours and Agenda tabs on the Options page: a CSV as an editable table.
+// The Statuses, Leaders, Colours, Agenda and Entities tabs on the Options page: a CSV as an
+// editable table.
 (function (global) {
   'use strict';
   const { escapeHtml, badgeClass, status, component, getJson, postJson, loadError, clearSelection, UNREACHABLE, formDialog, inlineEditor } = global.PMS;
@@ -8,16 +9,27 @@
   const TABLES = {
     statuses: {
       url: 'api/status-table',
-      title: 'Statuses',
+      title: 'Task Management',
       noun: 'status',
-      file: '_Labels/Status.csv',
+      file: '_Options/Status.csv',
       missing: 'Until then, the built-in default statuses are in use.',
       keyOf: (row) => row.name,
+      // A list for each status type, in the order a task moves through them. A status added to
+      // a list gets that list's type.
+      groupBy: 'type',
+      groups: [
+        { value: 'UNASSIGNED', title: 'Awaiting Assignment' },
+        { value: 'ASSIGNED', title: 'Assignees' },
+        { value: 'WAITING', title: 'Waiting for review' },
+        { value: 'DONE', title: 'Complete' },
+        { value: 'ARCHIVED', title: 'Archived' },
+      ],
+      // A type with no status of its own uses one named after the type.
+      emptyGroup: (group) => 'None yet, so tasks use a built-in ' + group.value + ' status.',
       columns: (data) => {
         // A default status isn't in the file, and is named after its type.
         const typeOf = (name) => (data.rows.find((r) => r.name === name) || { type: name }).type;
         return [
-          { key: 'type', label: 'Type', options: data.types.map((t) => option(t)) },
           { key: 'name', label: 'Name', upper: true, text: true, badge: (row) => row.type },
           { key: 'next', label: 'Next status', options: [option('', 'Automatic')].concat(data.choices.map((c) => option(c))), badge: (row) => typeOf(row.next) },
         ];
@@ -27,7 +39,7 @@
       url: 'api/leader-table',
       title: 'Leaders',
       noun: 'leader',
-      file: '_Labels/Leaders.csv',
+      file: '_Options/Leaders.csv',
       missing: '',
       keyOf: (row) => row.id,
       columns: () => [
@@ -39,7 +51,7 @@
       url: 'api/colour-table',
       title: 'Colours',
       noun: 'colour',
-      file: '_Labels/Colours.csv',
+      file: '_Options/Colours.csv',
       fixedRows: true, // the stylesheet uses each row by name
       keyOf: (row) => row.name,
       columns: () => [
@@ -59,7 +71,7 @@
       noun: 'agenda item',
       file: '_Time_Management/AgendaItems.csv',
       missing: '',
-      note: 'Shown as cards on the Review page. A text item is a reminder. REVIEW lists one entity or project, or the Dashboard, and REVIEW_ALL a group of them. Each card is ticked off on the Review page.',
+      note: 'Shown as cards on the Review page. A text item is a reminder. REVIEW lists one tentacle or project, or the Dashboard, and REVIEW_ALL a group of them. Each card is ticked off on the Review page.',
       keyOf: (row) => row.raw,
       // Items can repeat, so a row is found by its place and checked against its item as written.
       target: (row, index) => ({ index, fromItem: row.raw }),
@@ -91,6 +103,31 @@
           },
         },
       ],
+    },
+    entities: {
+      url: 'api/entity-table',
+      title: 'Entities',
+      noun: 'entity',
+      file: '_Dashboard/entities.csv',
+      missing: 'Until then, the main folder is the only entity.',
+      note: 'Each entity is a folder directly inside the main folder, with its own projects, tentacles, options and everything else. Adding one whose folder doesn\'t exist yet makes the folder and opens the setup form for it. Removing one only takes it off this list: its folder and everything in it stay where they are.',
+      keyOf: (row) => row.dir,
+      removeQuestion: 'Remove this entity from the list? Its folder and everything in it stay where they are.',
+      removeLabel: 'Remove',
+      columns: () => [
+        { key: 'name', label: 'Name', text: true },
+        { key: 'dir', label: 'Directory', text: true, render: (row) => escapeHtml(row.dir) + (row.missing ? component('label-missing') : '') },
+      ],
+      // The entity dropdown lists these, so every change reloads the page.
+      afterSave: () => location.reload(),
+      // A new folder is chosen straight away, which makes its folders and opens setup.
+      afterAdd: (body) => {
+        if (!body || !body.created) return false;
+        postJson('api/entity-select', { dir: body.dir })
+          .catch(() => {})
+          .then(() => location.assign('setup.html'));
+        return true;
+      },
     },
   };
   const targetOf = (table, row, index) => (table.target ? table.target(row, index) : { from: table.keyOf(row) });
@@ -136,15 +173,31 @@
 
     function render() {
       const head = columns.map((c) => component('label-head', { label: c.label })).join('');
-      const rows = data.rows
-        .map((row, i) =>
-          component('label-row', {
-            index: i,
-            cells: columns.map((c) => component('label-cell', { key: c.fixed ? '' : c.key, content: cellText(row, c) })).join(''),
-            actions: table.fixedRows ? '' : component('label-actions', { noun: table.noun, name: table.keyOf(row) }),
+      // Each row keeps its place in the whole file as its index, which edits are found by.
+      const rowHtml = (row, i) =>
+        component('label-row', {
+          index: i,
+          cells: columns.map((c) => component('label-cell', { key: c.fixed ? '' : c.key, content: cellText(row, c) })).join(''),
+          actions: table.fixedRows ? '' : component('label-actions', { noun: table.noun, name: table.keyOf(row) }),
+        });
+      if (table.groups && (data.exists || data.rows.length)) {
+        panel.innerHTML = table.groups
+          .map((group) => {
+            const rows = data.rows.map((row, i) => (row[table.groupBy] === group.value ? rowHtml(row, i) : '')).join('');
+            const empty = component('label-no-rows', { span: columns.length + 1, message: table.emptyGroup(group) });
+            return component('label-panel', {
+              title: group.title,
+              note: '',
+              canAdd: true,
+              noun: table.noun,
+              group: group.value,
+              body: component('label-table', { head, hasActions: true, rows: rows || empty }),
+            });
           })
-        )
-        .join('');
+          .join('');
+        return;
+      }
+      const rows = data.rows.map(rowHtml).join('');
       const missing = table.file + (table.fixedRows ? " doesn't exist, so the built-in colours are in use." : " doesn't exist yet. Add a row with the plus button to create it. " + table.missing);
       panel.innerHTML = component('label-panel', {
         title: table.title,
@@ -201,19 +254,22 @@
       keepUpperCase(field, column);
     }
 
-    function askForRow() {
+    // `group` is the list the plus button belongs to, which sets that column of the new row.
+    function askForRow(group) {
       const editable = columns.filter((c) => !c.fixed);
+      const grouped = group && table.groupBy ? { [table.groupBy]: group } : {};
       const fieldOf = (form, column) => form.querySelector('[data-column="' + column.key + '"]');
-      const blank = table.blank || {};
+      const blank = Object.assign({}, table.blank, grouped);
       const draftOf = (f) => Object.fromEntries(editable.map((column) => [column.key, fieldOf(f, column).value]));
       const form = formDialog({
-        heading: 'New ' + table.noun,
+        heading: 'New ' + table.noun + (group && table.groups ? ' in ' + table.groups.find((g) => g.value === group).title : ''),
         fields: editable.map((column) => component('label-modal-field', { label: column.label, field: fieldHtml(column, '', false, blank) })).join(''),
         submit: 'Add',
         failure: 'Could not save that.',
-        send: (f) => postJson(table.url, bodyOf(Object.assign({ action: 'add' }, draftOf(f)))),
-        done: (_, dialog) => {
+        send: (f) => postJson(table.url, bodyOf(Object.assign({ action: 'add' }, grouped, draftOf(f)))),
+        done: (result, dialog) => {
           dialog.close();
+          if (table.afterAdd && table.afterAdd(result.body)) return;
           return reload();
         },
       });
@@ -241,7 +297,7 @@
 
     async function removeRow(index) {
       const row = data.rows[index];
-      if (!(await status.confirmDelete(table.keyOf(row), 'Delete this ' + table.noun + '?'))) return;
+      if (!(await status.confirmDelete(table.keyOf(row), table.removeQuestion || 'Delete this ' + table.noun + '?', table.removeLabel))) return;
       try {
         const result = await postJson(table.url, Object.assign({ action: 'delete' }, targetOf(table, row, index)));
         if (!result.ok) status.toast(result.error || 'Could not delete that.');
@@ -259,7 +315,8 @@
     });
 
     panel.addEventListener('click', (e) => {
-      if (e.target.closest('[data-add-row]')) return askForRow();
+      const add = e.target.closest('[data-add-row]');
+      if (add) return askForRow(add.dataset.group);
       if (e.target.closest('[data-remove]')) removeRow(Number(e.target.closest('tr').dataset.index));
     });
 

@@ -29,9 +29,9 @@
   <p class="empty">{{last}}<a href="weekly-plan.html">Make a plan for this period</a></p>
 </template>
 
-<template name="home-plan"><div class="home-plan">{{{owners}}}</div></template>
+<template name="home-plan"><div class="home-plan">{{{tentacles}}}</div></template>
 
-<template name="home-plan-owner"><h3>{{owner}}</h3>{{{projects}}}</template>
+<template name="home-plan-tentacle"><h3>{{tentacle}}</h3>{{{projects}}}</template>
 
 <template name="home-plan-project"><h4>{{{name}}}</h4>{{#if items}}<ul>{{{items}}}</ul>{{/if}}</template>
 
@@ -242,7 +242,7 @@
     <label>Wins<textarea name="wins" rows="10"></textarea></label>
     <p class="form-error" role="alert" hidden></p>
     <div class="modal-actions"><button type="submit" class="primary-button">Submit wins and archive {{count}}</button></div>
-    <p class="review-note">Every done item moves to {{archiveTo}}, including any not listed above because they were closed before the last review.</p>
+    <p class="review-note">Every done item moves to {{archiveTo}}, including any not listed above because they were closed before the last review. Tasks already archived move out of their files into _Task_Archive.md first, where the Task Archive tab on the Options page shows them.</p>
   </form>
 </template>
 
@@ -337,7 +337,14 @@
 
 <template name="compat-fix"><button type="button" class="primary-button" data-fix="{{key}}" data-file="{{file}}">Fix issues</button></template>
 
-<template name="compat-page"><p class="review-since">{{{count}}} of {{{checked}}} need changes.</p>{{{body}}}</template>
+<!-- Fix all issues runs every box's Fix issues in turn, with whatever its dropdowns say. -->
+<template name="compat-page">
+  <div class="compat-top">
+    <p class="review-since">{{{count}}} of {{{checked}}} need changes.</p>
+    {{#if fixable}}<button type="button" class="primary-button" data-fix-all>Fix all issues ({{{fixable}}})</button>{{/if}}
+  </div>
+  {{{body}}}
+</template>
 
 <template name="options-field"><label>{{key}}<input data-key="{{key}}" value="{{value}}" autocomplete="off"></label></template>
 
@@ -365,7 +372,7 @@
 <template name="label-panel">
   <div class="section-row">
     <h2 class="section-title">{{title}}</h2>
-    {{#if canAdd}}<button type="button" class="add-button" data-add-row title="Add a {{noun}}" aria-label="Add a {{noun}}"></button>{{/if}}
+    {{#if canAdd}}<button type="button" class="add-button" data-add-row{{#if group}} data-group="{{group}}"{{/if}} title="Add a {{noun}}" aria-label="Add a {{noun}}"></button>{{/if}}
   </div>
   {{#if note}}<p class="label-note">{{note}}</p>{{/if}}
   {{{body}}}
@@ -390,7 +397,10 @@
 
 <template name="label-actions"><td class="label-actions"><button type="button" class="row-remove" data-remove title="Delete this {{noun}}" aria-label="Delete {{name}}"></button></td></template>
 
-<template name="label-no-rows"><tr><td class="empty" colspan="{{{span}}}">No rows yet.</td></tr></template>
+<template name="label-no-rows"><tr><td class="empty" colspan="{{{span}}}">{{#if message}}{{message}}{{else}}No rows yet.{{/if}}</td></tr></template>
+
+<!-- After an entity's Directory, when that folder hasn't been made yet. -->
+<template name="label-missing"><span class="label-default"> (not made yet)</span></template>
 
 <template name="label-automatic"><span class="label-default">Automatic</span></template>
 

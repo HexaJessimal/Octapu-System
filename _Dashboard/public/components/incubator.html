@@ -1,13 +1,14 @@
-<!-- The Incubator page: one card per idea in _Incubator.md. -->
+<!-- The Incubator page: one card per idea in _Incubator.md. Double-click the name, the
+     dependency or the notes to edit them, like an entry on the Archive Index. -->
 <template name="idea-card">
-  <section class="card scratch-block idea-card" data-idea="{{{index}}}">
+  <section class="card scratch-block idea-card{{#if target}} is-target{{/if}}" data-idea="{{{index}}}">
     <header class="entry-head">
-      <h2 class="scratch-title">{{name}}</h2>
-      {{#if owner}}<span class="pill">{{owner}}</span>{{/if}}
+      <h2 class="scratch-title"{{{titleAttrs}}}>{{name}}</h2>
+      {{#if tentacle}}<span class="pill">{{tentacle}}</span>{{/if}}
     </header>
     <dl class="entry-fields">
-      <div class="entry-field"><dt>Project Dependency</dt><dd>{{dependency}}</dd></div>
-      {{#if notes}}<div class="entry-field"><dt>Notes</dt><dd class="idea-notes">{{{notes}}}</dd></div>{{/if}}
+      <div class="entry-field"><dt>Project Dependency</dt><dd{{{dependencyAttrs}}}>{{{dependency}}}</dd></div>
+      <div class="entry-field"><dt>Notes</dt><dd class="idea-notes"{{{notesAttrs}}}>{{{notes}}}</dd></div>
     </dl>
     <div class="idea-actions">
       <button type="button" class="plain-button archive-button" data-archive-idea>Archive Idea</button>

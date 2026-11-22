@@ -15,7 +15,7 @@ The terminal prints the address of your dashboard, normally `http://127.0.0.1:41
 
 [[IMAGE#Screenshots/01-RunServer.png]]
 
-## Launch the dashboard and create your entity
+## Launch the dashboard and create your tentacle
 
 Open the address from [Install Node and run the server](#install-node-and-run-the-server) in your web browser. The first time, you'll see a short setup form.
 
@@ -23,14 +23,14 @@ Open the address from [Install Node and run the server](#install-node-and-run-th
 
 Fill in:
 
-- **Entity name:** the name of your entity.
-- **Entity ID:** a short code using letters, numbers and hyphens. It's suggested from the name, and you can change it. This ID appears at the start of folder names and page titles.
+- **Tentacle name:** the name of your tentacle.
+- **Tentacle ID:** a short code using letters, numbers and hyphens. It's suggested from the name, and you can change it. This ID appears at the start of folder names and page titles.
 - **Your name:** this becomes a leader, and a status you can assign tasks to.
 - **Date format:** how dates are shown and typed.
 
 [[IMAGE#Screenshots/03-SetupFill.png]]
 
-Select **Get started**. The dashboard creates the settings files it needs in the `_Labels` folder and your entity's folder. You can change all of this later in Options.
+Select **Get started**. The dashboard creates the settings files it needs in the `_Options` folder and your tentacle's folder. You can change all of this later in Options.
 
 ## View your homepage
 
@@ -43,28 +43,29 @@ Select **Get started**. The dashboard creates the settings files it needs in the
 - **Current plan, Due in the next 7 days, Priorities this month and Overdue tasks** sit below it.
 - **The left menu** takes you everywhere else. Review and Plan get a coloured outline when they're due.
 - **The Todos list** on the right stays on every page.
+- **Both sidebars** can be made wider or narrower by dragging their inner edge, and double-clicking the edge puts it back. The round arrow button on each edge folds that sidebar away to a thin strip, and selecting it again brings it back. Each browser remembers how you left them. A name too long for the menu ends in **…**; point at it to see it in full.
 
 Most of this is empty until you've added some work.
 
-## View your entity page
+## View your tentacle page
 
-Select your entity under **Entities** in the left menu.
+Select your tentacle under **Tentacles** in the left menu. Tentacles are coloured by level, as their tabs are (see [Read your tentacle's tabs](#read-your-tentacles-tabs)). One with others under it has a caret at the end of its row: select the caret to show or hide them. They start hidden.
 
 [[IMAGE#Screenshots/05-OrganisationPage.png]]
 
-Every entity and project page has three tabs at the top right:
+Every tentacle and project page has three tabs at the top right, in a bar that stays at the top of the window as you scroll. The title sits below the bar, so a long one has room:
 
 - **Overview:** the summary and task lists.
 - **Scratchpad:** your notes, in separate blocks.
 - **Raw:** the whole markdown file.
 
-## Create a new task for your entity
+## Create a new task for your tentacle
 
 On the Overview, select the plus button beside **Tasks**. A blank task opens at the bottom of the list, ready to type into. Press Return to save it, and another blank task opens so you can keep going. Press Escape when you're done. A blank task that's left empty is removed without saving.
 
 [[IMAGE#Screenshots/06-New Task.png]]
 
-## View your entity task list
+## View your tentacle task list
 
 Each task you add appears in the Tasks box. The summary above it shows how many are incomplete and how much is done.
 
@@ -80,17 +81,21 @@ Once a task has a status, a second small dropdown appears beside it. Use that to
 
 [[IMAGE#Screenshots/09-AssignPriority.png]]
 
+For something you do again and again, such as paying a bill, choose **R** (recurring), shown in cyan. A small form asks how often: a number from 1 to 10, and **Days**, **Weeks**, **Months** or **Years**. The first time you make a task recurring, it's scheduled that far ahead. After that, selecting its status name or its tick box doesn't change its status or tick it. It moves the scheduled date on by that much instead, so it's ready for next time. To change how often, choose **R** again. To stop it recurring, choose another priority.
+
+In the Todos list on the right, a recurring task due within three days has a yellow border, and one whose date has passed has a red border. They go to the top of the list, the red ones first, whatever **Sort** is set to.
+
 The same status menu has **Schedule** and **Deadline** options. Each asks for a date, which you can type or choose with the calendar button, and shows it under the task. A task with a date appears in **Due in the next 7 days** and **Overdue tasks** on the Dashboard's Overview. To remove a date, choose the option again and clear the box.
 
-## View your entity-wide todo list
+## View your tentacle-wide todo list
 
-The **Todos** list on the right shows every line, in every entity and non-archived project, that has a status. A task with no status stays in its own list and doesn't appear here.
+The **Todos** list on the right shows every line, in every tentacle and non-archived project, that has a status. So do the tasks of your contacts on **Contacts** and your events on **Events**, linking to the contact or event. A task with no status stays in its own list and doesn't appear here.
 
-Use **Filter** to narrow the list, and **Sort** to change the order. Each of **Type**, **Status**, **Priority**, **Entity** and **Project** opens a list where you can tick as many choices as you like. **Type** chooses which status types show, and the others narrow the list further. Leave them on **All** to show everything, or select **Show all** at the top of a list to go back to it. Archived items only appear here when you tick **ARCHIVED** under **Type**, and on other pages only when `SHOWARCHIVED` is ticked in Options.
+Use **Filter** to narrow the list, and **Sort** to change the order: **Project** (A to Z, the default), **Status (alphabetical)**, **Status (type)**, **Priority** (A first, none last), **Scheduled date** or **Deadline date** (soonest first, undated last). Finished tasks always stay below the line. Each of **Type**, **Status**, **Priority**, **Tentacle** and **Project** opens a list where you can tick as many choices as you like. **Type** chooses which status types show, and the others narrow the list further. Leave them on **All** to show everything, or select **Show all** at the top of a list to go back to it. Archived items only appear here when you tick **ARCHIVED** under **Type**, and on other pages only when `SHOWARCHIVED` is ticked in Options.
 
 [[IMAGE#Screenshots/10-TodoList.png]]
 
-## Add notes to your entity document
+## Add notes to your tentacle document
 
 Open the **Scratchpad** tab and double-click the text in the **Notes** block. Type your notes and select **Save**. Pressing `Ctrl + Enter` also saves, and `Escape` cancels.
 
@@ -114,7 +119,7 @@ Then double-click the new block to fill it in.
 
 [[IMAGE#Screenshots/15-BlockFill.png]]
 
-## View the raw markdown for any entity or project page
+## View the raw markdown for any tentacle or project page
 
 Select the **Raw** tab at the top right.
 
@@ -150,16 +155,16 @@ Select **New project** at the top right.
 
 [[IMAGE#Screenshots/21-NewProject.png]]
 
-Choose the entity it belongs to, give it a title, and choose who owns it. There are two project types:
+Choose the tentacle it belongs to, give it a title, and choose its leader. There are two project types:
 
 - **Milestone:** a project with an end, divided into milestones. It can appear on the Timeline and the Plan.
 - **Ongoing:** continuous work, kept as simple task lists.
 
 [[IMAGE#Screenshots/22-ProjectFill.png]]
 
-Select **Create project** and the new project opens. The tag beside the title shows whether it's active or inactive, and you can change that with its caret. The project type at the top of the page can also be changed there.
+Select **Create project** and the new project opens. The tag beside the title shows whether it's active or inactive, and you can change that with its caret. The project type at the top of the page can also be changed there. The folder button at the top right of the summary opens the project's folder in your computer's file browser, File Explorer on Windows or your usual one on Linux.
 
-The summary on a Milestone project is a grid. Owner and Project Dependency share the first row, Created and Reviewed the second, and Milestones and Closed the third, with Active Timeframe down the right-hand side.
+The summary on a Milestone project is a grid. Leader and Project Dependency share the first row, Created and Reviewed the second, and Milestones and Closed the third, with Active Timeframe down the right-hand side.
 
 [[IMAGE#Screenshots/23-MyNewProject.png]]
 
@@ -193,19 +198,19 @@ The timeframe puts the project on the Timeline. It also adds the project to **Pr
 
 [[IMAGE#Screenshots/28-SettingTimeTrame.png]]
 
-## Review your time so far, including new entities and projects
+## Review your time so far, including new tentacles and projects
 
 Before reviewing, finish a task or two so there's something to report.
 
 [[IMAGE#Screenshots/29-SecondTaskComplete.png]]
 
-Under **Time Management** in the left menu, Review and Plan are outlined when they're due. Beside Review, the green circle counts the tasks finished since the last review, and the next two numbers are how many projects and how many entities are waiting to be reviewed.
+Under **Time Management** in the left menu, Review and Plan are outlined when they're due. Beside Review, the green circle counts the tasks finished since the last review, and the next two numbers are how many projects and how many tentacles are waiting to be reviewed. A yellow number counts the tasks with a WAITING type status, such as **REVIEW**.
 
 [[IMAGE#Screenshots/30-TimeManagement.png]]
 
-Open **Review**. The top boxes list every project and entity that hasn't been reviewed yet, or that has been flagged for review.
+Open **Review**. The yellow box at the top lists every task with a WAITING type status, such as **REVIEW**, with its status button so you can move it on. Below it, the cyan and purple boxes list every project and tentacle that hasn't been reviewed yet, or that has been flagged for review.
 
-To flag one, select the flag in the **Reviewed** box at the top of its page. It turns orange and says **Flagged for review**, and the page is listed on Review whatever its review date. Reviewing it again updates the date and takes the flag away. Select the flag again to take it away yourself.
+To flag one, select the flag in the **Reviewed** box at the top of its page. It turns the colour of the box it puts the page in, cyan on a project and purple on a tentacle, and says **Flagged for review**, and the page is listed on Review whatever its review date. Reviewing it again updates the date and takes the flag away. Select the flag again to take it away yourself.
 
 [[IMAGE#Screenshots/81-FlagForReview.png]]
 
@@ -219,7 +224,7 @@ Below those boxes are the cards from your review agenda, if you've set one up. S
 
 ## Document your wins for this period
 
-Further down the Review page, finished tasks since your last review are grouped by status. These come from your projects, including Ongoing ones, your entities and tentacles, and any tasks under a contact or event in Networking.
+Further down the Review page, finished tasks since your last review are grouped by status. These come from your projects, including Ongoing ones, your tentacles, and any tasks under a contact or event in Networking.
 
 1. Select **Add to wins** on a box to copy its tasks into the **Wins** text box.
 2. Edit the text or add anything else you're proud of.
@@ -227,13 +232,17 @@ Further down the Review page, finished tasks since your last review are grouped 
 
 Your wins are saved in `_Time_Management/Review.md`. Every finished task, not only those listed, moves to the archived status and disappears from view. Past reviews are on the **History** tab.
 
-Each review also logs figures to `_Entities/Reports.md`: the tasks you completed and those still open, overdue tasks, active projects with nothing finished, how much of your Plan got done, and the wins you logged. [Read your report and save it](#read-your-report-and-save-it) shows how to read them.
+Tasks that were already archived at the last review leave their files altogether. Each review moves them, with anything under them, into `_Task_Archive.md` in your entity's folder, under the review's date and grouped by tentacle and project, with the file and heading each came from. Nothing else in the dashboard reads that file. To look back at them, open the **Task Archive** tab on the Options page.
+
+So that a milestone still shows as complete once its tasks have gone, the review leaves a hidden note where they were, such as `<!-- 3 tasks in the Task Archive -->`. Neither Obsidian nor the dashboard shows it, but the milestone's progress counts those tasks as done. Leave the note in place if you edit the file by hand.
+
+Each review also logs figures to `_Tentacles/Reports.md`: the tasks you completed and those still open, overdue tasks, active projects with nothing finished, how much of your Plan got done, and the wins you logged. [Read your report and save it](#read-your-report-and-save-it) shows how to read them.
 
 There's no screenshot of this step. The Wins box is at the bottom of the Review page.
 
 ## Plan the next work period and submit your focuses
 
-Open **Plan**. The top boxes list everything that hasn't been assigned yet: tasks in your active Milestone projects, tasks and status-tagged lines in your entities and tentacles, and tasks under a contact or event in Networking. The small arrow on any box on this page collapses it.
+Open **Plan**. The top boxes list everything that hasn't been assigned yet: tasks in your active Milestone projects, tasks and status-tagged lines in your tentacles, and tasks under a contact or event in Networking. The small arrow on any box on this page collapses it.
 
 - A project with a timeframe that includes today is outlined and tagged **Suggested**.
 - A task that's the last one unfinished in its milestone is outlined too.
@@ -249,14 +258,14 @@ Select tasks to move them into **Focus** below, then set a status and priority f
 Your plan is saved in `_Time_Management/Plan.md`, and can be read back on the **History** tab of the Plan page. The Todos list now outlines items according to your latest plan:
 
 - **Purple:** the plan names this task or its milestone.
-- **Cyan:** the plan includes this project, entity or tentacle.
+- **Cyan:** the plan includes this project or tentacle.
 - **Pink:** the task's project isn't active.
 
 [[IMAGE#Screenshots/35-CurrentFocusHighlights.png]]
 
 ## Keep ideas in the Incubator
 
-The **Incubator**, near the top of the left menu, holds ideas that aren't projects yet. Select the plus button beside **New idea** and enter a title, the entity it's for, a project it depends on if any, and some notes. Ideas are kept in `_Incubator.md` in the main folder.
+The **Incubator**, near the top of the left menu, holds ideas that aren't projects yet. Select the plus button beside **New idea** and enter a title, the tentacle it's for, a project it depends on if any, and some notes. Ideas are kept in `_Incubator.md` in your entity's folder.
 
 [[IMAGE#Screenshots/63-Incubator.png]]
 
@@ -268,6 +277,8 @@ Each idea has two buttons:
 [[IMAGE#Screenshots/64-PromoteIdea.png]]
 
 Either way the idea leaves the page, but stays in the file.
+
+Double-click an idea's name, its project dependency or its notes to change them. The name and notes are edited as they're written in the file, so the name includes the tentacle's ID and the notes include the dependency line. The **Raw** tab shows and edits the whole of `_Incubator.md`, including ideas already promoted or archived.
 
 ## View the timeline
 
@@ -281,7 +292,7 @@ At **12 months** you can see a whole year at once:
 
 ## Create a new tentacle
 
-Tentacles are for parts of your entity, such as an artist or a department. On your entity's page, select the plus button at the end of the row of names, and enter a name and an ID.
+A tentacle can have tentacles of its own, for parts of it such as an artist or a department. On your tentacle's page, select the plus button at the end of the last row of names, and enter a name and an ID. **Under** says which tentacle it belongs to, and starts on the one that's open.
 
 [[IMAGE#Screenshots/39-NewSubEntity.png]]
 
@@ -299,11 +310,11 @@ After saving, the name becomes a status control and the line appears in your Tod
 
 [[IMAGE#Screenshots/42-TodosAnywhere2.png]]
 
-## Add a new lead contact
+## Add a new contact
 
-Open **Leads** in the left menu. Select the plus button beside **New contact** and enter a name. Then double-click any field on the card to fill it in.
+Open **Contacts** in the left menu. Select the plus button beside **New contact** and enter a name. Then double-click any field on the card to fill it in.
 
-[[IMAGE#Screenshots/43-Leads.png]]
+[[IMAGE#Screenshots/43-Contacts.png]]
 
 ## Add a new event
 
@@ -320,11 +331,11 @@ Use the filters at the top, **All**, **Not applied**, **Applied** and **Booked**
 
 Events are listed under **Upcoming Events**, soonest first, and move to **Past Events** once their date has gone by. Headings in the file don't change this. If your events have dates you typed yourself, open **Compatibility > Events** and use **Fix issues** to turn them into dates the calendar understands.
 
-## Link a lead in an event and vice versa
+## Link a contact in an event and vice versa
 
 Double-click a field and type the name of the other entry in double square brackets. In an event, you might link to the contact like this:
 
-[[IMAGE#Screenshots/44-LinkingLeads.png]]
+[[IMAGE#Screenshots/44-LinkingContacts.png]]
 
 After saving, it becomes a link that opens that entry and outlines it. To link the other way, type `[[Events#The Name Of The Event]]` in a field on the contact's card.
 
@@ -332,13 +343,13 @@ After saving, it becomes a link that opens that entry and outlines it. To link t
 
 These work anywhere you can write notes:
 
-- `[[Leads#Name]]` links to a contact.
+- `[[Contacts#Name]]` links to a contact.
 - `[[Events#Name]]` links to an event.
-- `[[Leads#Name|the text to show]]` links with your own wording. This works for every kind of `[[ ]]` link.
+- `[[Contacts#Name|the text to show]]` links with your own wording. This works for every kind of `[[ ]]` link.
 - `[[#Name]]` looks for that name on the Networking page you're on, then the other one.
-- `[[ID]]` opens that entity's page, for example `[[LABEL]]`.
-- `[[ID#Tasks]]` opens that entity's task list. Use any heading from `TASKLISTS`.
-- `[[ID#Any other heading]]` opens that entity's Scratchpad at that section.
+- `[[ID]]` opens that tentacle's page, for example `[[LABEL]]`.
+- `[[ID#Tasks]]` opens that tentacle's task list. Use any heading from `TASKLISTS`.
+- `[[ID#Any other heading]]` opens that tentacle's Scratchpad at that section.
 - `[[ID Project Title]]` opens that project, for example `[[LABEL Design A New Logo]]`. It's the project's name, as used for a Project Dependency.
 - `[[ID Project Title#Milestone]]` opens the project's Overview at that milestone, and `[[ID Project Title#Any other heading]]` opens its Scratchpad at that section.
 - `[[IMAGE#Screenshots/01-RunServer.png]]` shows an image from the `_Images` folder.
@@ -346,7 +357,7 @@ These work anywhere you can write notes:
 
 A few details:
 
-- Capitals don't matter in a name, but an entity's ID has to be exact.
+- Capitals don't matter in a name, but a tentacle's ID has to be exact.
 - A name also finds a heading that adds something in brackets, so `Scott` finds `Scott (SWOLE)`.
 - A link that doesn't match anything is left as plain text.
 
@@ -359,8 +370,8 @@ Open **Options** at the bottom of the left menu. The **General** tab holds:
 - `DATEFORMAT`: how dates are shown and typed. They're always stored as `YYYY-MM-DD`.
 - `ROUNDUP`: how many days between each Review and Plan.
 - `PROJECTS`: the folders that hold projects, separated by commas.
-- `TASKLISTS`: the task list headings on entities and Ongoing projects, separated by commas.
-- `SHOWARCHIVED`: tick it to keep archived tasks visible on project and entity pages.
+- `TASKLISTS`: the task list headings on tentacles and Ongoing projects, separated by commas.
+- `SHOWARCHIVED`: tick it to keep archived tasks visible on project and tentacle pages.
 - `SYNCCONFLICTS`: tick it to be warned about Syncthing conflicts, as described in [Work together as a team](#work-together-as-a-team).
 - `MULTIUSER`: tick it to log in and keep a Changelog of who changed what, as described in [Work together as a team](#work-together-as-a-team).
 - `ARCHIVEMODE`: what the **Archive** button on a project does, as described in [Archive a finished project](#archive-a-finished-project).
@@ -375,15 +386,15 @@ Then create a folder with exactly that name, next to your `Projects` folder. Unt
 
 [[IMAGE#Screenshots/46-NewProjectsDirectory.png]]
 
-The **Statuses** tab sets the status names you can give tasks. Double-click a value to change it, and use the plus and minus buttons to add or remove rows. **Next status** decides what a status moves to when you select it.
+The **Task Management** tab sets the status names you can give tasks, in a list for each kind: **Awaiting Assignment**, **Assignees**, **Waiting for review**, **Complete** and **Archived**. Use a list's plus button to add a status of that kind, double-click a value to change it, and the minus button to remove one. To move a status to another list, remove it and add it again there. A list with nothing in it uses a built-in status named after its kind. **Next status** decides what a status moves to when you select it.
 
 [[IMAGE#Screenshots/47-CustomStatuses.png]]
 
 ## Add new project leaders
 
-On the **Leaders** tab, select the plus button and enter a name. Leaders can then be chosen as the owner of a project.
+On the **Leaders** tab, select the plus button and enter a name. Leaders can then be chosen as the leader of a project.
 
-Tasks are assigned using statuses, so if you'd like to assign tasks to the new person too, add a status with their name in the **ASSIGNED** type on the Statuses tab.
+Tasks are assigned using statuses, so if you'd like to assign tasks to the new person too, add a status with their name to the **Assignees** list on the Task Management tab.
 
 [[IMAGE#Screenshots/48-NewProjectLeaders.png]]
 
@@ -404,13 +415,13 @@ Choose a **Type** for each item. A **text** item is a reminder, such as `Contact
 **REVIEW** and **REVIEW_ALL** are rules, and each gets a card of its own. For these, **Item** is a dropdown of what to review. With **REVIEW** it lists:
 
 - **Dashboard**, a link to the Dashboard's Overview.
-- Each entity and tentacle, by its ID.
-- Each project, by its entity's ID and its title.
+- Each tentacle, by its ID.
+- Each project, by its tentacle's ID and its title.
 
 With **REVIEW_ALL** it lists:
 
-- **Entities**: every top-level entity.
-- **Tentacles**: every tentacle, or **Tentacles of LABEL** for only those under LABEL.
+- **Top-level tentacles**: every top-level tentacle.
+- **Tentacles**: every tentacle below the top level, or **Tentacles of LABEL** for only those under LABEL.
 - Each projects directory from your options, such as **Projects**: every project in it.
 - **Active** and **Inactive**: every active or inactive project.
 - **Scheduled**: the projects with a timeframe running today.
@@ -423,7 +434,7 @@ Changing the Type of a rule picks the first item in its new list, which you can 
 
 [[IMAGE#Screenshots/84-AgendaOptions.png]]
 
-On the Review page, each project or entity on a card opens in the same overlay, with **Mark as reviewed and close**. Ones reviewed since your last logged review are dimmed and show the date, so you can see how far you've got. Everything else is a link: events to their entry on the Events page, ideas to the Incubator, catalogs to their table, and Dashboard to the Overview.
+On the Review page, each project or tentacle on a card opens in the same overlay, with **Mark as reviewed and close**. Ones reviewed since your last logged review are dimmed and show the date, so you can see how far you've got. Everything else is a link: events to their entry on the Events page, ideas to the Incubator, catalogs to their table, and Dashboard to the Overview.
 
 Each card, and each text item, has a tick box to mark it done. The ticks are saved in the file's **Checked** column, which isn't shown on the Agenda tab, and they're all cleared when you submit the review.
 
@@ -431,16 +442,20 @@ Each card, and each text item, has a tick box to mark it done. The ticks are sav
 
 ## Review project compatibility
 
-Under **Compatibility** in the left menu, the three pages check your entity, project and event files are in the format the dashboard expects. Each problem is coloured by what can be done about it:
+Under **Compatibility** in the left menu, the pages check your tentacle, project and event files, and the dashboard's own core files, are in the format the dashboard expects. An orange number beside each page says how many boxes it lists, and it goes away once there are none. Each problem is coloured by what can be done about it:
 
-- **Accent colour:** a missing field, heading or entity file. Select **Fix issues** to add it automatically.
+- **Accent colour:** a missing field, heading or tentacle file. Select **Fix issues** to add it automatically.
 - **Pink:** something you need to change by hand. This example is a directory listed in Options that doesn't exist yet.
 - **Orange:** a file or folder that isn't where it's expected to be, or markdown with no clear purpose.
+
+**Fix all issues**, at the top of each page, runs Fix issues on every box in turn, using whatever each box's dropdowns say. Boxes that still need you are left listed.
 
 Fix issues only ever adds what's missing and leaves everything else alone. Where it needs a choice, the box has a dropdown:
 
 - **Main file:** a project with no markdown file named after its title. Choose the file that should be the main one, and Fix issues renames it after the project.
-- **Owner:** a project whose Owner is missing, empty or not in your leaders. Choose who it belongs to, or leave it for now.
+- **Leader:** a project whose Leader is missing, empty or not in your leaders. Choose who leads it, or leave it for now.
+
+Projects and archive entries made before tentacles call their leader **Owner**. They're listed as **Owner should be Leader**, and Fix issues renames the field, keeping who it names.
 
 On the **Events** page, Fix issues changes dates you typed yourself, such as `25.07.26` or `11-13.09.26`, into calendar dates. It also adds any missing Application Deadline, Event Date and tick box fields. A date with something else after it, such as a time, is listed for you to change on the Events page.
 
@@ -448,37 +463,42 @@ On the **Events** page, Fix issues changes dates you typed yourself, such as `25
 
 [[IMAGE#Screenshots/67-CompatibilityEvents.png]]
 
+The **Core files** page lists files and folders the dashboard relies on that have been given a new name. The folder of tentacles in each entity was called `_Entities`, and is now `_Tentacles`, and the folder behind the Options page was called `_Labels`, and is now `_Options`. Until they're renamed, the dashboard keeps using the old names, and Fix issues renames them. Close anything that has the folder open first. The Leads page is now called **Contacts**, so an entity whose contacts are still in `_Networking/Leads.md` is listed there. Until it's fixed, the Contacts page still reads `Leads.md`, so nothing goes missing. Fix issues renames it `Contacts.md`, with its change logs, and changes Leads to Contacts in its `#` title. If both files exist, move anything you still need into `Contacts.md` and delete `Leads.md` yourself. Old `[[Leads#Name]]` links keep working.
+
+[[IMAGE#Screenshots/87-CoreFiles.png]]
+
 ## The directory structure and naming conventions
 
 Your files are organised like this:
 
 [[IMAGE#Screenshots/51-DirectoryStructure.png]]
 
-- `_Dashboard`: the dashboard's own code.
-- `_Entities`: a folder per entity, named after its ID, with tentacles inside their parent, and `Reports.md`.
-- `_Images`: pictures used in your notes and this guide.
-- `_Labels`: the settings files behind the Options page.
-- `_Networking`: `Leads.md` and `Events.md`.
+- `_Dashboard`: the dashboard's own code, and `entities.csv`, the list of your entities.
+- `_Images`: pictures used in your notes and this guide, shared by all your entities.
+- `Label`, `Freelance` and so on: a folder for each entity, holding everything below.
+- `_Tentacles`: a folder per tentacle, named after its ID, with tentacles inside their parent, and `Reports.md`.
+- `_Options`: the settings files behind the Options page, including `Tentacles.csv`.
+- `_Networking`: `Contacts.md` and `Events.md`.
 - `_Catalogs`: a CSV file per catalog, named with its tag and name, such as `RLS_Record_Label_Studios.csv`. [Keep a catalog of your releases](#keep-a-catalog-of-your-releases) shows how to use them.
 - `Projects`, and any other directory in `PROJECTS`: a folder per project.
 - `_Time_Management`: `Review.md` and `Plan.md`.
 - `_Incubator.md`: your ideas, from [Keep ideas in the Incubator](#keep-ideas-in-the-incubator).
 - `_Archive.md`: the details of archived projects, from [Archive a finished project](#archive-a-finished-project).
 
-A project's folder name holds its status, its entity and its title:
+A project's folder name holds its status, its tentacle and its title:
 
 [[IMAGE#Screenshots/52-ProjectFolder.png]]
 
 - It starts with `+` when active and `-` when inactive. The tag beside the project's title changes this for you.
 - To archive a project, rename its folder to start with the date, such as `2026-11-30_LABEL_Design_A_New_Logo`.
-- Next comes the entity's ID, then an underscore, then the title with underscores for spaces.
+- Next comes the tentacle's ID, then an underscore, then the title with underscores for spaces.
 - The main markdown file inside is named after the title, such as `Design A New Logo.md`. If there isn't one, the dashboard uses the first file alphabetically and Compatibility asks which file it should be.
 
-An entity's file is `_Entities/ID/Name.md`, using the ID and name from setup.
+A tentacle's file is `_Tentacles/ID/Name.md` in its entity's folder, using the ID and name from setup.
 
-## Create a new markdown file within an entity or project
+## Create a new markdown file within a tentacle or project
 
-A project or entity can hold more than one markdown file. To add one, select the plus button on the row of file tabs, which is above the content. The new file opens straight away with the fields and headings it needs.
+A project or tentacle can hold more than one markdown file. To add one, select the plus button on the row of file tabs, which is above the content. The new file opens straight away with the fields and headings it needs.
 
 You can also put a markdown file in the folder yourself, using any text editor.
 
@@ -488,11 +508,11 @@ Each file then gets its own tab, on every tab of the page, with the main file fi
 
 [[IMAGE#Screenshots/54-NewMarkdownView.png]]
 
-A file you add to a project doesn't need any of the dashboard's fields or headings, and Compatibility leaves it alone. In an entity's folder it's listed as **Unknown markdown**, but that's only a reminder that it doesn't use them. It still works.
+A file you add to a project doesn't need any of the dashboard's fields or headings, and Compatibility leaves it alone. In a tentacle's folder it's listed as **Unknown markdown**, but that's only a reminder that it doesn't use them. It still works.
 
 ## Read your report and save it
 
-Each time you submit a Review, a few figures are added to `_Entities/Reports.md`. Open **Dashboard** in the left menu and choose the **Report** tab to see them over time.
+Each time you submit a Review, a few figures are added to `_Tentacles/Reports.md`. Open **Dashboard** in the left menu and choose the **Report** tab to see them over time.
 
 [[IMAGE#Screenshots/55-DashboardReport.png]]
 
@@ -529,7 +549,7 @@ Select the plus button beside **All catalogs**, type a name and check the tag. T
 
 [[IMAGE#Screenshots/60-NewCatalog.png]]
 
-A catalog starts with the columns **Catalog #**, **Image**, **Owner**, **Title**, **Medium** and **Release date**. Double-click any value to change it, and use the minus button at the end of a row to delete a record.
+A catalog starts with the columns **Catalog #**, **Image**, **Tentacle**, **Title**, **Medium** and **Release date**. Double-click any value to change it, and use the minus button at the end of a row to delete a record.
 
 [[IMAGE#Screenshots/61-CatalogTable.png]]
 
@@ -549,7 +569,7 @@ Each catalog is saved as a spreadsheet file in the `_Catalogs` folder, so you ca
 
 Octapu doesn't share files between computers itself. To work as a team, keep the Octapu-System folder in sync with [Syncthing](https://syncthing.net), and run the dashboard on each computer. Two options on the **General** tab of **Options** help with this.
 
-**SYNCCONFLICTS** watches for clashes. If two people change the same file before Syncthing has synced it, Syncthing keeps both versions and names one of them like `First album.sync-conflict-20261117-101500-ABCDEF7.md`. With this ticked, a yellow **Sync conflict** box appears at the top of that project, entity, Leads or Events page. It shows how the two versions differ: lines marked − are only in the current file, and lines marked + are only in the conflict copy.
+**SYNCCONFLICTS** watches for clashes. If two people change the same file before Syncthing has synced it, Syncthing keeps both versions and names one of them like `First album.sync-conflict-20261117-101500-ABCDEF7.md`. With this ticked, a yellow **Sync conflict** box appears at the top of that project, tentacle, Contacts or Events page. It shows how the two versions differ: lines marked − are only in the current file, and lines marked + are only in the conflict copy.
 
 - **Keep current** keeps the file as it is, and deletes the conflict copy.
 - **Use this version** replaces the file with the conflict copy, then deletes the copy.
@@ -562,7 +582,7 @@ Either way, copy anything you want from the other version first. Conflict copies
 
 [[IMAGE#Screenshots/68-Login.png]]
 
-Each project, entity, Leads and Events page gets a **Changelog** tab. It lists every change made to that file through the dashboard, newest first, with who made it, which computer they used, and when. Added text is green and removed text is pink. For a changed line, the old text is shown crossed out in pink, with the new text in green below it.
+Each project, tentacle, Contacts and Events page gets a **Changelog** tab. It lists every change made to that file through the dashboard, newest first, with who made it, which computer they used, and when. Added text is green and removed text is pink. For a changed line, the old text is shown crossed out in pink, with the new text in green below it.
 
 [[IMAGE#Screenshots/69-Changelog.png]]
 
@@ -578,7 +598,7 @@ When a project is finished, select **Archive** at the top of its page and confir
 
 What else happens depends on `ARCHIVEMODE` on the **General** tab of **Options**:
 
-- **HEADERS**, the default, copies the project's dates, timeframe, dependency and owner into `_Archive.md` in the main folder, and leaves the folder alone. You can then move the folder off your computer, to a NAS say, and the record stays. Tick `SHOWARCHIVED` to see **Archive Index** in the left menu, which lists them. Its plus button adds an entry by hand, and the minus button removes one. Double-click an entry's name or any of its details to change it, or use the **Raw** tab to edit the whole file. Other projects can depend on an archived one, which shows in their Project Dependency list.
+- **HEADERS**, the default, copies the project's dates, timeframe, dependency and leader into `_Archive.md` in your entity's folder, and leaves the folder alone. You can then move the folder off your computer, to a NAS say, and the record stays. Tick `SHOWARCHIVED` to see **Archive Index** in the left menu, which lists them. Its plus button adds an entry by hand, and the minus button removes one. Double-click an entry's name or any of its details to change it, or use the **Raw** tab to edit the whole file. Other projects can depend on an archived one, which shows in their Project Dependency list.
 - **FULL** renames the folder to start with today's date instead. Tick `SHOWARCHIVED` to list them under the **Archived** filter of the projects list.
 
 [[IMAGE#Screenshots/72-ArchiveIndex.png]]
@@ -608,13 +628,13 @@ Finally, ignore everything else:
 
 Keep them in this order, with `*` last, as Syncthing uses the first pattern that matches.
 
-Once a project has been archived, rename its folder **on the NAS** from `+OWNER_ProjectTitle` to the archive date followed by the rest of the name, such as `2026-11-30_LABEL_Design_A_New_Logo`. The NAS then ignores it, so it's removed from your computers while the NAS keeps it, along with its record in `_Archive.md`. Don't rename it on your own computer: the NAS would take that as the project being deleted, and wouldn't receive it under its new name.
+Once a project has been archived, rename its folder **on the NAS** from `+TENTACLE_ProjectTitle` to the archive date followed by the rest of the name, such as `2026-11-30_LABEL_Design_A_New_Logo`. The NAS then ignores it, so it's removed from your computers while the NAS keeps it, along with its record in `_Archive.md`. Don't rename it on your own computer: the NAS would take that as the project being deleted, and wouldn't receive it under its new name.
 
 ## Run an Ongoing project
 
 An Ongoing project is for work that doesn't end, such as social media or admin. Choose **Ongoing** as the Project Type when you create it, or switch an existing project with the **Project Type** dropdown at the top of its page.
 
-Its Overview shows the owner and dates, then a box for each task list named in `TASKLISTS`, which is **Tasks** to begin with. Use a box's plus button to add a task, just as on an entity.
+Its Overview shows the leader and dates, then a box for each task list named in `TASKLISTS`, which is **Tasks** to begin with. Use a box's plus button to add a task, just as on a tentacle.
 
 [[IMAGE#Screenshots/74-OngoingProject.png]]
 
@@ -642,13 +662,13 @@ A task in a Milestone project's milestone has more choices:
 - **Move to** lists the project's other milestones. The task moves to the end of the one you choose, with any subtasks under it.
 - **Promote to new milestone** turns the task into a milestone of its own, at the end of the list. Its subtasks become the new milestone's tasks.
 
-On project and entity pages, **Create linked Scratchpad block** adds a Scratchpad block named after the task, and turns the task's text into a link to it. It isn't offered once that block exists.
+On project and tentacle pages, **Create linked Scratchpad block** adds a Scratchpad block named after the task, and turns the task's text into a link to it. It isn't offered once that block exists.
 
 [[IMAGE#Screenshots/82-TaskMenu.png]]
 
 The grey button at the top of each milestone card opens the milestone's menu:
 
-- **Promote to new project** makes a new Milestone project named after the milestone, with the same entity and owner, and today as its Date Created. Its tasks go under a milestone called **Milestone 1**, and the new project depends on this one. The milestone is then taken out of this project, and the new project opens.
+- **Promote to new project** makes a new Milestone project named after the milestone, with the same tentacle and leader, and today as its Date Created. Its tasks go under a milestone called **Milestone 1**, and the new project depends on this one. The milestone is then taken out of this project, and the new project opens.
 - **Mark all as done** gives every open task in the milestone the first done status.
 - **Delete** removes the milestone and everything in it, after asking.
 
@@ -668,15 +688,19 @@ It shows with an info icon wherever the file is displayed. The text in the file 
 
 ## Find a project quickly
 
-On a projects list, the buttons along the top show **All**, **Active** or **Inactive** projects, each with a count. Type in the search box to narrow the list by title or entity as you type.
+On a projects list, the buttons along the top show **All**, **Active** or **Inactive** projects, each with a count. Type in the search box to narrow the list by title or tentacle as you type.
 
 [[IMAGE#Screenshots/78-FindProject.png]]
 
-## Read your entity's tabs
+## Read your tentacle's tabs
 
-The tabs along the top of an entity's page are coloured by how deep each one is: green for your entity, yellow for its tentacles, orange for theirs, and grey for anything deeper. The open tab is underlined in its colour.
+The tabs along the top of a tentacle's page are coloured by how deep each one is: green for your tentacle, yellow for its tentacles, orange for theirs, and grey for anything deeper. The open tab is underlined in its colour.
 
-The fourth box in the summary, **Parent**, links to the entity a tentacle belongs to, or says it's at the top level.
+Each level has its own row. Your tentacle is on the first, the tentacles under it on the second, and the tentacles under the open one on the row below that. The tabs above the open one are underlined faintly, so you can see the way back up.
+
+The fourth box in the summary, **Parent**, links to the tentacle a tentacle belongs to, or says it's at the top level. The folder button at the summary's top right opens the tentacle's folder in your file browser.
+
+Below the summary, a **Timeline** charts this tentacle's own projects, the same way as the Dashboard's. Projects of the tentacles under it are on their own tabs, and there are no event or release lines. Its zoom and **Active**, **Inactive** and **Archive** tick boxes are shared with the Dashboard's.
 
 [[IMAGE#Screenshots/79-EntityTabs.png]]
 
@@ -693,6 +717,22 @@ Then open the address it prints, such as `http://127.0.0.1:8080`.
 [[IMAGE#Screenshots/80-OtherPort.png]]
 
 `PMS_HOST` sets which network the dashboard listens on. Leave it as it is, so only your own computer can open the dashboard and change your files.
+
+## Add a new entity
+
+An entity is a separate set of everything: its own projects, tentacles, leaders, statuses, colours, options, catalogs, Contacts, Events, Incubator and Archive. Use one for each organisation you run, such as a record label and your freelance work.
+
+Your entities are listed on the **Entities** tab of the Options page, which is `entities.csv` in the `_Dashboard` folder. Select the plus button and enter a name and a folder name, such as **Freelance Work** and `Freelance`. The folder goes in the main `Octapu-System` folder. If it isn't there yet, the dashboard makes it, switches to the new entity and opens the setup form, as in [Launch the dashboard and create your tentacle](#launch-the-dashboard-and-create-your-tentacle). When you finish the form, it makes all the entity's folders and files.
+
+[[IMAGE#Screenshots/88-EntitiesTab.png]]
+
+Double-click a name or folder in the list to change it. The minus button takes an entity off the list, but leaves its folder and everything in it where it is, so adding it back later picks up where you left off. The last entity can't be removed.
+
+An entity whose folder already exists is added straight away. Choose it from the dropdown at the top of the left menu to work on it.
+
+[[IMAGE#Screenshots/86-EntitySwitch.png]]
+
+Each browser remembers its own choice, so two people can work on different entities at once. Pages only ever show and change the entity that's chosen. This guide and your pictures in `_Images` are shared by them all.
 
 When you've finished the guide, tick **Mark as read** below it. The green outline around **Help Guide** in the left menu then goes away.
 

@@ -1,7 +1,7 @@
 // Finds status-prefixed todo items in markdown. Pure functions, no dependencies.
 'use strict';
 
-// The status types are fixed. Status names always come from _Labels/Status.csv.
+// The status types are fixed. Status names always come from _Options/Status.csv.
 const TYPE_MARKS = { UNASSIGNED: ' ', ASSIGNED: '/', WAITING: '-', DONE: 'x', ARCHIVED: 'x' };
 const NEXT_TYPE = { UNASSIGNED: 'ASSIGNED', ASSIGNED: 'DONE', WAITING: 'DONE', DONE: 'ARCHIVED' };
 const STATUS_TYPES = Object.keys(TYPE_MARKS);
@@ -10,9 +10,27 @@ const STATUS_TYPES = Object.keys(TYPE_MARKS);
 const STORAGE_FORMAT = 'YYYY-MM-DD';
 
 // A priority is an org-style [#A] token straight after the status. No token means no priority.
+// R is a recurring task, written with how often it comes round: [#R|5D], [#R|2W], [#R|3M], [#R|1Y].
 const PRIORITIES = ['A', 'B', 'C'];
-const PRIORITY_TOKEN = /^((?:\*\*|__|\*|_)?\s*)\[#([A-C])\]/;
-const TOKEN_LENGTH = '[#A]'.length;
+const PRIORITY_TOKEN = /^((?:\*\*|__|\*|_)?\s*)\[#([A-C]|R\|(10|[1-9])([DWMY]))\]/;
+const RECUR_VALUE = /^R\|(10|[1-9])([DWMY])$/;
+const RECUR_UNITS = { D: 'days', W: 'weeks', M: 'months', Y: 'years' };
+
+// A YYYY-MM-DD date moved on by `count` days, weeks, months or years (`unit` D, W, M or Y).
+// Months and years keep the day of the month where they can, and otherwise use the month's
+// last day, so 31 January plus a month is the end of February.
+function addPeriod(date, count, unit) {
+  const [y, m, d] = date.split('-').map(Number);
+  let when;
+  if (unit === 'D' || unit === 'W') {
+    when = new Date(Date.UTC(y, m - 1, d + count * (unit === 'W' ? 7 : 1)));
+  } else {
+    const months = (m - 1) + count * (unit === 'Y' ? 12 : 1);
+    const lastDay = new Date(Date.UTC(y, months + 1, 0)).getUTCDate();
+    when = new Date(Date.UTC(y, months, Math.min(d, lastDay)));
+  }
+  return when.toISOString().slice(0, 10);
+}
 
 // Org-style planning lines directly under an item, e.g. "  CLOSED: [2026-09-03 Thu 14:10]".
 const PLANNING_LINE = /^\s*(?:CLOSED|SCHEDULED|DEADLINE):/;
@@ -103,7 +121,7 @@ function parseLabelList(csvText, idHeader, extras = []) {
     .map((o) => Object.assign(o, { name: o.name || o.id }));
 }
 
-const parseOwners = (csvText) => parseLabelList(csvText, 'id', ['parent']);
+const parseTentacles = (csvText) => parseLabelList(csvText, 'id', ['parent']);
 const parseLeaders = (csvText) => parseLabelList(csvText, 'tag');
 
 // A colour as stored: "#" and six lowercase hex digits. Accepts it with or without the "#".
@@ -325,8 +343,11 @@ function createMatcher(statuses) {
       mark,
       markAt,
       start,
-      priority: token ? token[2] : null,
-      priorityAt: token ? nameEnd + token[0].length - TOKEN_LENGTH : -1,
+      // A recurring task's priority is R, with its period in `recur`.
+      priority: token ? token[2][0] : null,
+      recur: token && token[3] ? { count: Number(token[3]), unit: token[4] } : null,
+      priorityAt: token ? nameEnd + token[1].length : -1,
+      priorityLength: token ? token[0].length - token[1].length : 0,
       priorityInsert: nameEnd + afterName.match(/^(?:\*\*|__|\*|_)?/)[0].length,
     };
   };
@@ -458,8 +479,9 @@ function moveToStatus(markdown, lineNo, from, to, statuses, now) {
   return typeOf(to) === 'DONE' && typeOf(from) !== 'DONE' ? setClosed(updated, lineNo, closedStamp(now)) : updated;
 }
 
-// Sets, changes or (with null) removes the priority token on a status line.
-// Returns null if the line no longer has that status.
+// Sets, changes or (with null) removes the priority token on a status line. `priority` is A,
+// B, C or a recurring R with its period, such as R|5D. Returns null if the line no longer has
+// that status.
 function setPriority(markdown, lineNo, status, priority, statuses) {
   const item = scanLines(markdown, createMatcher(statuses)).find((i) => i.line === lineNo);
   if (!item || !item.status || item.status !== status) return null;
@@ -469,9 +491,9 @@ function setPriority(markdown, lineNo, status, priority, statuses) {
       if (!priority) return text;
       return text.slice(0, item.priorityInsert) + ' [#' + priority + ']' + text.slice(item.priorityInsert);
     }
-    if (priority) return text.slice(0, item.priorityAt + 2) + priority + text.slice(item.priorityAt + 3);
+    if (priority) return text.slice(0, item.priorityAt) + '[#' + priority + ']' + text.slice(item.priorityAt + item.priorityLength);
     const before = text.slice(0, item.priorityAt);
-    const after = text.slice(item.priorityAt + TOKEN_LENGTH);
+    const after = text.slice(item.priorityAt + item.priorityLength);
     if (!after.trim()) return before.trimEnd();
     return /^\s/.test(after) ? before + after.trimStart() : before.trimEnd() + after;
   });
@@ -494,6 +516,12 @@ function findField(lines, label) {
   return { line: idx + 1, at: m[1].length, value: m[2].trimEnd() };
 }
 
+// A project's leader. Before tentacles the field was called Owner, which is still read until
+// Compatibility renames it.
+const LEADER_FIELD = 'Leader';
+const OLD_LEADER_FIELD = 'Owner';
+const findLeader = (lines) => findField(lines, LEADER_FIELD) || findField(lines, OLD_LEADER_FIELD);
+
 // Adds one or more new lines after line `lineNo`, or at the very top if lineNo is null.
 function insertLine(markdown, lineNo, text) {
   const eol = (markdown.match(/\r\n?|\n/) || ['\n'])[0];
@@ -506,22 +534,22 @@ function timeframeEntries(value) {
   return value.split(',').map((v) => v.trim()).filter(Boolean);
 }
 
-// Finds the page title (and the owner keyword opening it), the Active Timeframe field and
-// the Owner field. timeframe.anchor is the line a missing timeframe would be added after.
-function parseHeader(markdown, owners) {
+// Finds the page title (and the tentacle keyword opening it), the Active Timeframe field and
+// the Leader field. timeframe.anchor is the line a missing timeframe would be added after.
+function parseHeader(markdown, tentacles) {
   const lines = stripComments(markdown);
   const idx = titleIndex(lines);
   let title = null;
   if (idx !== -1) {
     const at = lines[idx].match(/^#\s+/)[0].length;
     const text = lines[idx].slice(at);
-    const keyword = keywordRegex(owners.map((o) => o.id));
+    const keyword = keywordRegex(tentacles.map((o) => o.id));
     const hit = keyword && text.match(keyword);
     const tail = hit ? text.slice(hit[0].length) : text;
     title = {
       line: idx + 1,
       at,
-      owner: hit ? hit[1] : null,
+      tentacle: hit ? hit[1] : null,
       rest: tail.replace(/\s*#*\s*$/, '').trim(),
       restAt: lines[idx].length - tail.trimStart().length,
     };
@@ -541,7 +569,7 @@ function parseHeader(markdown, owners) {
   return {
     title,
     timeframe: { line: timeframe === -1 ? null : timeframe + 1, anchor, value, entries: timeframeEntries(value) },
-    leader: findField(lines, 'Owner'),
+    leader: findLeader(lines),
     createdLine: created === -1 ? null : created + 1,
     dates,
     dependency: dependency ? { line: dependency.line, value: dependency.value } : { line: null, value: '' },
@@ -588,9 +616,9 @@ function setReviewFlag(markdown, on) {
   return bom + parts.join('');
 }
 
-// Sets the value of the Owner field. Returns null if the field has changed.
+// Sets the value of the Leader field. Returns null if the field has changed.
 function setLeader(markdown, lineNo, from, to) {
-  const leader = findField(stripComments(markdown), 'Owner');
+  const leader = findLeader(stripComments(markdown));
   if (!leader || leader.line !== lineNo || leader.value !== from) return null;
   return editLine(markdown, lineNo, (text) => {
     const before = text.slice(0, leader.at);
@@ -598,11 +626,11 @@ function setLeader(markdown, lineNo, from, to) {
   });
 }
 
-// Sets the owner keyword in the page title. `from` is null if the title has none yet.
+// Sets the tentacle keyword in the page title. `from` is null if the title has none yet.
 // Returns null if the title has changed.
-function setOwner(markdown, lineNo, from, to, owners) {
-  const { title } = parseHeader(markdown, owners);
-  if (!title || title.line !== lineNo || title.owner !== from) return null;
+function setTentacle(markdown, lineNo, from, to, tentacles) {
+  const { title } = parseHeader(markdown, tentacles);
+  if (!title || title.line !== lineNo || title.tentacle !== from) return null;
   return editLine(markdown, lineNo, (text) =>
     from
       ? text.slice(0, title.at) + to + text.slice(title.at + from.length)
@@ -680,8 +708,8 @@ function projectTitleError(title, noun = 'title') {
   return null;
 }
 
-// The starting content for a new entity's markdown file.
-function newEntityFile({ name, today, taskLists }) {
+// The starting content for a new tentacle's markdown file.
+function newTentacleFile({ name, today, taskLists }) {
   return `# ${name}\n**Date Created**: ${today}\n**Date Reviewed**:\n\n## Notes\n\n${taskListHeadings(taskLists)}`;
 }
 
@@ -689,20 +717,20 @@ function newEntityFile({ name, today, taskLists }) {
 const taskListHeadings = (taskLists) => taskLists.map((name) => `## ${name}\n`).join('\n');
 
 // The folder name, file name and starting content for a new active project.
-function newProjectFiles({ ownerId, leaderTag, title, notes, today, projectType, taskLists }) {
+function newProjectFiles({ tentacleId, leaderTag, title, notes, today, projectType, taskLists }) {
   const ongoing = projectType === 'Ongoing';
   const body = notes ? `\n${notes}\n` : '';
   return {
-    folder: `+${ownerId}_${title.replace(/\s+/g, '_')}`,
+    folder: `+${tentacleId}_${title.replace(/\s+/g, '_')}`,
     file: `${title}.md`,
     content:
-      `# ${ownerId} ${title}\n` +
+      `# ${tentacleId} ${title}\n` +
       `**Project Type:** ${projectType}\n` +
       `**Date Created**: ${today}\n` +
       '**Date Reviewed**:\n' +
       '**Date Closed**:\n' +
       (ongoing ? '' : '**Active Timeframe**:\n**Project Dependency**:\n') +
-      `**Owner** : ${leaderTag}\n\n` +
+      `**${LEADER_FIELD}** : ${leaderTag}\n\n` +
       `## Notes\n${body}\n` +
       (ongoing ? taskListHeadings(taskLists) : '## Milestones\n'),
   };
@@ -731,15 +759,15 @@ function parseTimeframes(value, format) {
   return { ranges, invalid };
 }
 
-// The ids from an owner's top-level ancestor down to the owner. Null if a parent is
+// The ids from a tentacle's top-level ancestor down to the tentacle. Null if a parent is
 // unknown or the parents form a loop.
-function ownerChain(owners, id) {
-  const byId = new Map(owners.map((o) => [o.id, o]));
+function tentacleChain(tentacles, id) {
+  const byId = new Map(tentacles.map((o) => [o.id, o]));
   const chain = [];
-  for (let owner = byId.get(id); owner; owner = byId.get(owner.parent)) {
-    if (chain.includes(owner.id)) return null;
-    chain.unshift(owner.id);
-    if (!owner.parent) return chain;
+  for (let tentacle = byId.get(id); tentacle; tentacle = byId.get(tentacle.parent)) {
+    if (chain.includes(tentacle.id)) return null;
+    chain.unshift(tentacle.id);
+    if (!tentacle.parent) return chain;
   }
   return null;
 }
@@ -749,13 +777,13 @@ const cleanName = (text) => String(text).trim().replace(/\s+/g, ' ');
 
 const csvField = (v) => (/[",\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v);
 
-// Returns Owners.csv text with one more row, following whatever column order the file has.
-function appendOwnerCsv(csvText, owner) {
+// Returns Tentacles.csv text with one more row, following whatever column order the file has.
+function appendTentacleCsv(csvText, tentacle) {
   const bom = csvText.startsWith('﻿') ? '﻿' : '';
   const body = csvText.slice(bom.length);
   const eol = (body.match(/\r\n?|\n/) || ['\r\n'])[0];
   const header = parseCsv(body)[0].map((h) => h.trim().toLowerCase());
-  const row = header.map((column) => csvField(owner[column] || '')).join(',');
+  const row = header.map((column) => csvField(tentacle[column] || '')).join(',');
   return bom + body.replace(/[\r\n]+$/, '') + eol + row + eol;
 }
 
@@ -936,11 +964,39 @@ function editLeaderCsv(csvText, { action, from, name }) {
   });
 }
 
+// Adds, changes or deletes a row of _Dashboard/entities.csv. `from` is the Directory of the row
+// to change. `dirError` says why a Directory can't be used, or null. The last row can't be
+// deleted, as the dashboard would fall back to the main folder, which holds no entity's data.
+function editEntityCsv(csvText, { action, from, name, dir }, dirError) {
+  return editCsv(csvText, ['name', 'directory'], (rows, col) => {
+    const at = action === 'add' ? -1 : rows.findIndex((row) => row[col.directory].trim() === from);
+    if (action !== 'add' && at === -1) return STALE_ROW;
+    if (action === 'delete') {
+      if (rows.length === 1) return 'Keep at least one entity.';
+      rows.splice(at, 1);
+      return null;
+    }
+    const clean = cleanName(name);
+    const cleanDir = dir.trim();
+    if (!clean) return 'Enter a name.';
+    const error = dirError(cleanDir);
+    if (error) return error;
+    if (rows.some((row, i) => i !== at && row[col.directory].trim().toLowerCase() === cleanDir.toLowerCase())) return `Another entity already uses the folder "${cleanDir}".`;
+    if (action === 'add') rows.push(rows.length ? rows[0].map(() => '') : Object.values(col).map(() => ''));
+    const row = rows[action === 'add' ? rows.length - 1 : at];
+    row[col.name] = clean;
+    row[col.directory] = cleanDir;
+    return null;
+  });
+}
+
 // ---------- review agenda (_Time_Management/AgendaItems.csv) ----------
 
 const AGENDA_TYPES = ['text', 'rule'];
 // The REVIEW_ALL groups that aren't project directories. They win over a directory of the same name.
-const AGENDA_GROUPS = ['Entities', 'Tentacles', 'Active', 'Inactive', 'Scheduled', 'Deadlines', 'Bookings', 'Incubator', 'Catalogs'];
+const AGENDA_GROUPS = ['TopTentacles', 'Tentacles', 'Active', 'Inactive', 'Scheduled', 'Deadlines', 'Bookings', 'Incubator', 'Catalogs'];
+// Entities, the top-level tentacles, was renamed when entities became the folders in entities.csv.
+const OLD_AGENDA_GROUPS = { entities: 'TopTentacles' };
 
 // The agenda's rows as { type, item, checked }. Blank rows are skipped, as editCsv drops them,
 // so a row's place in this list is the index used to edit it.
@@ -956,16 +1012,17 @@ function parseAgenda(csvText) {
 }
 
 // A rule item: [[REVIEW|ID]], [[REVIEW|ID#Project Title]] or [[REVIEW_ALL|Group]] (with
-// Tentacles#ID for one entity's tentacles). Returns null if it isn't one of those.
+// Tentacles#ID for one tentacle's tentacles). Returns null if it isn't one of those.
 function parseAgendaRule(item) {
   const m = item.trim().match(/^\[\[\s*(REVIEW_ALL|REVIEW)\s*\|([^#\]]*)(?:#([^\]]*))?\]\]$/i);
   if (!m) return null;
   const name = m[2].trim();
   const after = (m[3] || '').trim();
   if (!name) return null;
-  if (m[1].toUpperCase() === 'REVIEW') return { kind: 'review', owner: name, project: after };
-  const group = AGENDA_GROUPS.find((g) => g.toLowerCase() === name.toLowerCase()) || name;
-  return { kind: 'all', group, entity: after };
+  if (m[1].toUpperCase() === 'REVIEW') return { kind: 'review', tentacle: name, project: after };
+  const known = OLD_AGENDA_GROUPS[name.toLowerCase()] || name;
+  const group = AGENDA_GROUPS.find((g) => g.toLowerCase() === known.toLowerCase()) || name;
+  return { kind: 'all', group, tentacle: after };
 }
 
 // Adds, changes or deletes a row of AgendaItems.csv. Items can repeat, so a row is found by
@@ -1005,14 +1062,20 @@ function parseComponents(html) {
 }
 
 module.exports = {
+  LEADER_FIELD,
+  OLD_LEADER_FIELD,
   STATUS_TYPES,
   editStatusCsv,
   editLeaderCsv,
+  editEntityCsv,
   AGENDA_GROUPS,
   parseAgenda,
   parseAgendaRule,
   editAgendaCsv,
   PRIORITIES,
+  RECUR_VALUE,
+  RECUR_UNITS,
+  addPeriod,
   PLANNING_LINE,
   withDefaultStatuses,
   closedStamp,
@@ -1029,7 +1092,7 @@ module.exports = {
   csvField,
   cleanName,
   parseStatuses,
-  parseOwners,
+  parseTentacles,
   parseLeaders,
   parseColours,
   coloursStylesheet,
@@ -1038,7 +1101,7 @@ module.exports = {
   normaliseHex,
   parseOptions,
   parseHeader,
-  setOwner,
+  setTentacle,
   setLeader,
   setDateField,
   setReviewFlag,
@@ -1053,15 +1116,15 @@ module.exports = {
   newStatusCsv,
   leaderTag,
   PROJECT_TYPES,
-  newEntityFile,
-  appendOwnerCsv,
+  newTentacleFile,
+  appendTentacleCsv,
   DATE_FIELDS,
   timeframeError,
   addTimeframe,
   editTimeframe,
   isUsableDateFormat,
   parseTimeframes,
-  ownerChain,
+  tentacleChain,
   updateOptionsCsv,
   withAdvance,
   stripComments,

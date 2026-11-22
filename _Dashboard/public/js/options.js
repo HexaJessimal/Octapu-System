@@ -1,7 +1,8 @@
-// Options page: an edit form for _Labels/Options.csv, plus the Statuses, Leaders, Colours and Agenda tabs.
+// Options page: an edit form for _Options/Options.csv, plus the Task Management, Leaders, Colours,
+// Agenda and Entities tabs, and the Task Archive to read.
 (function () {
   'use strict';
-  const { labelTables, component, getJson, postJson, loadError, UNREACHABLE } = window.PMS;
+  const { labelTables, markdown, component, getJson, postJson, loadError, UNREACHABLE } = window.PMS;
 
   const contentEl = document.getElementById('content');
   const tabs = Array.from(document.querySelectorAll('[data-tab]'));
@@ -11,13 +12,30 @@
     leaders: document.getElementById('leaders-panel'),
     colours: document.getElementById('colours-panel'),
     agenda: document.getElementById('agenda-panel'),
+    entities: document.getElementById('entities-panel'),
+    archive: document.getElementById('archive-panel'),
   };
   const tables = {
     statuses: labelTables.create('statuses', panels.statuses),
     leaders: labelTables.create('leaders', panels.leaders),
     colours: labelTables.create('colours', panels.colours),
     agenda: labelTables.create('agenda', panels.agenda),
+    entities: labelTables.create('entities', panels.entities),
+    archive: { load: loadTaskArchive },
   };
+
+  // _Task_Archive.md, shown as it's written. Only a review adds to it, so there's nothing to edit.
+  function loadTaskArchive() {
+    return getJson('api/task-archive')
+      .then((data) => {
+        panels.archive.innerHTML = data.exists
+          ? component('doc-article', { body: markdown.render(data.content) })
+          : component('empty-card', { message: data.location + " doesn't exist yet. Each Review moves the tasks already in an ARCHIVED status into it." });
+      })
+      .catch((err) => {
+        panels.archive.innerHTML = loadError('the Task Archive', err);
+      });
+  }
 
   function show(tab) {
     Object.keys(panels).forEach((key) => {
@@ -38,7 +56,7 @@
 
   // What each on/off option does, shown under its name.
   const TOGGLE_NOTES = {
-    SHOWARCHIVED: 'Show archived tasks on project, entity, Leads and Events pages',
+    SHOWARCHIVED: 'Show archived tasks on project, tentacle, Contacts and Events pages',
     SYNCCONFLICTS: 'Warn at the top of a page when Syncthing has left a conflicting copy of its file, and show how they differ',
     MULTIUSER: 'Ask people to log in by choosing their name from Leaders, and log who changed each file in a Changelog tab',
   };
@@ -60,7 +78,7 @@
 
   function render(options) {
     if (!options.length) {
-      contentEl.innerHTML = component('empty-card', { message: 'No options found in _Labels/Options.csv.' });
+      contentEl.innerHTML = component('empty-card', { message: 'No options found in _Options/Options.csv.' });
       return;
     }
     contentEl.innerHTML = component('options-form', { fields: options.map(field).join('') });
