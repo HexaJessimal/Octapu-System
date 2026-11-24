@@ -1,6 +1,9 @@
 // Finds status-prefixed todo items in markdown. Pure functions, no dependencies.
 'use strict';
 
+// The rules the pages share: priority tokens, checkbox rows, timeframes, cancelled rows.
+const { PRIORITY_TOKEN, RECUR_VALUE, CHECKBOX_ROW, isCancelled, indentOf, timeframeEntries, splitTimeframe, timeframeText } = require('./public/js/rules');
+
 // The status types are fixed. Status names always come from _Options/Status.csv.
 const TYPE_MARKS = { UNASSIGNED: ' ', ASSIGNED: '/', WAITING: '-', DONE: 'x', ARCHIVED: 'x' };
 const NEXT_TYPE = { UNASSIGNED: 'ASSIGNED', ASSIGNED: 'DONE', WAITING: 'DONE', DONE: 'ARCHIVED' };
@@ -10,11 +13,8 @@ const STATUS_TYPES = Object.keys(TYPE_MARKS);
 const STORAGE_FORMAT = 'YYYY-MM-DD';
 
 // A priority is an org-style [#A] token straight after the status. No token means no priority.
-// R is a recurring task, written with how often it comes round: [#R|5D], [#R|2W], [#R|3M], [#R|1Y].
+// R is a recurring task, written with how often it comes round (PRIORITY_TOKEN in rules.js).
 const PRIORITIES = ['A', 'B', 'C'];
-const PRIORITY_TOKEN = /^((?:\*\*|__|\*|_)?\s*)\[#([A-C]|R\|(10|[1-9])([DWMY]))\]/;
-const RECUR_VALUE = /^R\|(10|[1-9])([DWMY])$/;
-const RECUR_UNITS = { D: 'days', W: 'weeks', M: 'months', Y: 'years' };
 
 // A YYYY-MM-DD date moved on by `count` days, weeks, months or years (`unit` D, W, M or Y).
 // Months and years keep the day of the month where they can, and otherwise use the month's
@@ -277,13 +277,16 @@ function keywordRegex(names) {
   return new RegExp('^(' + alternatives.join('|') + ')(?![\\p{L}\\p{N}\'’-]|_[\\p{L}\\p{N}])', 'u');
 }
 
-function createMatcher(statuses) {
+// `scope`, if given, limits where a status counts: `allowed(markdown)` gives the set of lines
+// where it does, and `strict` leaves out everything else, plain checkboxes too. Without a
+// scope every line counts, as edits by line need.
+function createMatcher(statuses, scope) {
   const types = new Map(statuses.map((s) => [s.name, s.type]));
   const keyword = keywordRegex([...types.keys()]);
 
   // Returns the line's status and/or checkbox, or null if it has neither. An untagged
   // checkbox only counts in a list item; `start` is then where a keyword would be inserted.
-  return (line) => {
+  const match = (line) => {
     let rest = line;
     let mark = null;
     let markAt = -1;
@@ -319,7 +322,7 @@ function createMatcher(statuses) {
         editText,
         contentAt,
         contentEnd: line.trimEnd().length,
-        cancelled: /^~~.+~~$/.test(editText),
+        cancelled: isCancelled(editText),
       };
     }
     const start = line.length - rest.length;
@@ -351,6 +354,32 @@ function createMatcher(statuses) {
       priorityInsert: nameEnd + afterName.match(/^(?:\*\*|__|\*|_)?/)[0].length,
     };
   };
+  return Object.assign(match, { scope: scope || null });
+}
+
+// The lines of a project or tentacle file where a status counts: checkbox rows under a ###
+// milestone in ## Milestones, or under a ## heading named in TASKLISTS (`taskLists`).
+function taskBlockLines(markdown, taskLists) {
+  const lines = stripComments(markdown);
+  const named = (title) => taskLists.some((name) => name.trim().toLowerCase() === title.trim().toLowerCase());
+  const allowed = new Set();
+  let area = null; // 'milestones' or 'list' while inside one
+  let inMilestone = false;
+  lines.forEach((line, i) => {
+    const heading = line.match(/^(#{1,6})\s+(.*?)\s*#*\s*$/);
+    if (heading) {
+      const level = heading[1].length;
+      if (level <= 2) {
+        area = level === 2 && /^milestones?$/i.test(heading[2]) ? 'milestones' : level === 2 && named(heading[2]) ? 'list' : null;
+        inMilestone = false;
+      } else if (area === 'milestones' && level === 3) {
+        inMilestone = true;
+      }
+      return;
+    }
+    if ((area === 'list' || inMilestone) && CHECKBOX_ROW.test(line)) allowed.add(i + 1);
+  });
+  return allowed;
 }
 
 function planningDates(lines, idx) {
@@ -368,14 +397,23 @@ function titleIndex(lines) {
 
 // Every line with a status or checkbox in one document, with 1-based line numbers.
 // The page title is never a todo.
+// A matcher with a scope only finds statuses on its allowed lines. A status elsewhere is read
+// as a plain checkbox if it's on one, or else as nothing.
 function scanLines(markdown, match) {
   const lines = stripComments(markdown);
   const title = titleIndex(lines);
+  const scope = match.scope;
+  const allowed = scope ? scope.allowed(markdown) : null;
+  const plain = scope ? createMatcher([]) : null;
   const items = [];
   lines.forEach((line, idx) => {
     if (idx === title) return;
-    const item = match(line);
-    if (item) items.push(Object.assign(item, { line: idx + 1, dates: planningDates(lines, idx) }));
+    const inside = !allowed || allowed.has(idx + 1);
+    if (!inside && scope.strict) return;
+    let item = match(line);
+    if (item && item.status && !inside) item = plain(line);
+    // `outside` marks a box that's only a tick box, not a task, so ticking it adds no status.
+    if (item) items.push(Object.assign(item, { line: idx + 1, dates: planningDates(lines, idx) }, scope && !inside ? { outside: true } : {}));
   });
   return items;
 }
@@ -471,12 +509,55 @@ function removeLine(markdown, lineNo) {
   return lines.join(eol);
 }
 
-// Changes a row's status, and stamps a CLOSED date if it has just entered a DONE type.
+// The last line nested under a row: the lines after it indented further, up to the next
+// line that isn't, or a heading. Blank lines in between don't end it.
+function lastNestedLine(lines, lineNo) {
+  const own = indentOf(lines[lineNo - 1]);
+  let last = lineNo;
+  for (let i = lineNo; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    if (/^#{1,6}\s/.test(lines[i]) || indentOf(lines[i]) <= own) break;
+    last = i + 1;
+  }
+  return last;
+}
+
+// Changes a row's status, and stamps a CLOSED date if it has just entered a DONE type. A task
+// that's done takes its unfinished subtasks with it: each one nested under it, at any depth,
+// that isn't cancelled, ticked or already done or archived moves to the same status. They're
+// changed from the bottom up, before the row itself, so every line number still holds.
 function moveToStatus(markdown, lineNo, from, to, statuses, now) {
-  const updated = replaceStatus(markdown, lineNo, from, to, statuses);
-  if (updated === null) return null;
   const typeOf = (name) => (statuses.find((s) => s.name === name) || {}).type;
-  return typeOf(to) === 'DONE' && typeOf(from) !== 'DONE' ? setClosed(updated, lineNo, closedStamp(now)) : updated;
+  const finishing = typeOf(to) === 'DONE' && typeOf(from) !== 'DONE';
+  let text = markdown;
+  if (finishing) {
+    const last = lastNestedLine(stripComments(markdown), lineNo);
+    const open = scanLines(markdown, createMatcher(statuses))
+      .filter((i) => i.line > lineNo && i.line <= last && !i.cancelled && (i.status ? !['DONE', 'ARCHIVED'].includes(i.type) : i.mark === ' '))
+      .sort((a, b) => b.line - a.line);
+    for (const row of open) {
+      text = moveToStatus(text, row.line, row.status, to, statuses, now);
+      if (text === null) return null;
+    }
+  }
+  const updated = replaceStatus(text, lineNo, from, to, statuses);
+  if (updated === null) return null;
+  return finishing ? setClosed(updated, lineNo, closedStamp(now)) : updated;
+}
+
+// Ticks or unticks a checkbox that has no status where it is. `allowed` is the set of lines
+// where statuses count. There, ticking gives the row the DONE status, as a task's box does.
+// Anywhere else only the box changes, so a tick box in notes never gains a keyword, and one
+// with a stray status (shown as plain) still toggles. Returns null if the row has changed.
+function toggleCheckbox(markdown, lineNo, text, checked, statuses, allowed, now) {
+  const scope = { allowed: () => allowed };
+  const item = scanLines(markdown, createMatcher(statuses, scope)).find((i) => i.line === lineNo);
+  if (!item || item.status || item.mark === null || item.editText !== text) return null;
+  const done = statuses.filter((s) => s.type === 'DONE');
+  const doneName = (done.find((s) => s.name === 'DONE') || done[0] || {}).name;
+  if (checked && !item.outside && doneName) return moveToStatus(markdown, lineNo, null, doneName, statuses, now);
+  const mark = checked ? 'x' : ' ';
+  return editLine(markdown, lineNo, (line) => line.slice(0, item.markAt) + mark + line.slice(item.markAt + 1));
 }
 
 // Sets, changes or (with null) removes the priority token on a status line. `priority` is A,
@@ -508,6 +589,15 @@ const FLAG_FIELD = 'Flagged for Review';
 const HEADER_FIELD_ORDER = ['Date Created', 'Date Reviewed', FLAG_FIELD, 'Date Closed', 'Active Timeframe', 'Project Dependency'];
 
 // Finds a "**Label**: value" line. `at` is where the value starts.
+// A file's header: its lines up to the first ## (or deeper) heading after the title, with
+// the rest blanked so line numbers still hold. Sections have their own Date Reviewed and
+// Flagged for Review lines, which mustn't be taken for the file's.
+function headerLines(lines) {
+  const title = titleIndex(lines);
+  const end = lines.findIndex((line, i) => i > title && /^#{2,6}\s/.test(line));
+  return end === -1 ? lines : lines.map((line, i) => (i >= end ? '' : line));
+}
+
 function findField(lines, label) {
   const pattern = new RegExp('^(\\s*\\*\\*\\s*' + label + '\\s*(?:\\*\\*\\s*:|:\\s*\\*\\*)\\s*)(.*)$', 'i');
   const idx = lines.findIndex((l) => pattern.test(l));
@@ -529,15 +619,10 @@ function insertLine(markdown, lineNo, text) {
   return editLine(markdown, lineNo || 1, (line) => (lineNo ? line + eol + added : added + eol + line));
 }
 
-// The comma-separated entries of an Active Timeframe value, as written.
-function timeframeEntries(value) {
-  return value.split(',').map((v) => v.trim()).filter(Boolean);
-}
-
 // Finds the page title (and the tentacle keyword opening it), the Active Timeframe field and
 // the Leader field. timeframe.anchor is the line a missing timeframe would be added after.
 function parseHeader(markdown, tentacles) {
-  const lines = stripComments(markdown);
+  const lines = headerLines(stripComments(markdown));
   const idx = titleIndex(lines);
   let title = null;
   if (idx !== -1) {
@@ -588,7 +673,7 @@ const setDependency = (markdown, name) => setHeaderField(markdown, 'Project Depe
 // Sets (or, with an empty value, clears) a header field. A missing field is added after
 // the nearest earlier header field, or else after the title.
 function setHeaderField(markdown, label, value) {
-  const lines = stripComments(markdown);
+  const lines = headerLines(stripComments(markdown));
   const field = findField(lines, label);
   if (field) {
     return editLine(markdown, field.line, (text) => {
@@ -607,7 +692,7 @@ function setHeaderField(markdown, label, value) {
 
 // Adds "**Flagged for Review**: Yes" under Date Reviewed, or takes the line away.
 function setReviewFlag(markdown, on) {
-  const field = findField(stripComments(markdown), FLAG_FIELD);
+  const field = findField(headerLines(stripComments(markdown)), FLAG_FIELD);
   if (on) return setHeaderField(markdown, FLAG_FIELD, 'Yes');
   if (!field) return markdown;
   const bom = markdown.startsWith('﻿') ? '﻿' : '';
@@ -750,11 +835,12 @@ function parseTimeframes(value, format) {
   const ranges = [];
   const invalid = [];
   for (const raw of timeframeEntries(value)) {
-    const pair = raw.split(/\s+to\s+/i);
+    const { dates, milestones } = splitTimeframe(raw);
+    const pair = dates.split(/\s+to\s+/i);
     const start = pair.length === 2 ? parseDate(pair[0], format) : null;
     const end = pair.length === 2 ? parseDate(pair[1], format) : null;
     if (start === null || end === null || end < start) invalid.push(raw);
-    else ranges.push({ raw, start: toMonth(start), end: toMonth(end), first: monthIndex(toMonth(start)), last: monthIndex(toMonth(end)) });
+    else ranges.push({ raw, dates, milestones, start: toMonth(start), end: toMonth(end), first: monthIndex(toMonth(start)), last: monthIndex(toMonth(end)) });
   }
   return { ranges, invalid };
 }
@@ -840,8 +926,9 @@ function updateOptionsCsv(csvText, values) {
 }
 
 // Appends "start to end" to the Active Timeframe field, adding the field if it's missing.
-function addTimeframe(markdown, start, end) {
-  const entry = `${start} to ${end}`;
+// `milestones`, if given, limits it to those milestones.
+function addTimeframe(markdown, start, end, milestones) {
+  const entry = timeframeText(`${start} to ${end}`, milestones);
   const { timeframe } = parseHeader(markdown, []);
   if (timeframe.line) {
     return editLine(markdown, timeframe.line, (text) => {
@@ -1074,16 +1161,15 @@ module.exports = {
   editAgendaCsv,
   PRIORITIES,
   RECUR_VALUE,
-  RECUR_UNITS,
   addPeriod,
   PLANNING_LINE,
   withDefaultStatuses,
-  closedStamp,
-  setClosed,
   moveToStatus,
   titleIndex,
   setPlanningDate,
   timeframeEntries,
+  splitTimeframe,
+  timeframeText,
   findField,
   setHeaderField,
   editLine,
@@ -1098,7 +1184,6 @@ module.exports = {
   coloursStylesheet,
   parseComponents,
   editColourCsv,
-  normaliseHex,
   parseOptions,
   parseHeader,
   setTentacle,
@@ -1118,7 +1203,6 @@ module.exports = {
   PROJECT_TYPES,
   newTentacleFile,
   appendTentacleCsv,
-  DATE_FIELDS,
   timeframeError,
   addTimeframe,
   editTimeframe,
@@ -1129,8 +1213,11 @@ module.exports = {
   withAdvance,
   stripComments,
   createMatcher,
+  taskBlockLines,
+  CHECKBOX_ROW,
   scanLines,
   findTodos,
   replaceStatus,
+  toggleCheckbox,
   setPriority,
 };

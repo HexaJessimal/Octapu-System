@@ -63,9 +63,10 @@
 
   // A subheading with its add button, then one editable row per timeframe.
   function timeframeFact() {
-    const rows = project.timeframe.entries.map((entry, i) =>
-      component('timeframe-row', { dates: window.PMS.displayDates(entry), control: status.timeframeEntryControl(project, entry, i) })
-    );
+    const rows = project.timeframe.entries.map((entry, i) => {
+      const { dates, milestones } = window.PMS.splitTimeframe(entry);
+      return component('timeframe-row', { dates: window.PMS.displayDates(dates), milestones: milestones ? milestones.join(', ') : '', control: status.timeframeEntryControl(project, entry, i) });
+    });
     return component('fact-timeframe', {
       control: status.timeframeControl(project),
       body: rows.length ? component('timeframe-list', { rows: rows.join('') }) : component('no-tasks', { message: 'No timeframes yet.' }),
@@ -105,7 +106,7 @@
     const info = parseFolder(project.folder);
     const meta = md.parseMeta(project.content);
     const ms = md.parseMilestones(project.content);
-    status.setMilestones(ms.milestones.map((m) => ({ line: m.firstLine - 1, title: m.title })));
+    status.setMilestones(ms.milestones.map((m) => ({ line: m.headingLine, title: m.title })));
 
     // ----- key details -----
     // Projects written before tentacles call their leader Owner.
@@ -160,14 +161,16 @@
 
   function milestoneCard(m, i) {
     // Tasks in a milestone can be moved to another or promoted to their own.
-    const where = { milestone: { line: m.firstLine - 1, title: m.title } };
+    const where = { milestone: { line: m.headingLine, title: m.title } };
     const options = Object.assign(renderOptions(m.body.split('\n').map((_, k) => m.firstLine + k), where), {
+      dragRows: true,
       editAttrs: (item) => editing.attrs('todo', item.line, item.editText),
     });
     const body = md.render(m.body, options);
-    const headingLine = m.firstLine - 1;
+    const headingLine = m.headingLine;
     const collapsed = milestoneControls.isCollapsed(m.title);
-    return component('milestone-card', {
+    return component('milestone-card', Object.assign(documentView.sectionReview(project, m.headingLine, m.title, m.reviewed, m.flagged), {
+      flagged: m.flagged,
       state: m.state,
       collapsed,
       index: i,
@@ -179,7 +182,7 @@
       add: addButton('item', 'Add a checkbox', { line: headingLine, title: m.title }),
       line: headingLine,
       body: body.trim() ? component('doc-body', { body }) : component('no-tasks', { message: m.total ? 'Milestone complete' : 'No tasks yet.' }),
-    });
+    }));
   }
 
   // The grey menu on a milestone. Promoting makes a new project from it, depending on this
@@ -260,6 +263,14 @@
   window.addEventListener('hashchange', goToTarget);
   let firstLoad = true;
 
+  // A Todos link names the task's line, which is shown on the Overview.
+  function goToTask() {
+    const line = Number(params.get('line'));
+    if (!line) return;
+    if (view !== 'overview') setView('overview');
+    documentView.goToLine(contentEl, line);
+  }
+
   function showError(msg) {
     titleEl.textContent = 'Project not found';
     contentEl.innerHTML = component('error-card', { message: msg });
@@ -288,7 +299,10 @@
           typeEl.innerHTML = status.projectTypeControl(project);
           archiveEl.hidden = Boolean(project.archived);
           draw();
-          if (firstLoad) goToTarget();
+          if (firstLoad) {
+            goToTarget();
+            goToTask();
+          }
           firstLoad = false;
           changes.showConflicts(project);
         })

@@ -302,6 +302,19 @@
     });
   }
 
+  // A click anywhere on a todo opens its task, as its grey link does. Its status, priority,
+  // tick box and menu keep their own clicks, as do links in its text, and a click that only
+  // closes an open menu or finishes selecting text goes no further.
+  root.addEventListener('click', (e) => {
+    const row = e.target.closest('li.todo');
+    if (!row || e.target.closest('a, button, input, select, .status-control, .status-menu')) return;
+    if (document.querySelector('.status-menu') || String(window.getSelection())) return;
+    const link = row.querySelector('.todo-project');
+    if (!link) return;
+    if (e.ctrlKey || e.metaKey || e.shiftKey) window.open(link.href, '_blank');
+    else location.assign(link.href);
+  });
+
   // A click anywhere outside an open dropdown closes it. Ticking a choice redraws the
   // choices, so a click whose target has gone was inside one.
   document.addEventListener('click', (e) => {

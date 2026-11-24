@@ -626,7 +626,7 @@ html:has(.view-bar) {
 }
 .milestone header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
@@ -1732,9 +1732,6 @@ textarea.inline-field {
 .timeframe-add.is-set {
   --button-icon: url('../img/pencil-solid-full.svg');
 }
-.timeframe-remove {
-  --button-icon: url('../img/circle-xmark-solid-full.svg');
-}
 /* The flag on the Reviewed box: grey until it's on, then with a note beside it, in the colour of
    the Review page box it puts the page in: cyan for projects, purple for tentacles. */
 .review-flag-projects {
@@ -1781,9 +1778,6 @@ textarea.inline-field {
 }
 /* The minus buttons that delete a row, card or entry match the plus buttons: a hollow circle in
    the raised colour (cyan on a project page), turning pink when pointed at. */
-.row-remove {
-  --button-icon: url('../img/circle-minus-outline.svg');
-}
 .add-button::before,
 .timeframe-add::before,
 .timeframe-remove::before,
@@ -1829,6 +1823,11 @@ textarea.inline-field {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+/* A single task, opened from the Todos sidebar. */
+.is-target-row {
+  border-radius: var(--radius-sm);
+  outline-offset: 3px;
+}
 .entry-head {
   display: flex;
   align-items: flex-start;
@@ -1847,6 +1846,13 @@ textarea.inline-field {
 }
 .entry-field.entry-intro {
   grid-template-columns: minmax(0, 1fr);
+}
+/* A Tasks field's plus button sits before its label, as on a section heading. */
+.entry-field dt.entry-tasks-label {
+  display: flex;
+  align-self: start;
+  align-items: center;
+  gap: 6px;
 }
 .entry-field dt {
   padding-top: 2px;
@@ -1989,12 +1995,74 @@ textarea.inline-field {
   align-items: center;
   gap: 10px;
 }
-.milestone header {
-  align-items: center;
+/* A section's title, with its review date in small text below. */
+.section-heading-text {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.section-heading-text h2,
+.section-heading-text h3 {
+  margin-bottom: 0;
+}
+.section-reviewed {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--text-soft);
+}
+/* A flagged section is outlined in yellow, like the waiting tasks; a milestone keeps its
+   progress colour down the left. */
+.scratch-block.is-flagged,
+.milestone.is-flagged {
+  border-top-color: var(--yellow);
+  border-right-color: var(--yellow);
+  border-bottom-color: var(--yellow);
+}
+.scratch-block.is-flagged {
+  border-left-color: var(--yellow);
+}
+.section-flag.is-on {
+  color: var(--yellow);
 }
 .milestone header h3 {
   flex: 1 1 200px;
   min-width: 0;
+}
+/* A task's drag handle, before its tick box, shown when the row is pointed at. */
+.row-handle {
+  display: inline-block;
+  width: 8px;
+  height: 14px;
+  margin-right: 4px;
+  vertical-align: -2px;
+  background-image: radial-gradient(circle, var(--text-soft) 1px, transparent 1.2px);
+  background-size: 4px 4.6px;
+  cursor: grab;
+  opacity: 0;
+}
+li:hover > .row-handle,
+.row-handle:focus-visible {
+  opacity: 0.8;
+}
+li.is-dragging {
+  opacity: 0.5;
+}
+li.drop-before {
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+li.drop-after {
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+/* How many of a task's subtasks are done. */
+.subtask-count {
+  margin-left: 8px;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  color: var(--text-soft);
+  vertical-align: 1px;
 }
 .milestone-handle {
   flex: none;
@@ -2175,6 +2243,19 @@ textarea.inline-field {
 }
 .review-box-tentacles {
   --review-colour: var(--purple);
+}
+/* Flagged sections, yellow like the waiting tasks. */
+.review-box-sections {
+  --review-colour: var(--yellow);
+}
+.nav-count-sections {
+  color: var(--yellow);
+}
+.review-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 /* Waiting tasks, yellow like the WAITING statuses. */
 .review-box-waiting {
@@ -3030,6 +3111,7 @@ a.home-stat:hover {
   margin: 0;
 }
 .row-remove {
+  --button-icon: url('../img/circle-minus-outline.svg');
   position: relative;
   appearance: none;
   display: block;
@@ -3226,9 +3308,14 @@ a.home-stat:hover {
   flex: 1 1 auto;
   min-height: 0;
 }
+/* The whole row opens its task (sidebar.js), so it reads as clickable. */
 .todo {
   padding: 10px 8px;
   overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.todo:hover {
+  background: color-mix(in srgb, var(--text) 3%, transparent);
 }
 .todo + .todo {
   border-top: 1px solid color-mix(in srgb, var(--text) 3%, transparent);
@@ -3557,6 +3644,39 @@ a.home-stat:hover {
   font-weight: 600;
   color: var(--text-soft);
 }
+/* The milestones a timeframe is limited to, under its dates. */
+.timeframe-names {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--text-soft);
+}
+/* The milestone tick boxes in the Add and Change timeframe forms. */
+.timeframe-milestones {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 6px 0 0;
+  border: 0;
+  font-size: 0.85rem;
+}
+.timeframe-milestones legend {
+  padding: 0;
+  font-size: 0.75rem;
+  color: var(--text-soft);
+}
+.status-menu .timeframe-milestones label {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  text-align: left;
+}
+.status-menu .timeframe-milestones input {
+  flex: none;
+  width: auto;
+  margin: 0;
+}
 .timeframe-list {
   display: grid;
   gap: 4px;
@@ -3576,6 +3696,7 @@ a.home-stat:hover {
   flex: none;
 }
 .timeframe-remove {
+  --button-icon: url('../img/circle-xmark-solid-full.svg');
   position: relative;
   appearance: none;
   width: 18px;
@@ -3702,6 +3823,12 @@ a.home-stat:hover {
 }
 .doc li.task.untagged {
   padding-left: 2.9em;
+}
+/* Its wider padding makes room for the caret by its tick box. Subtasks are lined up as under
+   a task with a status, so every level is indented the same. */
+.doc li.task.untagged > ul,
+.doc li.task.untagged > ol {
+  margin-left: -1.2em;
 }
 .doc li.task.cancelled .check-box {
   border-style: dashed;

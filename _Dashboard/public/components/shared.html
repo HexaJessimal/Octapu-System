@@ -64,8 +64,6 @@
 
 <template name="option"><option value="{{value}}"{{#if selected}} selected{{/if}}>{{label}}</option></template>
 
-<template name="optgroup"><optgroup label="{{label}}">{{{options}}}</optgroup></template>
-
 <template name="text-field"><label>{{label}}<input name="{{{name}}}" autocomplete="off" required></label></template>
 
 <template name="select-field"><label>{{label}}<select name="{{{name}}}"{{#if required}} required{{/if}}>{{{options}}}</select></label></template>

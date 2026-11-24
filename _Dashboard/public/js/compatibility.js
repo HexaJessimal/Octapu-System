@@ -5,7 +5,7 @@
 
   const contentEl = document.getElementById('content');
   const titleEl = document.getElementById('page-title');
-  const TITLES = { projects: 'Project compatibility', tentacles: 'Tentacle compatibility', events: 'Event compatibility', core: 'Core file compatibility' };
+  const TITLES = { projects: 'Project compatibility', tentacles: 'Tentacle compatibility', events: 'Event and contact compatibility', core: 'Core file compatibility' };
   // Entities were renamed tentacles, so an old ?type=entities link still works.
   const asked = new URLSearchParams(location.search).get('type');
   const requested = asked === 'entities' ? 'tentacles' : asked;
@@ -13,7 +13,8 @@
   const title = TITLES[type];
 
   function describe(row) {
-    if (type === 'events') return { name: row.name, href: 'networking.html?page=events#' + encodeURIComponent(row.name), pill: '' };
+    // A box for a whole file names its page; the others are events.
+    if (type === 'events') return { name: row.name, href: row.page ? 'networking.html?page=' + row.page : 'networking.html?page=events#' + encodeURIComponent(row.name), pill: '' };
     if (type === 'core') return { name: row.name, href: row.href, pill: '' }; // a file the dashboard relies on
     if (type === 'tentacles') {
       return { name: row.name, href: row.id ? 'tentacle.html?id=' + encodeURIComponent(row.id) : null, pill: '' };

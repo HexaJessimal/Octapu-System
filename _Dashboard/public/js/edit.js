@@ -30,11 +30,30 @@
     return post('api/text', { kind, line: Number(line), from, to });
   }
 
+  // Tab and Shift+Tab on a task being edited: any change to its text is saved, then it moves
+  // one level in or out, taking its subtasks along.
+  async function indentWhileEditing(target, field, direction) {
+    const from = target.dataset.from;
+    const text = field.value.trim();
+    try {
+      if (text && text !== from) {
+        const saved = await saveRequest(target, text);
+        if (!saved.ok) return status.toast(saved.error || 'Could not save that.');
+      }
+      const result = await post('api/row-indent', { line: Number(target.dataset.line), text: text || from, direction });
+      if (!result.ok) status.toast(result.error || 'Could not move that task.');
+    } catch (_) {
+      status.toast(global.PMS.UNREACHABLE);
+    }
+    open = false;
+    await status.refresh();
+  }
+
   function startEditing(target) {
     const multiline = ['body', 'field', 'raw'].includes(target.dataset.edit);
     const from = target.dataset.from;
     open = true;
-    inlineEditor({
+    const editor = inlineEditor({
       host: target,
       field: multiline ? component('inline-textarea', { rows: Math.min(30, Math.max(6, from.split('\n').length + 2)) }) : component('inline-input'),
       value: from,
@@ -50,6 +69,13 @@
       },
       submitsOn: (e) => !multiline || e.ctrlKey || e.metaKey,
     });
+    if (target.dataset.edit === 'todo') {
+      editor.addEventListener('keydown', (e) => {
+        if (e.key !== 'Tab') return;
+        e.preventDefault();
+        indentWhileEditing(target, editor, e.shiftKey ? 'out' : 'in');
+      });
+    }
   }
 
   // A popup asking for one line of text, which is then sent as `field`.
@@ -90,11 +116,12 @@
       },
     }),
     block: () => ({ heading: 'New block', label: 'Title', submitText: 'Add block', url: 'api/block', field: 'title' }),
+    'entry-task': (el) => ({ url: 'api/entry-task', field: 'text', extra: { line: Number(el.dataset.line), title: el.dataset.title } }),
     task: (el) => ({ heading: 'New task in ' + el.dataset.list, label: 'Text', submitText: 'Add task', url: 'api/task', field: 'text', extra: { list: el.dataset.list } }),
   };
 
   // These plus buttons skip the popup: a blank row opens in place, ready to type into.
-  const QUICK_ADDS = ['milestone', 'item', 'task'];
+  const QUICK_ADDS = ['milestone', 'item', 'task', 'entry-task'];
 
   // Removes the "nothing here yet" text that sits directly inside `parent`.
   const clearEmpty = (parent, selector) => parent.querySelectorAll(':scope > ' + selector).forEach((n) => n.remove());
@@ -119,9 +146,13 @@
       clearEmpty(body, '.no-tasks');
       return body.appendChild(element('quick-add', { className: '', box: true }));
     }
+    // A task list, or a contact's or event's Tasks.
     const section = button.closest('.tasks-section');
-    const doc = section.querySelector('.doc-card .doc');
-    if (doc) return doc.appendChild(element('quick-add', { className: '', box: true }));
+    const doc = section.querySelector('.doc-card .doc, .entry-tasks-body');
+    if (doc) {
+      clearEmpty(doc, '.no-tasks');
+      return doc.appendChild(element('quick-add', { className: '', box: true }));
+    }
     clearEmpty(section, '.empty');
     return section.appendChild(element('quick-add', { className: 'card doc-card', box: true }));
   }
@@ -135,9 +166,29 @@
       .join('');
 
   // Return saves the row and opens another blank one. Esc, or leaving it empty, stops.
+  // How deep a new task can go: one below the list's last task, which is `li.task` inside
+  // `depth` others.
+  function deepestNew(row) {
+    const box = row.closest('.milestone, .tasks-section');
+    const tasks = box ? Array.from(box.querySelectorAll('li.task')).filter((li) => !row.contains(li)) : [];
+    const last = tasks[tasks.length - 1];
+    if (!last) return 0;
+    let depth = 0;
+    for (let li = last.parentElement.closest('li.task'); li && box.contains(li); li = li.parentElement.closest('li.task')) depth++;
+    return depth + 1;
+  }
+
   function quickAdd(button) {
     const { url, field, extra } = ADDERS[button.dataset.add](button);
     const row = blankRow(button);
+    // Tasks can be nested, so Tab and Shift+Tab set the new one's depth.
+    const nests = ['item', 'task', 'entry-task'].includes(button.dataset.add);
+    let depth = 0;
+    const hint = row.querySelector('.quick-add-hint');
+    const showDepth = () => {
+      row.style.marginLeft = depth * 22 + 'px';
+      if (hint) hint.textContent = (depth ? 'Subtask, level ' + depth + '. ' : '') + 'Tab or Shift+Tab to nest it. Press Esc to abort';
+    };
     let finished = false;
     const stop = () => {
       if (finished) return;
@@ -151,7 +202,7 @@
       field: component('inline-input'),
       value: '',
       unchanged: (f) => !f.value.trim(),
-      send: (f) => post(url, Object.assign({}, extra, { [field]: f.value })),
+      send: (f) => post(url, Object.assign({}, extra, { [field]: f.value }, nests && depth ? { depth } : {})),
       onSaved: async () => {
         finished = true;
         open = false;
@@ -165,6 +216,15 @@
     input.addEventListener('blur', () => {
       if (!input.value.trim()) stop();
     });
+    if (nests) {
+      showDepth();
+      input.addEventListener('keydown', (e) => {
+        if (e.key !== 'Tab') return;
+        e.preventDefault();
+        depth = e.shiftKey ? Math.max(0, depth - 1) : Math.min(deepestNew(row), depth + 1);
+        showDepth();
+      });
+    }
     row.scrollIntoView({ block: 'nearest' });
   }
 

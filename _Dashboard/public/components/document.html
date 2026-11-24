@@ -15,12 +15,17 @@
   </div>
 </template>
 
+<!-- A titled block has its review date under the title and its flag beside it. -->
 <template name="scratch-block">
-  <section class="card scratch-block">
-    {{{title}}}
+  <section class="card scratch-block{{#if flagged}} is-flagged{{/if}}">
+    {{#if title}}<header class="entry-head"><div class="section-heading-text">{{{title}}}{{{reviewed}}}</div>{{{flag}}}</header>{{/if}}
     <div class="doc scratch-body"{{{attrs}}}>{{{body}}}</div>
   </section>
 </template>
+
+<!-- A section's own flag for review, and the date it was last reviewed. -->
+<template name="section-flag"><button type="button" class="review-flag-button section-flag{{#if on}} is-on{{/if}}" data-section-flag data-folder="{{folder}}" data-file="{{file}}" data-line="{{{line}}}" data-title="{{title}}" aria-pressed="{{{pressed}}}" title="{{action}}" aria-label="{{action}}"></button></template>
+<template name="section-reviewed"><small class="section-reviewed">{{text}}</small></template>
 
 <template name="scratch-title"><h2 class="scratch-title"{{{attrs}}}>{{{title}}}</h2></template>
 
@@ -88,7 +93,8 @@
 
 <template name="timeframe-list"><ul class="timeframe-list">{{{rows}}}</ul></template>
 
-<template name="timeframe-row"><li><span>{{dates}}</span>{{{control}}}</li></template>
+<!-- A timeframe, with the milestones it's limited to, if any, in small text below. -->
+<template name="timeframe-row"><li><span>{{dates}}{{#if milestones}}<small class="timeframe-names">{{milestones}}</small>{{/if}}</span>{{{control}}}</li></template>
 
 <template name="progress-nav"><nav class="card progress" aria-label="Milestone progress">{{{segments}}}</nav></template>
 
@@ -102,12 +108,13 @@
 <template name="milestone-stack"><div class="milestones milestones-spaced">{{{cards}}}</div></template>
 
 <template name="milestone-card">
-  <section class="card milestone state-{{{state}}}{{#if collapsed}} is-collapsed{{/if}}" id="ms-{{{index}}}" data-index="{{{index}}}" data-title="{{title}}">
+  <section class="card milestone state-{{{state}}}{{#if collapsed}} is-collapsed{{/if}}{{#if flagged}} is-flagged{{/if}}" id="ms-{{{index}}}" data-index="{{{index}}}" data-title="{{title}}">
     <header>
       <span class="milestone-handle" data-drag draggable="true" tabindex="0" role="button" title="Drag to reorder" aria-label="Reorder this milestone with the up and down arrow keys"></span>
       <button type="button" class="collapse-button" data-collapse aria-expanded="{{{expanded}}}" aria-label="Show or hide this milestone"></button>
-      <h3{{{attrs}}}>{{{heading}}}</h3>
+      <div class="section-heading-text"><h3{{{attrs}}}>{{{heading}}}</h3>{{{reviewed}}}</div>
       <div class="ms-actions">
+        {{{flag}}}
         <span class="ms-count">{{counts}}</span>
         {{{add}}}
         <span class="status-control milestone-menu-control" data-line="{{{line}}}" data-title="{{title}}">
@@ -139,6 +146,14 @@
   </div>
 </template>
 
+<!-- An entry's Tasks, which work like a task list: its plus button adds one row at a time. -->
+<template name="entry-tasks">
+  <div class="entry-field tasks-section">
+    <dt class="entry-tasks-label">{{{add}}}<span>{{label}}</span></dt>
+    <dd class="doc entry-tasks-body"{{{attrs}}}{{#if missing}} data-label="{{label}}"{{/if}}>{{{body}}}</dd>
+  </div>
+</template>
+
 <!-- An event's date or Yes/No field, which has its own control rather than a text box. -->
 <template name="entry-value">
   <div class="entry-field">
@@ -157,9 +172,10 @@
 <template name="event-filter"><button type="button" class="chip" data-event-filter="{{{key}}}" aria-pressed="{{{pressed}}}">{{label}} <span class="count">{{{count}}}</span></button></template>
 
 <template name="entry-card">
-  <section class="card scratch-block{{#if target}} is-target{{/if}}{{#if progress}} is-{{{progress}}}{{/if}}" data-entry="{{{index}}}">
+  <section class="card scratch-block{{#if target}} is-target{{/if}}{{#if progress}} is-{{{progress}}}{{/if}}{{#if flagged}} is-flagged{{/if}}" data-entry="{{{index}}}">
     <header class="entry-head">
-      <h2 class="scratch-title"{{{attrs}}}>{{{title}}}</h2>
+      <div class="section-heading-text"><h2 class="scratch-title"{{{attrs}}}>{{{title}}}</h2>{{{reviewed}}}</div>
+      {{{flag}}}
       <button type="button" class="row-remove" data-remove-entry title="Delete this {{noun}}" aria-label="Delete {{name}}"></button>
     </header>
     <dl class="entry-fields">{{{fields}}}</dl>

@@ -75,9 +75,12 @@
     const lanes = Math.max(...bars.map((b) => b.lane)) + 1;
     const column = (i) => i - start + 2; // column 1 holds the project name
     const milestones = md.parseMilestones(row.content).milestones;
+    // A timeframe limited to some milestones is coloured, and described, by those alone.
+    const key = (name) => name.trim().replace(/\s+/g, ' ').toLowerCase();
+    const covered = (bar) => (bar.milestones ? milestones.filter((m) => bar.milestones.some((name) => key(name) === key(m.title))) : milestones);
     // An archived project is finished, so it takes the complete colour.
-    const background = archived ? STATE_COLOURS.done : barBackground(milestones);
-    const summary = archived ? 'archived' : progressText(milestones);
+    const backgroundOf = (bar) => (archived ? STATE_COLOURS.done : barBackground(covered(bar)));
+    const summaryOf = (bar) => (archived ? 'archived' : (bar.milestones ? bar.milestones.join(', ') + ': ' : '') + progressText(covered(bar)));
     // Dependency arrows leave the project's last bar and arrive at its first.
     const lastBar = bars.reduce((a, b) => (b.last > a.last ? b : a));
     const firstBar = bars.reduce((a, b) => (b.first < a.first ? b : a));
@@ -89,15 +92,17 @@
       title: info.title,
       pill: component('pill', { status: info.status, label: STATUS_LABELS[info.status] }),
       now: now >= start && now <= end ? component('gantt-now', { column: column(now), lanes }) : '',
+      // Bars come in date order, which is the order their arrows join them in.
       bars: bars
-        .map((bar) =>
+        .map((bar, order) =>
           component('gantt-bar', {
+            order,
             href,
-            detail: info.title + ': ' + window.PMS.displayDates(bar.raw) + ' (' + summary + ')' + dependsOn,
+            detail: info.title + ': ' + window.PMS.displayDates(bar.raw) + ' (' + summaryOf(bar) + ')' + dependsOn,
             isLast: bar === lastBar,
             isFirst: bar === firstBar,
             folder: row.folder,
-            background,
+            background: backgroundOf(bar),
             from: column(bar.first),
             to: column(bar.last) + 1,
             lane: bar.lane + 1,
@@ -111,6 +116,8 @@
   // The route from the end of one bar to the start of another, always arriving rightwards.
   function arrowPath(x1, y1, x2, y2) {
     const clearance = 9;
+    // Two timeframes next to each other in one lane: a short straight join.
+    if (y1 === y2 && x2 >= x1) return 'M' + x1 + ' ' + y1 + 'H' + Math.max(x2, x1 + 1);
     if (x2 - x1 >= clearance * 2) {
       const bend = x2 - clearance;
       return 'M' + x1 + ' ' + y1 + 'H' + bend + 'V' + y2 + 'H' + x2;
@@ -135,14 +142,18 @@
     });
 
     const box = gantt.getBoundingClientRect();
-    const paths = rows
-      .filter((row) => row.dependency && ends.has(row.dependency) && starts.has(row.folder))
-      .map((row) => {
-        const from = ends.get(row.dependency).getBoundingClientRect();
-        const to = starts.get(row.folder).getBoundingClientRect();
-        const middle = (rect) => rect.top + rect.height / 2 - box.top;
-        return component('gantt-arrow-path', { route: arrowPath(from.right - box.left, middle(from), to.left - box.left, middle(to)) });
-      });
+    const middle = (rect) => rect.top + rect.height / 2 - box.top;
+    const join = (fromBar, toBar) => {
+      const from = fromBar.getBoundingClientRect();
+      const to = toBar.getBoundingClientRect();
+      return component('gantt-arrow-path', { route: arrowPath(from.right - box.left, middle(from), to.left - box.left, middle(to)) });
+    };
+    const paths = rows.filter((row) => row.dependency && ends.has(row.dependency) && starts.has(row.folder)).map((row) => join(ends.get(row.dependency), starts.get(row.folder)));
+    // A project with more than one timeframe has each joined to the next, whatever it depends on.
+    Array.from(gantt.querySelectorAll('.gantt-project:not([hidden])')).forEach((project) => {
+      const own = Array.from(project.querySelectorAll('.gantt-bar[data-order]')).sort((a, b) => a.dataset.order - b.dataset.order);
+      for (let i = 1; i < own.length; i++) paths.push(join(own[i - 1], own[i]));
+    });
     if (!paths.length) return;
 
     gantt.insertAdjacentHTML('beforeend', component('gantt-arrows', { width: box.width, height: box.height, paths: paths.join('') }));
@@ -363,7 +374,7 @@
       .filter((row) => row.ranges.length)
       .map((row) =>
         Object.assign({}, row, {
-          bars: row.ranges.map((r) => ({ raw: r.raw, first: r.first, last: r.last })),
+          bars: row.ranges.map((r) => ({ raw: r.dates || r.raw, milestones: r.milestones, first: r.first, last: r.last })),
         })
       )
       .map((row) => Object.assign(row, { earliest: Math.min(...row.bars.map((b) => b.first)) }))

@@ -151,7 +151,7 @@
             { value: roundup.projectsToReview, className: 'nav-count-projects', label: 'Projects to review' },
             { value: roundup.tentaclesToReview, className: 'nav-count-tentacles', label: 'Tentacles to review' },
             // Tasks with a WAITING type status, only while there are any.
-            ...(roundup.waitingTasks ? [{ value: roundup.waitingTasks, className: 'nav-count-waiting', label: 'Waiting tasks' }] : []),
+            ...(roundup.waitingTasks ? [{ value: roundup.waitingTasks, className: 'nav-count-waiting', label: 'Waiting tasks and flagged sections' }] : []),
           ];
 
     root.innerHTML =

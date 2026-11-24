@@ -5,6 +5,7 @@
 //   YYYY-MM-DD_TENTACLE_Project_Title -> archived (separator may be '-', '.' or '_')
 (function (global) {
   'use strict';
+  const { splitTimeframe } = global.PMS.rules;
 
   const ARCHIVE_RE = /^(\d{4})[.\-_](\d{2})[.\-_](\d{2})[_\s-]*/;
 
@@ -420,6 +421,7 @@
     setViewInAddress,
     clearSelection,
     tentacleHref,
+    splitTimeframe,
     byFolderTitle,
     dayNumber,
     suggestIdFrom,

@@ -61,7 +61,7 @@
 <template name="gantt-now"><div class="gantt-now" style="--column:{{{column}}};--lanes:{{{lanes}}}"></div></template>
 
 <template name="gantt-bar">
-  <a class="gantt-bar" href="{{href}}" title="{{detail}}" aria-label="{{detail}}"{{#if isLast}} data-end-of="{{folder}}"{{/if}}{{#if isFirst}} data-start-of="{{folder}}"{{/if}} style="--bar:{{{background}}};--from:{{{from}}};--to:{{{to}}};--lane:{{{lane}}}"><span>{{label}}</span></a>
+  <a class="gantt-bar" href="{{href}}" title="{{detail}}" aria-label="{{detail}}" data-bar-of="{{folder}}" data-order="{{{order}}}"{{#if isLast}} data-end-of="{{folder}}"{{/if}}{{#if isFirst}} data-start-of="{{folder}}"{{/if}} style="--bar:{{{background}}};--from:{{{from}}};--to:{{{to}}};--lane:{{{lane}}}"><span>{{label}}</span></a>
 </template>
 
 <template name="gantt-arrow-path"><path d="{{{route}}}" marker-end="url(#gantt-arrowhead)"></path></template>
@@ -151,6 +151,14 @@
 <template name="archive-field"><div class="entry-field"><dt>{{label}}</dt><dd{{{attrs}}}>{{{value}}}</dd></div></template>
 
 <template name="legend-depends"><span><b class="legend-arrow" aria-hidden="true"></b>Depends on</span></template>
+
+<!-- A flagged milestone, block, event, contact or idea, with where it is and a button to mark it reviewed. -->
+<template name="review-section-entry">
+  <li class="review-section">
+    <div><a href="{{href}}">{{title}}</a><div class="review-meta">{{kind}} · {{source}}</div></div>
+    <button type="button" class="plain-button" data-section-reviewed="{{{index}}}">Mark as reviewed</button>
+  </li>
+</template>
 
 <template name="review-entry">
   <li>

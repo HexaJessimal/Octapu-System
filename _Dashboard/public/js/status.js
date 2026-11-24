@@ -71,6 +71,8 @@
       scheduled: plannedDate(item, 'SCHEDULED'),
       deadline: plannedDate(item, 'DEADLINE'),
       recur: recurValue(item),
+      // A box with no status is ticked or unticked through api/check, which needs its mark.
+      mark: item.status || item.mark === null || item.mark === undefined ? '' : item.mark,
     });
   }
 
@@ -82,19 +84,23 @@
     return (done.find((s) => s.name === 'DONE') || done[0] || {}).name || null;
   }
 
-  // A recurring task's box moves its schedule on rather than ticking it.
+  // A recurring task's box moves its schedule on rather than ticking it. A box with no status
+  // ticks and unticks. In a task list ticking it gives it the DONE status; elsewhere (`outside`)
+  // it stays a plain tick box, with no status menu.
   function checkbox(item) {
     const iconType = item.type || MARK_TYPES[item.mark];
     const target = checkboxTarget(item.status);
-    const clickable = item.recur || (item.mark !== 'x' && target);
-    let title = clickable ? 'Move to ' + target : item.mark === 'x' ? 'Ticked' : 'No next status';
+    const ticked = item.mark === 'x';
+    const clickable = item.recur || !item.status || (!ticked && target);
+    let title = clickable ? 'Move to ' + target : ticked ? 'Ticked' : 'No next status';
+    if (!item.status) title = ticked ? 'Untick' : item.outside || !target ? 'Tick' : 'Move to ' + target;
     if (item.recur) title = 'Move the schedule on ' + describePeriod(recurValue(item));
     return component('control-checkbox', {
       attrs: dataAttrs(item),
       icon: iconType ? iconType.toLowerCase() : '',
       title,
       disabled: !clickable,
-      caret: !item.status,
+      caret: !item.status && !item.outside,
     });
   }
 
@@ -139,7 +145,7 @@
 
   // The pencil and remove buttons beside one existing timeframe.
   function timeframeEntryControl(project, entry, index) {
-    return component('control-timeframe-entry', { attrs: documentAttrs(project, 'timeframe-' + index, entry), index, label: displayDates(entry) });
+    return component('control-timeframe-entry', { attrs: documentAttrs(project, 'timeframe-' + index, entry), index, label: displayDates(global.PMS.splitTimeframe(entry).dates) });
   }
 
   // Project Dependency: a plus when empty, a pencil once set, opening a list of projects.
@@ -254,12 +260,14 @@
   }
 
   // Where a todo links to, and the name to show for it.
-  // A task from Contacts or Events links to its contact or event, named after it.
+  // A task from Contacts or Events links to its contact or event, named after it. Every link
+  // carries the task's line, so the page can open at the task itself.
   function itemLink(item) {
     const { tentacle, networking } = item;
-    if (networking) return { label: networking.title, href: 'networking.html?page=' + networking.page + '#' + encodeURIComponent(networking.title) };
+    const line = '&line=' + item.line;
+    if (networking) return { label: networking.title, href: 'networking.html?page=' + networking.page + line + '#' + encodeURIComponent(networking.title) };
     const page = tentacle ? tentacleHref(tentacle.root, tentacle.id) : 'project.html?folder=' + encodeURIComponent(item.folder);
-    return { label: tentacle ? tentacle.name : global.PMS.parseFolder(item.folder).title, href: page + '&file=' + encodeURIComponent(item.file) };
+    return { label: tentacle ? tentacle.name : global.PMS.parseFolder(item.folder).title, href: page + '&file=' + encodeURIComponent(item.file) + line };
   }
 
   function controlKind(el) {
@@ -341,6 +349,11 @@
     sendEdit(ctrl, 'api/status', { from: ctrl.dataset.status || null, to });
   }
 
+  // A box with no status: ticked, or unticked if it already is.
+  function toggleBox(ctrl) {
+    sendEdit(ctrl, 'api/check', { text: ctrl.dataset.text || '', checked: ctrl.dataset.mark !== 'x' });
+  }
+
   function changePriority(ctrl, value) {
     sendEdit(ctrl, 'api/priority', { status: ctrl.dataset.status, priority: value === NO_PRIORITY ? null : value });
   }
@@ -409,10 +422,6 @@
     sendEdit(ctrl, 'api/timeframe-change', { index: Number(ctrl.dataset.index), from: ctrl.dataset.status, remove: true });
   }
 
-  function statusMenu(current) {
-    return statusOptions(current) + component('status-menu-actions');
-  }
-
   // Each status shows its type's icon and colour rather than a heading per type, with a thin
   // line between the types.
   function statusOptions(current) {
@@ -475,6 +484,22 @@
 
   const monthFields = (start, end) => monthInput('start', 'Start', start) + monthInput('end', 'End', end);
 
+  // A tick box per milestone, for limiting a timeframe to some of them. `chosen` is the
+  // timeframe's current list, or null for all.
+  function milestoneFields(chosen) {
+    if (!milestones.length) return '';
+    const key = (name) => name.trim().toLowerCase();
+    const boxes = milestones.map((m) => component('timeframe-milestone', { title: m.title, checked: !chosen || chosen.some((name) => key(name) === key(m.title)) }));
+    return component('timeframe-milestones', { boxes: boxes.join('') });
+  }
+
+  // The ticked milestones, or none when they're all ticked, which means every milestone.
+  function chosenMilestones(form) {
+    const boxes = Array.from(form.querySelectorAll('input[name="milestone"]'));
+    const ticked = boxes.filter((box) => box.checked).map((box) => box.value);
+    return ticked.length && ticked.length < boxes.length ? ticked : undefined;
+  }
+
   // The first or last day of the chosen month, written in the DATEFORMAT.
   function chosenDate(form, name, lastDay) {
     const year = Number(readField(form, name + 'Year'));
@@ -510,13 +535,16 @@
       );
     }
     if (caret.matches('.timeframe-edit')) {
-      const [start, end = ''] = ctrl.dataset.status.split(/\s+to\s+/i);
-      return buildForm('Change this timeframe', monthFields(start, end), 'Save', (form) =>
-        submitForm(form, ctrl, 'api/timeframe-change', Object.assign({ index: Number(ctrl.dataset.index), from: ctrl.dataset.status }, timeframeDates(form)))
+      const entry = global.PMS.splitTimeframe(ctrl.dataset.status);
+      const [start, end = ''] = entry.dates.split(/\s+to\s+/i);
+      return buildForm('Change this timeframe', monthFields(start, end) + milestoneFields(entry.milestones), 'Save', (form) =>
+        submitForm(form, ctrl, 'api/timeframe-change', Object.assign({ index: Number(ctrl.dataset.index), from: ctrl.dataset.status, milestones: chosenMilestones(form) }, timeframeDates(form)))
       );
     }
     if (caret.matches('.timeframe-add')) {
-      return buildForm('Add a timeframe', monthFields(), 'Add', (form) => submitForm(form, ctrl, 'api/timeframe', timeframeDates(form)));
+      return buildForm('Add a timeframe', monthFields() + milestoneFields(null), 'Add', (form) =>
+        submitForm(form, ctrl, 'api/timeframe', Object.assign({ milestones: chosenMilestones(form) }, timeframeDates(form)))
+      );
     }
     if (caret.matches('.priority-button')) return menuPanel(priorityMenu(ctrl.dataset.priority), 'status-menu priority-menu');
     if (caret.matches('.project-status-button')) {
@@ -526,7 +554,7 @@
     if (caret.matches('.type-button')) return menuPanel(labelMenu(projectTypes.map((t) => ({ id: t, name: t })), 'project-type', ctrl.dataset.status));
     if (caret.matches('.leader-button')) return menuPanel(labelMenu(leaders, 'leader', ctrl.dataset.status));
     if (caret.matches('.header-button')) return menuPanel(labelMenu(tentacles, 'tentacle', ctrl.dataset.status));
-    return menuPanel(statusMenu(ctrl.dataset.status));
+    return menuPanel(statusOptions(ctrl.dataset.status));
   }
 
   function openMenu(caret, built) {
@@ -616,6 +644,7 @@
     const boxCtrl = box && box.closest('.status-control');
     if (boxCtrl) {
       if (boxCtrl.dataset.recur) advanceRecurring(boxCtrl);
+      else if (!boxCtrl.dataset.status) toggleBox(boxCtrl);
       else change(boxCtrl, checkboxTarget(boxCtrl.dataset.status));
       return;
     }

@@ -1,6 +1,6 @@
 <!-- The status, priority, tentacle, date and timeframe controls, and the menus they open. -->
 
-<template name="control-data">data-folder="{{folder}}" data-file="{{file}}" data-line="{{{line}}}" data-status="{{status}}"{{#if hasText}} data-text="{{text}}"{{/if}}{{#if cancelled}} data-cancelled="true"{{/if}}{{#if scheduled}} data-scheduled="{{scheduled}}"{{/if}}{{#if deadline}} data-deadline="{{deadline}}"{{/if}}{{#if recur}} data-recur="{{recur}}"{{/if}}</template>
+<template name="control-data">data-folder="{{folder}}" data-file="{{file}}" data-line="{{{line}}}" data-status="{{status}}"{{#if hasText}} data-text="{{text}}"{{/if}}{{#if cancelled}} data-cancelled="true"{{/if}}{{#if scheduled}} data-scheduled="{{scheduled}}"{{/if}}{{#if deadline}} data-deadline="{{deadline}}"{{/if}}{{#if recur}} data-recur="{{recur}}"{{/if}}{{#if mark}} data-mark="{{mark}}"{{/if}}</template>
 
 <template name="control-checkbox">
   <span class="status-control check-control" {{{attrs}}}>
@@ -79,12 +79,6 @@
 
 <template name="status-menu-panel"><div role="menu" class="{{{className}}}">{{{items}}}</div></template>
 
-<template name="status-menu-actions">
-  <div class="status-menu-sep" role="separator"></div>
-  <button type="button" role="menuitem" data-plan="SCHEDULED">Schedule</button>
-  <button type="button" role="menuitem" data-plan="DEADLINE">Deadline</button>
-</template>
-
 <!-- The grey menu at the end of a task row. -->
 <template name="control-row-menu">
   <span class="status-control row-menu-control" {{{attrs}}}{{#if inMilestone}} data-in-milestone="true" data-milestone-line="{{{milestoneLine}}}"{{/if}}{{#if blockable}} data-blockable="true"{{/if}}>
@@ -92,7 +86,11 @@
   </span>
 </template>
 
+<!-- Dates first, then Cancel and Delete. -->
 <template name="row-menu-actions">
+  <button type="button" role="menuitem" data-plan="SCHEDULED">Schedule</button>
+  <button type="button" role="menuitem" data-plan="DEADLINE">Deadline</button>
+  <div class="status-menu-sep" role="separator"></div>
   <button type="button" role="menuitem" data-row="cancel"{{#if cancelled}} disabled{{/if}}>Cancel</button>
   <button type="button" role="menuitem" class="is-danger" data-row="delete">Delete</button>
 </template>
@@ -143,6 +141,10 @@
     </span>
   </label>
 </template>
+
+<!-- Which milestones a timeframe covers. Ticking them all, or none, means every milestone. -->
+<template name="timeframe-milestones"><fieldset class="timeframe-milestones"><legend>Milestones</legend>{{{boxes}}}</fieldset></template>
+<template name="timeframe-milestone"><label><input type="checkbox" name="milestone" value="{{title}}"{{#if checked}} checked{{/if}}> {{title}}</label></template>
 
 <template name="month-input">
   <label>{{label}}

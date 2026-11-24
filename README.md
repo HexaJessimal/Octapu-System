@@ -1,6 +1,6 @@
 # Octapu System Dashboard
 
-Version 0.7
+Version 0.8
 
 A small, self-contained dashboard for the markdown-driven project management system in this folder. Markdown files are the source of truth, so you can keep editing them in any text editor. The dashboard only changes them when you make an edit in it.
 
@@ -136,7 +136,7 @@ Pages with view tabs (Overview, Scratchpad, Raw and so on) keep them in a bar at
 ### Overview tab
 
 - **Tiles:** **Scheduled Projects**, the number of projects in a timeframe today, comes first. Then **Open projects** and **Inactive projects**, the number of active and inactive projects across every project directory, how many days until the next Review and Plan are due, and the number of overdue tasks. Review and Plan use the `ROUNDUP` number of days from `_Options/Options.csv`.
-- **Timeline:** a Gantt chart that scrolls sideways, with one bar per timeframe in each project's `Active Timeframe`, accurate to the month. Each bar is graded through the project's milestones from left to right, using the same colours as the milestone progress bar. A project with no milestones is `N/A` in the key. Tick boxes above the chart show or hide **Active** and **Inactive** projects and the **Deadlines**, **Bookings** and **Releases** lines, and are remembered in the browser. While `SHOWARCHIVED` is on, archived projects are charted too, in the complete colour, `green`, with an **Archive** box to hide them. An event's Application Deadline is a cyan line until it's been applied for or booked. Its Event Date is a purple line once it's booked, and grey before that. An event of several days has a line at each end, with a paler band between. Point at a line to see the event. Each catalog record with a readable `Release date` is a line in the `text` colour (white on the dark theme). Pointing at it shows a card with the record's `Image` (an `[[IMAGE#...]]` value), `Title` and date, opening to the left near the chart's right edge. Timeframes that aren't written as `YYYY-MM-DD` are listed above the chart. **3 months**, **6 months** and **12 months** set how many months fit across the chart, and the choice is remembered in the browser. It opens at 6, with last month at the left. A row only shows while one of its timeframes is within two months of the months on screen, so scrolling sideways shows and hides rows and the chart only grows as tall as the stretch of time being looked at. If nothing is near, a line above the chart says so. Arrows are only drawn between rows on screen. A chart taller than 12 rows scrolls up and down, with the year and month headings staying in view.
+- **Timeline:** a Gantt chart that scrolls sideways, with one bar per timeframe in each project's `Active Timeframe`, accurate to the month. Each bar is graded through the project's milestones from left to right, using the same colours as the milestone progress bar. A project with no milestones is `N/A` in the key. Tick boxes above the chart show or hide **Active** and **Inactive** projects and the **Deadlines**, **Bookings** and **Releases** lines, and are remembered in the browser. While `SHOWARCHIVED` is on, archived projects are charted too, in the complete colour, `green`, with an **Archive** box to hide them. An event's Application Deadline is a cyan line until it's been applied for or booked. Its Event Date is a purple line once it's booked, and grey before that. An event of several days has a line at each end, with a paler band between. Point at a line to see the event. Each catalog record with a readable `Release date` is a line in the `text` colour (white on the dark theme). Pointing at it shows a card with the record's `Image` (an `[[IMAGE#...]]` value), `Title` and date, opening to the left near the chart's right edge. Timeframes that aren't written as `YYYY-MM-DD` are listed above the chart. **3 months**, **6 months** and **12 months** set how many months fit across the chart, and the choice is remembered in the browser. It opens at 6, with last month at the left. A row only shows while one of its timeframes is within two months of the months on screen, so scrolling sideways shows and hides rows and the chart only grows as tall as the stretch of time being looked at. If nothing is near, a line above the chart says so. Arrows are only drawn between rows on screen. A project with more than one timeframe always has an arrow from each of its bars to the next, in date order, whatever it depends on (a short straight one when they touch). A chart taller than 12 rows scrolls up and down, with the year and month headings staying in view.
 - **Current plan** shows the newest entry in `_Time_Management/Plan.md`, while it's less than `ROUNDUP` days old. After that it links to the Plan page instead.
 - **Due in the next 7 days** and **Overdue tasks** list open tasks with a `DEADLINE` or `SCHEDULED` date, from every non-archived project and every tentacle, soonest first. If a task has both, the deadline counts. Finished, archived and cancelled tasks are left out, and today counts as due, not overdue. Its status can be changed right there.
 - **Priorities this month** lists Milestone projects with a timeframe that includes today, and their progress.
@@ -264,7 +264,7 @@ Double-click an idea's name to edit its heading (tentacle ID and title), its Pro
 
 ### Compatibility
 
-**Tentacles**, **Projects** and **Events** list everything whose markdown doesn't yet fit the dashboard, and why. **Fix all issues**, above the boxes on each page, runs every box's Fix issues one after another with its dropdowns as they are, fixing events and archive entries from the bottom of their file up, as each is found by its line, then says how many were fixed. **Core files** lists files and folders the dashboard relies on that have been renamed. An entity's `_Entities` folder is now `_Tentacles`, and its `_Labels` folder, the settings behind the Options page, is now `_Options`. While only the old name exists it's still used, no empty folder with the new name is made beside it, and Fix issues renames it (refused, with a message, if another program has it open). An entity's `_Networking/Leads.md` is now `Contacts.md`, as the Leads page is now **Contacts**. Until it's fixed, the Contacts page reads `Leads.md` whenever there's no `Contacts.md`, and no starter `Contacts.md` is made beside it. Fix issues renames it `Contacts.md`, renames its change logs to match, and changes the word Leads in its `#` title to Contacts. If both files exist it's shown in pink, to sort out by hand. `[[Leads#Name]]` links and `?page=leads` addresses still open Contacts. Only a field's label is needed, not a value. Links open the page so it can be fixed. The lists are worked out fresh each time.
+**Tentacles**, **Projects** and **Events** list everything whose markdown doesn't yet fit the dashboard, and why, including status tags outside a task list or milestone. **Fix all issues**, above the boxes on each page, runs every box's Fix issues one after another with its dropdowns as they are, fixing events and archive entries from the bottom of their file up, as each is found by its line, then says how many were fixed. **Core files** lists files and folders the dashboard relies on that have been renamed. An entity's `_Entities` folder is now `_Tentacles`, and its `_Labels` folder, the settings behind the Options page, is now `_Options`. While only the old name exists it's still used, no empty folder with the new name is made beside it, and Fix issues renames it (refused, with a message, if another program has it open). An entity's `_Networking/Leads.md` is now `Contacts.md`, as the Leads page is now **Contacts**. Until it's fixed, the Contacts page reads `Leads.md` whenever there's no `Contacts.md`, and no starter `Contacts.md` is made beside it. Fix issues renames it `Contacts.md`, renames its change logs to match, and changes the word Leads in its `#` title to Contacts. If both files exist it's shown in pink, to sort out by hand. `[[Leads#Name]]` links and `?page=leads` addresses still open Contacts. Only a field's label is needed, not a value. Links open the page so it can be fixed. The lists are worked out fresh each time.
 
 Each issue is coloured by what can be done about it:
 
@@ -465,7 +465,7 @@ Any other `**Key**: value` lines show up in the summary card too.
 
 ### Todos sidebar
 
-The sidebar on the right lists every line, in the markdown files of all non-archived projects and every tentacle in `_Options/Tentacles.csv`, and inside a contact on Contacts or an event on Events, that starts with a status named in `_Options/Status.csv`. A Contacts or Events item links to its contact or event, and belongs to no tentacle or project in the filter. The CSV needs `Type` and `Name` columns, and uses `Next` for status changes. Items in archived project folders never appear, whichever filter is selected.
+The sidebar on the right lists every task with a status named in `_Options/Status.csv`, in the markdown files of all non-archived projects and every tentacle in `_Options/Tentacles.csv`, and on Contacts and Events. A status only counts on a checkbox row (`- [ ]`, at any depth) in one of these places: under a `###` milestone in `## Milestones`, under a `##` heading named in `TASKLISTS` (in any project or tentacle file), or in a contact's or event's **Tasks** field. Everywhere else the dashboard treats the line as text (a checkbox there is a plain checkbox), leaves it out of the sidebar, the Review page, the Plan page and every count, and lists it on Compatibility (Projects, Tentacles, or Events for both Events.md and Contacts.md) as a pink problem to move or untag by hand. Each item's link opens its page at that task, outlined, with its milestone opened if it was closed (`&line=N` in the address). A Contacts or Events item belongs to no tentacle or project in the filter. The CSV needs `Type` and `Name` columns, and uses `Next` for status changes. Items in archived project folders never appear, whichever filter is selected.
 
 Status names come only from the CSV, which is re-read on every page load, so you can add, rename or remove them at any time. Status types are fixed: `UNASSIGNED`, `ASSIGNED`, `WAITING`, `DONE` and `ARCHIVED`. CSV rows with any other type are ignored. If the CSV is missing, or has no status for a type, a status named after that type is used instead.
 
@@ -510,6 +510,7 @@ Every highlighted status, in the sidebar and on project pages, has a name and a 
 
 - **Click the caret** to pick any status from the CSV.
 - **Click the name** to move to the next status. That's the status in the CSV's `Next` column, or if that's blank, the first status of the next type: `UNASSIGNED` → `ASSIGNED` → `DONE` → `ARCHIVED`, with `WAITING` also moving to `DONE`. The last status of the sequence has nowhere to go, so its name can't be clicked.
+- **Moving a task into a `DONE` type status** (from any other type, by its name, caret, checkbox or the Todos sidebar) moves every subtask nested under it, at any depth, to the same status, unless it's cancelled, already ticked, or already `DONE` or `ARCHIVED`. Each gets its own `CLOSED` date.
 
 The dropdown lists the statuses without type headings. Each shows its type's icon and colour, with a thin line between types. At the bottom:
 
@@ -520,7 +521,7 @@ The dropdown lists the statuses without type headings. Each shows its type's ico
 Every task row, on document pages and in the Todos sidebar, ends with a grey menu button:
 
 - **Cancel** strikes the whole row through, status included, and unticks its checkbox: `- [ ] ~~JESSIE Book the venue~~`. It then drops off the todo list and out of milestone progress.
-- **Delete** asks you to confirm, then removes the row and any `CLOSED`, `SCHEDULED` or `DEADLINE` lines directly below it. Rows nested under it are kept.
+- **Delete** asks you to confirm, then removes the row with everything nested under it: its `CLOSED`, `SCHEDULED` or `DEADLINE` lines and its subtasks at every depth.
 - **Move to** (tasks in a Milestone project's milestone) lists the other milestones. The row, the rows nested under it and their planning lines move to the end of the chosen milestone, de-indented to the top level.
 - **Promote to new milestone** (the same tasks) removes the row and its own planning lines, adds a `###` milestone named after its text at the end of `## Milestones`, and puts the rows nested under it there, de-indented.
 - **Create linked Scratchpad block** (project and tentacle pages) adds a `## <task text>` block at the end of the file and rewrites the task's text as `[[<project name or tentacle ID>#<text>|<text>]]`. It's hidden when that block already exists or the text holds a `[[` link, and refused if the text contains `#`, `|`, `[` or `]`.
@@ -543,15 +544,20 @@ The top of each project file follows this pattern:
 ```
 
 - **Title:** the first `#` heading is the page title, and it's never listed as a todo. If it starts with an `id` from `_Options/Tentacles.csv`, the dashboard shows that tentacle's `Name` with a dropdown for choosing another. The file keeps the `id`.
-- **Date Reviewed:** a single date, shown read-only and set from the Review page. The flag button beside it adds `**Flagged for Review**: Yes` on the next line, which puts the project on the Review page until it's next reviewed. Selecting it again removes the line.
+- **Date Reviewed:** a single date, shown read-only and set from the Review page. The flag button beside it adds `**Flagged for Review**: Yes` on the next line, which puts the project on the Review page until it's next reviewed. Selecting it again removes the line. The header is only the lines before the first `##` heading, so a section's own review lines (below) are never read as the file's.
+- **A section's review:** a milestone, a Scratchpad block (`##`), an event or contact entry, or an Incubator idea can have its own `**Date Reviewed**:` and `**Flagged for Review**: Yes` lines, straight under its heading (before an entry's `---`). The flag button beside its title adds them, and the date shows in small text under the title. A flagged section has a yellow border and is listed in the Review page's yellow **Flagged sections** box, and counted in the yellow number beside Review. **Mark as reviewed** removes the flag line and sets the section's date to today, and for a project or tentacle file also its Date Reviewed (`POST /api/section-flag`, `POST /api/section-reviewed`). These lines are never shown as content or treated as fields.
 - **Date Closed:** a single date, in the `DATEFORMAT` set in `_Options/Options.csv`. Click the plus to add one or the pencil to change it. Saving an empty box clears the date.
-- **Active Timeframe:** empty by default. Click the plus button next to it and choose a start and end month and year. A timeframe always runs from the first day of its start month to the last day of its end month, and is stored as full dates. Each new timeframe is added to the end of the line, separated by a comma. If a file doesn't have the line yet, the first timeframe adds it below `Date Created`. The Overview tab lists the timeframes one per row, each with a pencil to change its dates and a cross to delete it. The file keeps them on the single comma-separated line.
+- **Active Timeframe:** empty by default. Click the plus button next to it and choose a start and end month and year. A timeframe always runs from the first day of its start month to the last day of its end month, and is stored as full dates. Each new timeframe is added to the end of the line, separated by a comma. If a file doesn't have the line yet, the first timeframe adds it below `Date Created`. The Overview tab lists the timeframes one per row, each with a pencil to change its dates and a cross to delete it. The file keeps them on the single comma-separated line. A timeframe can be limited to some milestones, named in brackets after its dates and separated by semicolons: `2026-11-01 to 2027-02-28 (Write songs; Record)`. The Add and Change forms have a tick box per milestone; leaving them all ticked writes no brackets. The names show under the dates on the Overview, the Timeline colours that bar by those milestones only, and a name that isn't a milestone is listed on Compatibility.
 - **Project Dependency:** empty by default. On the Overview tab, the plus button lists every project that isn't archived, apart from this one and any that already depend on it. With `ARCHIVEMODE` set to `HEADERS`, the entries in `_Archive.md` follow, marked (archived). The file stores the other project's name (its folder name without the status prefix and with spaces for underscores), and the Overview shows it as a link. On the Timeline, a dependent project sits directly below its parent, and an arrow runs from the end of the parent project's last bar to the start of the dependent project's first bar, if both have an `Active Timeframe`.
 - **Leader:** shown as a `Name` from `_Options/Leaders.csv`, with a dropdown for choosing another. The file keeps the `Tag`.
 
 **Dates are always stored in the markdown as `YYYY-MM-DD`.** `DATEFORMAT` only controls how the browser shows dates and how you type them into the dashboard, so changing it never touches your files. If you edit a file by hand, write dates as `YYYY-MM-DD` so the dashboard can read them. Dates in links, URLs and code are shown exactly as written.
 
 `DATEFORMAT` can use `YYYY`, `YY`, `MM` and `DD` with any separators.
+
+### Subtasks
+
+In the row that opens when you add a checkbox to a milestone, a task to a task list, or a task to a contact's or event's **Tasks** field (its plus button, `POST /api/entry-task`, which adds the field if the entry hasn't one), Tab nests the new task one level deeper (no deeper than one below the list's last task) and Shift+Tab brings it back; it's indented two spaces per level, or a tab if the file nests with tabs. While a task's text is being edited, Tab moves it, with everything under it, under the task above it at the same level, and Shift+Tab moves it out to its parent's level (`POST /api/row-indent`); a move that isn't possible is refused with a message. A task with subtasks shows a count of those done, such as `1/3`, counting every depth, leaving out cancelled ones and counting archived ones as done. Tasks in milestones, task lists and contacts' and events' Tasks fields have a drag handle, shown when the row is pointed at: dropping a task above or below another in the same milestone or list moves it there with its subtasks, at that task's level (`POST /api/row-reorder`).
 
 ### Info icons
 `[!info]` in a markdown file shows as an info icon wherever the file is displayed, such as at the start of a `>` quote. The text in the file stays as it is.
@@ -589,9 +595,10 @@ Each status type has its own checkbox in the markdown, and its own icon in the d
 | `DONE`       | `[x]`    | `circle-check-solid-full.svg`      |
 | `ARCHIVED`   | `[x]`    | `circle-solid-full.svg`            |
 
-- **Click a checkbox that isn't ticked** to move it on. A checkbox with a status moves to its next status, and one without a status goes straight to `DONE` (or the first `DONE` type status, if the CSV has no status with that name).
-- **Ticked checkboxes** can't be clicked. Use the status name or caret instead.
-- **Checkboxes with no status** show a caret next to them, so you can give them any status from the CSV.
+- **Click a checkbox that isn't ticked** to move it on. A checkbox with a status moves to its next status, and one without a status in a task list or milestone goes straight to `DONE` (or the first `DONE` type status, if the CSV has no status with that name).
+- **Ticked checkboxes with a status** can't be clicked. Use the status name or caret instead. A ticked checkbox with no status can be unticked.
+- **Checkboxes with no status** in a task list or milestone show a caret next to them, so you can give them any status from the CSV.
+- **Checkboxes anywhere else**, such as a list in your notes, are ordinary tick boxes: clicking ticks or unticks them, and never adds a status. A stray status on one is shown as plain text (and listed on Compatibility), and the box still ticks.
 
 Changes you make to the markdown files or the CSV appear when you refresh the browser. You don't need to restart the server.
 
@@ -614,11 +621,14 @@ Label/                 one entity's folder, as named in _Dashboard/entities.csv
 Freelance/             another entity's folder, laid out the same way
 _Dashboard/
   entities.csv         the entities (Name,Directory)
-  server.js            tiny HTTP server (Node built-ins only)
+  server.js            tiny HTTP server (Node built-ins only): routes, request checks, static files, start-up
+  lib/                 the server's work, one file per area (see How the code is organised)
   todos.js             finds status-prefixed items in markdown
   document-edits.js    blocks, milestones and single-line text edits
   catalogs.js          catalog files: names, rows and catalog numbers
   changes.js           line diffs, change logs and Syncthing conflict copies
+  test/                unit tests (node --test)
+  dev/                 checks to run against a copy of the data: API snapshot and page sweep
   defaults/Colours.csv the colours a new install starts with
   public/
     setup.html         first-time setup form
@@ -641,6 +651,7 @@ _Dashboard/
     css/style.css      theme
     font/              the Bytesized font for the name beside the logo
     img/               icons
+    js/rules.js        markdown rules shared with the server: priorities, timeframes, review lines, milestone progress
     js/projects.js     helpers shared by every page, including the component renderer and the entity dropdown
     js/markdown.js     markdown renderer + milestone/meta parsers
     js/nav.js          left-hand menu
@@ -681,3 +692,24 @@ _Dashboard/
 - **Slots:** `{{slot}}` is escaped, `{{{slot}}}` is HTML that's already safe, and `{{#if slot}}...{{else}}...{{/if}}` is optional markup. Line breaks and the indentation after them are removed, so a space that matters has to be on the same line as its neighbours.
 - **CSS** lives in `public/css/style.css`. The colours come from `_Options/Colours.csv`. Values only known while the page runs, such as where a Timeline bar starts, are passed in as named custom properties like `--from`, and the stylesheet says what to do with them.
 - **JavaScript** lives in `public/js`. Anything used by more than one page goes in `js/projects.js`.
+- **Rules both sides need**, such as how a priority token, a timeframe or a section's review line is written, and how a milestone's progress is counted, live once in `public/js/rules.js`. Pages load it as `PMS.rules`, and the server `require`s the same file.
+- **The server** is `server.js`, which only routes requests, checks them and serves files, and the modules in `lib/`. Each module only uses the ones above it in this list, so none of them depend on each other in a loop:
+  - `context.js`: which entity a request works on, its data paths, and what the request has already read (a page load reads each file once, and any write clears what was kept)
+  - `renames.js`: files and folders that have been renamed, used both to find the old name and by Compatibility's Core files page
+  - `store.js`: settings, project and tentacle folders, catalogs, and safe writes with change logs
+  - `tasks.js`: where statuses count, the Todos list and status changes
+  - `networking.js`: Contacts and Events
+  - `documents.js`: project, tentacle, Archive Index and Incubator pages and their edits
+  - `compatibility.js`: the Compatibility pages and their fixes
+  - `timeline.js`: the Timeline
+  - `review.js`: the Review page, its agenda, reports and the Task Archive
+  - `settings.js`: first-time setup, the Options page and preparing an entity's folders
+  - `nav.js`: the menu, the Dashboard, the Plan page and the Help Guide's read tick
+
+### Checking changes
+
+Run these from `_Dashboard`. The page sweep and API snapshot need a server running on a **copy** of the data, never your own files, as they make requests that can change it.
+
+- `node --test` runs the unit tests in `test/`.
+- `node dev/api-snapshot.js <port> record before.json` saves every page's data from the server on that port. After a change, `node dev/api-snapshot.js <port> compare before.json` lists any answer that differs.
+- `node dev/sweep.js <port>` opens every page of every entity in headless Chrome and reports script errors. Add a folder name to also save a screenshot of each page. Set `CHROME_PATH` if Chrome isn't in its usual place.

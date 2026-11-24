@@ -40,9 +40,27 @@
     return component('entry-value', { label: field.label, invalid: !field.valid, body: text + edit });
   }
 
+  // An entry's Tasks work like a task list: the plus button adds a row at a time (Tab nests
+  // it), and each row is edited, nested and dragged on its own. Double-clicking around the
+  // rows still edits the whole field.
+  function tasksRow(field, entry) {
+    const options = Object.assign(documentView.renderOptions(doc, field.value.split('\n').map((_, k) => field.bodyLine + k)), {
+      dragRows: true,
+      editAttrs: (item) => editing.attrs('todo', item.line, item.editText),
+    });
+    return component('entry-tasks', {
+      label: field.label,
+      add: documentView.addButton('entry-task', 'Add a task', { line: entry.line, title: entry.title }),
+      attrs: editing.attrs('field', field.line, field.value),
+      missing: field.missing,
+      body: field.value ? md.render(field.value, options) : component('no-tasks', { message: 'No tasks yet.' }),
+    });
+  }
+
   // Double-click a value to edit it. Statuses and checkboxes work as elsewhere.
-  function fieldRow(field) {
+  function fieldRow(field, entry) {
     if (field.kind) return ownControlRow(field);
+    if (field.label && /^tasks$/i.test(field.label)) return tasksRow(field, entry);
     const body = field.value
       ? md.render(field.value, documentView.renderOptions(doc, field.value.split('\n').map((_, k) => field.bodyLine + k)))
       : component('no-tasks', { message: 'Double-click to add.' });
@@ -83,7 +101,8 @@
 
   function entryCard(entry) {
     shown.push(entry);
-    return component('entry-card', {
+    return component('entry-card', Object.assign(documentView.sectionReview(doc, entry.line, entry.title, entry.reviewed, entry.flagged), {
+      flagged: entry.flagged,
       progress: entry.progress && entry.progress !== 'open' ? entry.progress : '',
       target: entry.title === highlighted,
       index: shown.length - 1,
@@ -91,8 +110,8 @@
       title: md.inline(entry.title),
       noun: doc.noun,
       name: entry.title,
-      fields: entry.fields.map(fieldRow).join(''),
-    });
+      fields: entry.fields.map((field) => fieldRow(field, entry)).join(''),
+    }));
   }
 
   function section(title, entries) {
@@ -240,7 +259,12 @@
         if (listTab) listTab.textContent = data.tab;
         draw();
         changes.showConflicts(data);
-        if (firstLoad) goToTarget();
+        if (firstLoad) {
+          goToTarget();
+          // A Todos link also names the task's line, inside the entry just opened.
+          const line = Number(params.get('line'));
+          if (line && view === 'list') documentView.goToLine(contentEl, line);
+        }
         firstLoad = false;
       })
       .catch((err) => {

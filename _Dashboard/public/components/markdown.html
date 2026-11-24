@@ -27,6 +27,10 @@
 
 <template name="md-check"><span class="check" aria-hidden="true"></span><span class="sr-only">{{{label}}} </span></template>
 
+<!-- A task's drag handle, and the count of its subtasks done. -->
+<template name="md-row-handle"><span class="row-handle" data-drag-row draggable="true" title="Drag to reorder" aria-hidden="true"></span></template>
+<template name="md-subtask-count"><span class="subtask-count" title="Subtasks done">{{{done}}}/{{{total}}}</span></template>
+
 <template name="md-item-text"><span class="item-text"{{{attrs}}}>{{{text}}}</span></template>
 
 <template name="md-item-meta"><div class="item-meta">{{{text}}}</div></template>

@@ -29,7 +29,8 @@
   // below it, as written in the file. A dependency the idea hasn't got can only be added in Raw.
   function card(idea, index) {
     const dependency = !idea.dependency ? 'None' : idea.target ? component('link', { href: dependencyHref(idea.target), label: idea.dependency }) : escapeHtml(idea.dependency);
-    return component('idea-card', {
+    return component('idea-card', Object.assign(documentView.sectionReview(page, idea.line, idea.title, idea.reviewed, idea.flagged), {
+      flagged: idea.flagged,
       index,
       target: normalText(idea.title) === normalText(hashReference()),
       name: idea.name,
@@ -40,7 +41,7 @@
       // Inline formatting line by line, with the line breaks kept by the idea-notes style.
       notes: idea.notes ? idea.notes.split('\n').map(md.inline).join('\n') : 'None',
       notesAttrs: idea.body === null ? '' : editing.attrs('body', idea.line, idea.body),
-    });
+    }));
   }
 
   function draw() {

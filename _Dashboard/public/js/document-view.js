@@ -28,13 +28,14 @@
   // One card per block. Double-click a block's text, or its title unless it's reserved.
   function renderScratchpad(doc) {
     const blocks = doc.blocks.map((b) =>
-      component('scratch-block', {
+      component('scratch-block', Object.assign(b.title === null ? {} : sectionReview(doc, b.line, b.title, b.reviewed, b.flagged), {
+        flagged: b.flagged,
         title: b.title === null ? '' : component('scratch-title', { attrs: b.titleEditable ? editing.attrs('block', b.line, b.title) : '', title: md.inline(b.title) }),
         attrs: editing.attrs('body', b.line, b.body),
         body: b.body
           ? md.render(b.body, renderOptions(doc, b.body.split('\n').map((_, k) => b.bodyLine + k)))
           : component('no-tasks', { message: 'Double-click to add text.' }),
-      })
+      }))
     );
     return component('section-heading', { title: 'Scratchpad', after: addButton('block', 'Add a block') }) + component('card-stack', { items: blocks.join('') });
   }
@@ -96,6 +97,7 @@
         const options =
           list.body &&
           Object.assign(renderOptions(doc, list.body.split('\n').map((_, k) => list.bodyLine + k)), {
+            dragRows: true,
             editAttrs: (item) => editing.attrs('todo', item.line, item.editText),
           });
         return component('task-list', {
@@ -137,5 +139,111 @@
     }
   });
 
-  global.PMS.documentView = { folderButton, addButton, renderOptions, renderScratchpad, fileTabs, renderRaw, headerOptions, progressMeter, taskRows, renderTaskLists, fact, titleSpan };
+  // Outlines the task on `line`, from a Todos link, opening its milestone if it's closed.
+  // Returns false if the page doesn't show that task.
+  function goToLine(contentEl, line) {
+    // A task's own controls, not a milestone header's menu, which also names its line.
+    const control = contentEl.querySelector('li .status-control[data-line="' + line + '"]');
+    if (!control) return false;
+    const card = control.closest('.milestone.is-collapsed');
+    if (card) {
+      card.classList.remove('is-collapsed');
+      const button = card.querySelector('[data-collapse]');
+      if (button) button.setAttribute('aria-expanded', 'true');
+      if (global.PMS.milestoneControls) global.PMS.milestoneControls.expand(card.dataset.title);
+    }
+    contentEl.querySelectorAll('.is-target').forEach((el) => el.classList.remove('is-target'));
+    const row = control.closest('li') || control;
+    row.classList.add('is-target', 'is-target-row');
+    row.scrollIntoView({ block: 'center' });
+    // Things above it, such as a tentacle's Timeline, can still be loading, so it's brought
+    // back into view once they've settled.
+    setTimeout(() => {
+      if (row.isConnected) row.scrollIntoView({ block: 'center' });
+    }, 700);
+    return true;
+  }
+
+  // A section's flag button and its review date, for its heading at `line`. `reviewed` is
+  // YYYY-MM-DD, or null if it's never been reviewed.
+  function sectionReview(doc, line, title, reviewed, flagged) {
+    return {
+      flag: component('section-flag', { folder: doc.folder, file: doc.file, line, title, on: flagged, pressed: String(flagged), action: flagged ? 'Remove the flag for review' : 'Flag for review' }),
+      reviewed: component('section-reviewed', { text: reviewed ? 'Reviewed ' + global.PMS.displayDate(reviewed) : 'Not reviewed yet' }),
+    };
+  }
+
+  document.addEventListener('click', async (e) => {
+    const button = e.target.closest('[data-section-flag]');
+    if (!button) return;
+    const { folder, file, line, title } = button.dataset;
+    try {
+      const result = await global.PMS.postJson('api/section-flag', { folder, file, line: Number(line), title, on: button.getAttribute('aria-pressed') !== 'true' });
+      if (!result.ok) status.toast(result.error || 'Could not change the flag.');
+    } catch (_) {
+      status.toast(global.PMS.UNREACHABLE);
+    }
+    status.refresh();
+  });
+
+  // Dragging a task by its handle to another place in the same milestone or task list.
+  let rowDrag = null; // { li, control, box, over, after } while one is being dragged
+  const listOf = (li) => li.closest('.milestone, .tasks-section');
+  const clearDropMarks = () => document.querySelectorAll('li.drop-before, li.drop-after').forEach((li) => li.classList.remove('drop-before', 'drop-after'));
+  const rowControl = (li) => li.querySelector(':scope > .status-control[data-line]');
+
+  document.addEventListener('dragstart', (e) => {
+    const handle = e.target.closest('[data-drag-row]');
+    if (!handle || editing.isOpen()) return;
+    const li = handle.closest('li');
+    const control = rowControl(li);
+    if (!control) return;
+    rowDrag = { li, control, box: listOf(li), over: null, after: false };
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', control.dataset.text || ''); // Firefox needs some data to drag
+    li.classList.add('is-dragging');
+  });
+
+  document.addEventListener('dragover', (e) => {
+    if (!rowDrag) return;
+    const li = e.target.closest('li.task');
+    if (!li || li === rowDrag.li || rowDrag.li.contains(li) || listOf(li) !== rowDrag.box || !rowControl(li)) return;
+    e.preventDefault();
+    const box = li.getBoundingClientRect();
+    rowDrag.over = li;
+    rowDrag.after = e.clientY > box.top + box.height / 2;
+    clearDropMarks();
+    li.classList.add(rowDrag.after ? 'drop-after' : 'drop-before');
+  });
+
+  document.addEventListener('drop', async (e) => {
+    if (!rowDrag || !rowDrag.over) return;
+    e.preventDefault();
+    const { control, over, after } = rowDrag;
+    const target = rowControl(over);
+    try {
+      const result = await global.PMS.postJson('api/row-reorder', {
+        folder: control.dataset.folder,
+        file: control.dataset.file,
+        line: Number(control.dataset.line),
+        text: control.dataset.text || '',
+        toLine: Number(target.dataset.line),
+        toText: target.dataset.text || '',
+        after,
+      });
+      if (!result.ok) status.toast(result.error || 'Could not move that task.');
+    } catch (_) {
+      status.toast(global.PMS.UNREACHABLE);
+    }
+    status.refresh();
+  });
+
+  document.addEventListener('dragend', () => {
+    if (!rowDrag) return;
+    rowDrag.li.classList.remove('is-dragging');
+    rowDrag = null;
+    clearDropMarks();
+  });
+
+  global.PMS.documentView = { sectionReview, goToLine, folderButton, addButton, renderOptions, renderScratchpad, fileTabs, renderRaw, headerOptions, progressMeter, taskRows, renderTaskLists, fact, titleSpan };
 })(window);
