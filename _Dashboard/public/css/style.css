@@ -1847,6 +1847,13 @@ textarea.inline-field {
 .entry-field.entry-intro {
   grid-template-columns: minmax(0, 1fr);
 }
+/* A Tasks field's plus button sits before its label, as on a section heading. */
+.entry-field dt.entry-tasks-label {
+  display: flex;
+  align-self: start;
+  align-items: center;
+  gap: 6px;
+}
 .entry-field dt {
   padding-top: 2px;
   font-size: 0.72rem;

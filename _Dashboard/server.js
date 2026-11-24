@@ -19,7 +19,7 @@ const {
   readCatalog,
 } = require('./lib/store');
 const { collectTodos, changeStatus, checkBox } = require('./lib/tasks');
-const { readNetworking, saveEntryField, saveNewEntry, deleteEntry, saveEventField } = require('./lib/networking');
+const { readNetworking, saveEntryField, saveEntryTask, saveNewEntry, deleteEntry, saveEventField } = require('./lib/networking');
 const {
   readProject, listProjectsWithContent, readTentacle, createTentacle, openFolder,
   changeProjectStatus, readArchivePage, saveArchiveEntry, removeArchiveEntry, archiveProject,
@@ -230,6 +230,7 @@ const isBodyEdit = (body) =>
 const isNewTitled = (body) => inFile(body) && typeof body.title === 'string';
 const isDepth = (depth) => depth === undefined || (Number.isInteger(depth) && depth >= 0 && depth <= 10);
 const isNewItem = (body) => hasLine(body) && typeof body.title === 'string' && typeof body.text === 'string' && isDepth(body.depth);
+const isEntryTask = (body) => hasLine(body) && typeof body.title === 'string' && typeof body.text === 'string' && isDepth(body.depth);
 const isNewTask = (body) => inFile(body) && typeof body.text === 'string' && typeof body.list === 'string' && isDepth(body.depth);
 const isRowIndent = (body) => hasLine(body) && typeof body.text === 'string' && ['in', 'out'].includes(body.direction);
 const isRowReorder = (body) => hasLine(body) && typeof body.text === 'string' && Number.isInteger(body.toLine) && body.toLine >= 1 && typeof body.toText === 'string' && typeof body.after === 'boolean';
@@ -391,6 +392,7 @@ async function route(req, res) {
     if (url.pathname === '/api/tentacles' && req.method === 'POST') return handleEdit(req, res, isNewTentacle, createTentacle);
     if (url.pathname === '/api/file-body' && req.method === 'POST') return handleEdit(req, res, isRawEdit, saveRawFile);
     if (url.pathname === '/api/entry-field' && req.method === 'POST') return handleEdit(req, res, isFieldEdit, saveEntryField);
+    if (url.pathname === '/api/entry-task' && req.method === 'POST') return handleEdit(req, res, isEntryTask, saveEntryTask);
     if (url.pathname === '/api/entry-add' && req.method === 'POST') return handleEdit(req, res, isNewEntry, saveNewEntry);
     if (url.pathname === '/api/entry-remove' && req.method === 'POST') return handleEdit(req, res, isHeadingRemoval, deleteEntry);
     if (url.pathname === '/api/mark-reviewed' && req.method === 'POST') return handleEdit(req, res, inFile, markReviewed);

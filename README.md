@@ -510,6 +510,7 @@ Every highlighted status, in the sidebar and on project pages, has a name and a 
 
 - **Click the caret** to pick any status from the CSV.
 - **Click the name** to move to the next status. That's the status in the CSV's `Next` column, or if that's blank, the first status of the next type: `UNASSIGNED` → `ASSIGNED` → `DONE` → `ARCHIVED`, with `WAITING` also moving to `DONE`. The last status of the sequence has nowhere to go, so its name can't be clicked.
+- **Moving a task into a `DONE` type status** (from any other type, by its name, caret, checkbox or the Todos sidebar) moves every subtask nested under it, at any depth, to the same status, unless it's cancelled, already ticked, or already `DONE` or `ARCHIVED`. Each gets its own `CLOSED` date.
 
 The dropdown lists the statuses without type headings. Each shows its type's icon and colour, with a thin line between types. At the bottom:
 
@@ -520,7 +521,7 @@ The dropdown lists the statuses without type headings. Each shows its type's ico
 Every task row, on document pages and in the Todos sidebar, ends with a grey menu button:
 
 - **Cancel** strikes the whole row through, status included, and unticks its checkbox: `- [ ] ~~JESSIE Book the venue~~`. It then drops off the todo list and out of milestone progress.
-- **Delete** asks you to confirm, then removes the row and any `CLOSED`, `SCHEDULED` or `DEADLINE` lines directly below it. Rows nested under it are kept.
+- **Delete** asks you to confirm, then removes the row with everything nested under it: its `CLOSED`, `SCHEDULED` or `DEADLINE` lines and its subtasks at every depth.
 - **Move to** (tasks in a Milestone project's milestone) lists the other milestones. The row, the rows nested under it and their planning lines move to the end of the chosen milestone, de-indented to the top level.
 - **Promote to new milestone** (the same tasks) removes the row and its own planning lines, adds a `###` milestone named after its text at the end of `## Milestones`, and puts the rows nested under it there, de-indented.
 - **Create linked Scratchpad block** (project and tentacle pages) adds a `## <task text>` block at the end of the file and rewrites the task's text as `[[<project name or tentacle ID>#<text>|<text>]]`. It's hidden when that block already exists or the text holds a `[[` link, and refused if the text contains `#`, `|`, `[` or `]`.
@@ -556,7 +557,7 @@ The top of each project file follows this pattern:
 
 ### Subtasks
 
-In the row that opens when you add a checkbox to a milestone or a task to a task list, Tab nests the new task one level deeper (no deeper than one below the list's last task) and Shift+Tab brings it back; it's indented two spaces per level, or a tab if the file nests with tabs. While a task's text is being edited, Tab moves it, with everything under it, under the task above it at the same level, and Shift+Tab moves it out to its parent's level (`POST /api/row-indent`); a move that isn't possible is refused with a message. A task with subtasks shows a count of those done, such as `1/3`, counting every depth, leaving out cancelled ones and counting archived ones as done. Tasks in milestones and task lists have a drag handle, shown when the row is pointed at: dropping a task above or below another in the same milestone or list moves it there with its subtasks, at that task's level (`POST /api/row-reorder`).
+In the row that opens when you add a checkbox to a milestone, a task to a task list, or a task to a contact's or event's **Tasks** field (its plus button, `POST /api/entry-task`, which adds the field if the entry hasn't one), Tab nests the new task one level deeper (no deeper than one below the list's last task) and Shift+Tab brings it back; it's indented two spaces per level, or a tab if the file nests with tabs. While a task's text is being edited, Tab moves it, with everything under it, under the task above it at the same level, and Shift+Tab moves it out to its parent's level (`POST /api/row-indent`); a move that isn't possible is refused with a message. A task with subtasks shows a count of those done, such as `1/3`, counting every depth, leaving out cancelled ones and counting archived ones as done. Tasks in milestones, task lists and contacts' and events' Tasks fields have a drag handle, shown when the row is pointed at: dropping a task above or below another in the same milestone or list moves it there with its subtasks, at that task's level (`POST /api/row-reorder`).
 
 ### Info icons
 `[!info]` in a markdown file shows as an info icon wherever the file is displayed, such as at the start of a `>` quote. The text in the file stays as it is.

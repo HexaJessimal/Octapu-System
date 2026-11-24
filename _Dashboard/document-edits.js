@@ -69,14 +69,12 @@ function cancelRow(markdown, line, status, text, statuses) {
   });
 }
 
-// Removes a row, along with the CLOSED/SCHEDULED/DEADLINE lines that belong to it. Rows
-// nested under it stay.
+// Removes a row with everything nested under it: its CLOSED/SCHEDULED/DEADLINE lines and its
+// subtasks, at every depth.
 function deleteRow(markdown, line, status, text, statuses) {
   if (!findRow(markdown, line, status, text, statuses)) return null;
-  const visible = stripComments(markdown);
-  let last = line;
-  while (last < visible.length && PLANNING_LINE.test(visible[last])) last++;
-  return removeLines(markdown, line, last);
+  const { first, last } = rowExtent(stripComments(markdown), line);
+  return removeLines(markdown, first, last);
 }
 
 // The titles of a file's milestones, the ### headings in ## Milestones, in order.
@@ -327,6 +325,18 @@ function addEntryField(markdown, level, isField, line, label, to) {
   if (!entry) return null;
   const text = cleanFieldText(to);
   return text ? insertLine(markdown, entry.lastLine, ['', `**${label}**`, ...text.split('\n')]) : markdown;
+}
+
+// A new task at the end of an entry's Tasks field, `depth` levels deep, adding the field if the
+// entry hasn't one. Returns null if the entry has changed.
+function addEntryTask(markdown, level, isField, line, title, text, depth = 0) {
+  const entry = allEntries(markdown, level, isField).find((e) => e.line === line);
+  if (!entry || entry.title !== title) return null;
+  const row = `- [ ] ${text}`;
+  const field = entry.fields.find((f) => f.label && /^tasks$/i.test(f.label));
+  if (!field) return insertLine(markdown, entry.lastLine, ['', '**Tasks**', row]);
+  const at = field.value.trim() ? field.lastLine : field.line;
+  return insertLine(markdown, at, nestedRow(rawLines(markdown), field.line + 1, at, depth) + row);
 }
 
 // A new entry goes at the end of its section, with each field's label ready to fill in. A
@@ -1250,6 +1260,7 @@ module.exports = {
   parseEntries,
   setEntryField,
   addEntryField,
+  addEntryTask,
   addEntry,
   removeEntry,
   eventTiming,

@@ -63,6 +63,22 @@ test('addMilestoneItem nests at the requested depth', () => {
   assert.equal(edits.addMilestoneItem(MILESTONES, 4, 'One', 'top').split('\n')[7], '- [ ] top');
 });
 
+test('deleteRow takes the subtasks and dates with it', () => {
+  const md = ['## Tasks', '- [ ] TODO parent', '  SCHEDULED: <2026-12-01 Tue>', '  - [ ] TODO child', '    - [ ] grandchild', '- [ ] TODO next'].join('\n');
+  assert.equal(edits.deleteRow(md, 2, 'TODO', 'parent', STATUSES), ['## Tasks', '- [ ] TODO next'].join('\n'));
+  assert.equal(edits.deleteRow(md, 2, 'TODO', 'changed', STATUSES), null);
+});
+
+test('addEntryTask adds to an entry\'s Tasks, nested or not, and adds the field if missing', () => {
+  const isField = (label) => /^(details|tasks)$/i.test(label);
+  const md = ['# Contacts', '', '## Contacts', '### Sam', '---', '**Details**', 'Drummer', '', '**Tasks**', '- [ ] TODO call', '---', '### Alex', '---', '**Details**', 'Bass', '---'].join('\n');
+  const one = edits.addEntryTask(md, 3, isField, 4, 'Sam', 'send demo', 1);
+  assert.deepEqual(one.split('\n').slice(9, 11), ['- [ ] TODO call', '  - [ ] send demo']);
+  const two = edits.addEntryTask(md, 3, isField, 12, 'Alex', 'book', 0);
+  assert.deepEqual(two.split('\n').slice(13, 18), ['**Details**', 'Bass', '', '**Tasks**', '- [ ] book']);
+  assert.equal(edits.addEntryTask(md, 3, isField, 4, 'Renamed', 'x', 0), null);
+});
+
 test('takeArchivedRows leaves a marker that counts the tasks taken', () => {
   const md = ['# T', '', '## Milestones', '### One', '- [x] ARCHIVED old', '  CLOSED: [2026-11-01 Sun 10:00]', '- [ ] TODO keep', ''].join('\n');
   const { markdown, rows } = edits.takeArchivedRows(md, STATUSES);

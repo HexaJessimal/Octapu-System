@@ -2,7 +2,7 @@
 'use strict';
 
 // The rules the pages share: priority tokens, checkbox rows, timeframes, cancelled rows.
-const { PRIORITY_TOKEN, RECUR_VALUE, CHECKBOX_ROW, isCancelled, timeframeEntries, splitTimeframe, timeframeText } = require('./public/js/rules');
+const { PRIORITY_TOKEN, RECUR_VALUE, CHECKBOX_ROW, isCancelled, indentOf, timeframeEntries, splitTimeframe, timeframeText } = require('./public/js/rules');
 
 // The status types are fixed. Status names always come from _Options/Status.csv.
 const TYPE_MARKS = { UNASSIGNED: ' ', ASSIGNED: '/', WAITING: '-', DONE: 'x', ARCHIVED: 'x' };
@@ -509,12 +509,40 @@ function removeLine(markdown, lineNo) {
   return lines.join(eol);
 }
 
-// Changes a row's status, and stamps a CLOSED date if it has just entered a DONE type.
+// The last line nested under a row: the lines after it indented further, up to the next
+// line that isn't, or a heading. Blank lines in between don't end it.
+function lastNestedLine(lines, lineNo) {
+  const own = indentOf(lines[lineNo - 1]);
+  let last = lineNo;
+  for (let i = lineNo; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    if (/^#{1,6}\s/.test(lines[i]) || indentOf(lines[i]) <= own) break;
+    last = i + 1;
+  }
+  return last;
+}
+
+// Changes a row's status, and stamps a CLOSED date if it has just entered a DONE type. A task
+// that's done takes its unfinished subtasks with it: each one nested under it, at any depth,
+// that isn't cancelled, ticked or already done or archived moves to the same status. They're
+// changed from the bottom up, before the row itself, so every line number still holds.
 function moveToStatus(markdown, lineNo, from, to, statuses, now) {
-  const updated = replaceStatus(markdown, lineNo, from, to, statuses);
-  if (updated === null) return null;
   const typeOf = (name) => (statuses.find((s) => s.name === name) || {}).type;
-  return typeOf(to) === 'DONE' && typeOf(from) !== 'DONE' ? setClosed(updated, lineNo, closedStamp(now)) : updated;
+  const finishing = typeOf(to) === 'DONE' && typeOf(from) !== 'DONE';
+  let text = markdown;
+  if (finishing) {
+    const last = lastNestedLine(stripComments(markdown), lineNo);
+    const open = scanLines(markdown, createMatcher(statuses))
+      .filter((i) => i.line > lineNo && i.line <= last && !i.cancelled && (i.status ? !['DONE', 'ARCHIVED'].includes(i.type) : i.mark === ' '))
+      .sort((a, b) => b.line - a.line);
+    for (const row of open) {
+      text = moveToStatus(text, row.line, row.status, to, statuses, now);
+      if (text === null) return null;
+    }
+  }
+  const updated = replaceStatus(text, lineNo, from, to, statuses);
+  if (updated === null) return null;
+  return finishing ? setClosed(updated, lineNo, closedStamp(now)) : updated;
 }
 
 // Ticks or unticks a checkbox that has no status where it is. `allowed` is the set of lines

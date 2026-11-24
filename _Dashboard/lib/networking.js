@@ -4,7 +4,7 @@
 const path = require('path');
 const { createMatcher, scanLines, dateError, formatDate, toStoredDate, STORAGE_FORMAT } = require('../todos');
 const {
-  parseBlocks, parseEntries, setEntryField, addEntryField, addEntry, removeEntry, eventTiming,
+  parseBlocks, parseEntries, setEntryField, addEntryField, addEntryTask, addEntry, removeEntry, eventTiming,
   eventDateValue, setInlineField,
 } = require('../document-edits');
 const { at, readIfExists } = require('./context');
@@ -95,6 +95,13 @@ async function otherNetworkingTitles(name) {
 const pageOfFolder = (folder) => (folder.startsWith(NETWORKING_PREFIX) ? networkingPage(folder.slice(NETWORKING_PREFIX.length)) : null);
 const NOT_FOUND = { code: 404, body: { error: 'File not found.' } };
 
+// Adds a task to an entry's Tasks field, as a task list's plus button does.
+function saveEntryTask(body) {
+  const page = pageOfFolder(body.folder);
+  if (!page) return NOT_FOUND;
+  return addNamed(body, body.text, (content, text) => addEntryTask(content, page.level, isNetworkingField(page), body.line, body.title, text, body.depth || 0));
+}
+
 // Saves one field. `label` is set when the entry doesn't have that field yet.
 function saveEntryField({ folder, file, line, from, to, label }) {
   const page = pageOfFolder(folder);
@@ -160,6 +167,7 @@ module.exports = {
   pageOfFolder,
   NOT_FOUND,
   saveEntryField,
+  saveEntryTask,
   saveNewEntry,
   deleteEntry,
   eventFieldTarget,

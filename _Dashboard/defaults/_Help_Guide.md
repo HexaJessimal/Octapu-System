@@ -186,7 +186,7 @@ The colours show progress: green is complete, yellow is in progress, orange is n
 
 When you add a task with a plus button, press **Tab** before Return to make it a subtask of the task above, and Tab again to go another level down. **Shift+Tab** goes back up. While you're editing a task's text by double-clicking it, Tab and Shift+Tab move the task, with everything under it, in under the task above or back out.
 
-A task with subtasks shows how many of them are done, such as **1/3**, beside its text. To change the order of tasks, drag a task by the dots that appear before it when you point at it, and drop it above or below another task in the same milestone or list. Its subtasks come with it.
+A task with subtasks shows how many of them are done, such as **1/3**, beside its text. When you mark a task as done, its subtasks that aren't finished or cancelled are marked done with it. To change the order of tasks, drag a task by the dots that appear before it when you point at it, and drop it above or below another task in the same milestone or list. Its subtasks come with it.
 
 You can also add subtasks by hand. Open the **Raw** tab, double-click to edit, and indent a task underneath the one it belongs to.
 
@@ -327,6 +327,8 @@ After saving, the name becomes a status control and the line appears in your Tod
 ## Add a new contact
 
 Open **Contacts** in the left menu. Select the plus button beside **New contact** and enter a name. Then double-click any field on the card to fill it in.
+
+A contact's or event's **Tasks** work like a task list on a tentacle: select the plus button beside **Tasks** to add a task, press **Tab** to make it a subtask, drag a task by its dots to move it, and double-click a task to change its text.
 
 [[IMAGE#Screenshots/43-Contacts.png]]
 
@@ -668,7 +670,7 @@ Every task has a grey button at the end of its row, in documents and in the Todo
 
 - **Schedule** and **Deadline** give the task a date, as in [Assign a task to yourself and select a priority](#assign-a-task-to-yourself-and-select-a-priority).
 - **Cancel** strikes the task through and unticks it. It stays in the file but drops off the Todos list and out of your progress counts.
-- **Delete** removes the line from the file, after asking.
+- **Delete** removes the task from the file, after asking, along with its dates and every subtask under it.
 
 [[IMAGE#Screenshots/76-CancelDelete.png]]
 

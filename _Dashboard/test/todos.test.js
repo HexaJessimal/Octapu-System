@@ -108,6 +108,39 @@ test('toggleCheckbox in a task list gives the row the DONE status', () => {
   assert.equal(todos.toggleCheckbox(PROJECT, 10, 'a real task', true, STATUSES, allowed, new Date()), null);
 });
 
+test('a task marked done finishes its open subtasks, but not cancelled or finished ones', () => {
+  const md = [
+    '## Tasks',
+    '- [/] DOING parent',
+    '  - [ ] TODO child',
+    '    - [ ] untagged grandchild',
+    '  - [ ] ~~TODO cancelled child~~',
+    '  - [x] DONE already done',
+    '    CLOSED: [2026-11-01 Sun 10:00]',
+    '  - [-] WAIT waiting child',
+    '- [ ] TODO sibling',
+  ].join('\n');
+  const out = todos.moveToStatus(md, 2, 'DOING', 'DONE', STATUSES, new Date(2026, 10, 24, 9, 5));
+  const stamp = 'CLOSED: [2026-11-24 Tue 09:05]';
+  assert.deepEqual(out.split('\n'), [
+    '## Tasks',
+    '- [x] DONE parent',
+    '  ' + stamp,
+    '  - [x] DONE child',
+    '    ' + stamp,
+    '    - [x] DONE untagged grandchild',
+    '      ' + stamp,
+    '  - [ ] ~~TODO cancelled child~~',
+    '  - [x] DONE already done',
+    '    CLOSED: [2026-11-01 Sun 10:00]',
+    '  - [x] DONE waiting child',
+    '    ' + stamp,
+    '- [ ] TODO sibling',
+  ]);
+  // Moving to a status that isn't done leaves the subtasks alone.
+  assert.equal(todos.moveToStatus(md, 2, 'DOING', 'WAIT', STATUSES, new Date()).split('\n')[2], '  - [ ] TODO child');
+});
+
 test('timeframes split on commas outside brackets and keep milestone names', () => {
   const value = '2026-01-01 to 2026-03-31 (Write, again; Record), 2026-05-01 to 2026-06-30';
   assert.deepEqual(todos.timeframeEntries(value), ['2026-01-01 to 2026-03-31 (Write, again; Record)', '2026-05-01 to 2026-06-30']);

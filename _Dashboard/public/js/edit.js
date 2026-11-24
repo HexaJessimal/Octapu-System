@@ -116,11 +116,12 @@
       },
     }),
     block: () => ({ heading: 'New block', label: 'Title', submitText: 'Add block', url: 'api/block', field: 'title' }),
+    'entry-task': (el) => ({ url: 'api/entry-task', field: 'text', extra: { line: Number(el.dataset.line), title: el.dataset.title } }),
     task: (el) => ({ heading: 'New task in ' + el.dataset.list, label: 'Text', submitText: 'Add task', url: 'api/task', field: 'text', extra: { list: el.dataset.list } }),
   };
 
   // These plus buttons skip the popup: a blank row opens in place, ready to type into.
-  const QUICK_ADDS = ['milestone', 'item', 'task'];
+  const QUICK_ADDS = ['milestone', 'item', 'task', 'entry-task'];
 
   // Removes the "nothing here yet" text that sits directly inside `parent`.
   const clearEmpty = (parent, selector) => parent.querySelectorAll(':scope > ' + selector).forEach((n) => n.remove());
@@ -145,9 +146,13 @@
       clearEmpty(body, '.no-tasks');
       return body.appendChild(element('quick-add', { className: '', box: true }));
     }
+    // A task list, or a contact's or event's Tasks.
     const section = button.closest('.tasks-section');
-    const doc = section.querySelector('.doc-card .doc');
-    if (doc) return doc.appendChild(element('quick-add', { className: '', box: true }));
+    const doc = section.querySelector('.doc-card .doc, .entry-tasks-body');
+    if (doc) {
+      clearEmpty(doc, '.no-tasks');
+      return doc.appendChild(element('quick-add', { className: '', box: true }));
+    }
     clearEmpty(section, '.empty');
     return section.appendChild(element('quick-add', { className: 'card doc-card', box: true }));
   }
@@ -177,7 +182,7 @@
     const { url, field, extra } = ADDERS[button.dataset.add](button);
     const row = blankRow(button);
     // Tasks can be nested, so Tab and Shift+Tab set the new one's depth.
-    const nests = button.dataset.add === 'item' || button.dataset.add === 'task';
+    const nests = ['item', 'task', 'entry-task'].includes(button.dataset.add);
     let depth = 0;
     const hint = row.querySelector('.quick-add-hint');
     const showDepth = () => {

@@ -146,6 +146,14 @@
   </div>
 </template>
 
+<!-- An entry's Tasks, which work like a task list: its plus button adds one row at a time. -->
+<template name="entry-tasks">
+  <div class="entry-field tasks-section">
+    <dt class="entry-tasks-label">{{{add}}}<span>{{label}}</span></dt>
+    <dd class="doc entry-tasks-body"{{{attrs}}}{{#if missing}} data-label="{{label}}"{{/if}}>{{{body}}}</dd>
+  </div>
+</template>
+
 <!-- An event's date or Yes/No field, which has its own control rather than a text box. -->
 <template name="entry-value">
   <div class="entry-field">
