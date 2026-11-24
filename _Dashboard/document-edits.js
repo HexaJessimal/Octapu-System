@@ -80,6 +80,19 @@ function deleteRow(markdown, line, status, text, statuses) {
   return removeLines(markdown, line, last);
 }
 
+// The titles of a file's milestones, the ### headings in ## Milestones, in order.
+function milestoneTitles(markdown) {
+  const visible = stripComments(markdown);
+  const section = milestoneSection(visible);
+  if (!section) return [];
+  const titles = [];
+  for (let i = section.start + 1; i < section.end; i++) {
+    const heading = visible[i].match(MILESTONE_HEADING);
+    if (heading) titles.push(heading[1]);
+  }
+  return titles;
+}
+
 // Moves a recurring task's SCHEDULED date on by its period: from that date, or from `today`
 // if it hasn't one. Its status and tick box stay as they are. Returns null if the row has
 // changed or isn't recurring.
@@ -94,6 +107,64 @@ function advanceRecurring(markdown, line, status, text, statuses, today) {
 // Sets a row's SCHEDULED or DEADLINE date, or removes it if `date` is null.
 function setRowDate(markdown, line, status, text, kind, date, statuses) {
   return findRow(markdown, line, status, text, statuses) ? setPlanningDate(markdown, line, kind, date) : null;
+}
+
+// ----- a section's own review: Date Reviewed and Flagged for Review under its heading -----
+
+const SECTION_REVIEWED = /^\s*\*\*\s*Date Reviewed\s*(?:\*\*\s*:|:\s*\*\*)\s*(.*?)\s*$/i;
+const SECTION_FLAG = /^\s*\*\*\s*Flagged for Review\s*(?:\*\*\s*:|:\s*\*\*)\s*(.*?)\s*$/i;
+
+// The review lines straight under the heading at 0-based `heading`: its date (or null), whether
+// it's flagged, each line's 1-based number, and `end`, the 0-based index after them.
+function sectionMeta(visible, heading) {
+  const meta = { reviewed: null, flagged: false, reviewedLine: null, flagLine: null, end: heading + 1 };
+  for (let i = heading + 1; i < visible.length; i++) {
+    const reviewed = visible[i].match(SECTION_REVIEWED);
+    const flag = reviewed ? null : visible[i].match(SECTION_FLAG);
+    if (reviewed) Object.assign(meta, { reviewed: reviewed[1] || null, reviewedLine: i + 1 });
+    else if (flag) Object.assign(meta, { flagged: /^yes$/i.test(flag[1]), flagLine: i + 1 });
+    else break;
+    meta.end = i + 1;
+  }
+  return meta;
+}
+
+// The heading at 1-based `line`, if its text is still `title`.
+function headingAt(visible, line, title) {
+  const heading = (visible[line - 1] || '').match(/^#{2,6}\s+(.*?)\s*#*\s*$/);
+  return heading && heading[1] === title ? heading : null;
+}
+
+// Flags a section for review, or takes the flag away. A flagged section always has a Date
+// Reviewed line, empty until it's first reviewed. Returns null if the heading has changed.
+function setSectionFlag(markdown, line, title, on) {
+  const visible = stripComments(markdown);
+  if (!headingAt(visible, line, title)) return null;
+  const meta = sectionMeta(visible, line - 1);
+  if (!on) return meta.flagLine ? removeLines(markdown, meta.flagLine, meta.flagLine) : markdown;
+  if (meta.flagLine) return editLine(markdown, meta.flagLine, () => '**Flagged for Review**: Yes');
+  return insertLine(markdown, meta.reviewedLine || line, [...(meta.reviewedLine ? [] : ['**Date Reviewed**:']), '**Flagged for Review**: Yes']);
+}
+
+// A section reviewed today: its Date Reviewed set, and its flag taken away.
+function markSectionReviewed(markdown, line, title, date) {
+  const visible = stripComments(markdown);
+  if (!headingAt(visible, line, title)) return null;
+  const meta = sectionMeta(visible, line - 1);
+  let text = meta.flagLine ? removeLines(markdown, meta.flagLine, meta.flagLine) : markdown;
+  if (meta.reviewedLine) return editLine(text, meta.reviewedLine, () => `**Date Reviewed**: ${date}`);
+  return insertLine(text, line, `**Date Reviewed**: ${date}`);
+}
+
+// Every flagged section in a file: its heading's line and title.
+function flaggedSections(markdown) {
+  const visible = stripComments(markdown);
+  const found = [];
+  visible.forEach((text, i) => {
+    const heading = text.match(/^#{2,6}\s+(.*?)\s*#*\s*$/);
+    if (heading && sectionMeta(visible, i).flagged) found.push({ line: i + 1, title: heading[1], level: text.match(/^#+/)[0].length });
+  });
+  return found;
 }
 
 // The scratchpad's blocks: everything except the header and the Milestones section. Text
@@ -112,7 +183,9 @@ function parseBlocks(markdown) {
   const headings = [];
   for (let i = start; i < visible.length; i++) if (SECTION_HEADING.test(visible[i])) headings.push(i);
 
-  const block = (headingIdx, first, end) => {
+  const block = (headingIdx, start, end) => {
+    const meta = headingIdx === null ? null : sectionMeta(visible, headingIdx);
+    const first = meta ? meta.end : start;
     const lines = raw.slice(first, end);
     const firstText = lines.findIndex((l) => !isBlank(l));
     const lastText = lastContentLine(lines, 1, lines.length);
@@ -122,6 +195,8 @@ function parseBlocks(markdown) {
       last: end,
       bodyLine: firstText === -1 ? first + 1 : first + firstText + 1,
       body: firstText === -1 ? '' : lines.slice(firstText, lastText).join('\n'),
+      reviewed: meta ? meta.reviewed : null,
+      flagged: meta ? meta.flagged : false,
     };
   };
 
@@ -146,7 +221,7 @@ function setBlockBody(markdown, line, from, to) {
   const text = to.replace(/\r\n?/g, '\n').replace(/^(?:[ \t]*\n)+/, '').trimEnd();
   // Untitled text starts after the header's blank lines, so it doesn't need its own.
   const lines = text ? [...(line === null ? [] : ['']), ...text.split('\n'), ''] : [''];
-  if (target.first > target.last) return text ? insertLine(markdown, line, lines) : markdown;
+  if (target.first > target.last) return text ? insertLine(markdown, target.first - 1, lines) : markdown;
   return replaceLines(markdown, target.first, target.last, lines);
 }
 
@@ -198,7 +273,9 @@ function parseEntries(markdown, level, isField = () => false) {
 
   const finish = (end) => {
     if (!entry) return;
-    let first = entry.line;
+    const meta = sectionMeta(visible, entry.line - 1);
+    Object.assign(entry, { reviewed: meta.reviewed, flagged: meta.flagged });
+    let first = meta.end;
     while (first < end && isBlank(raw[first])) first++;
     if (first < end && isRule(raw[first])) first++;
     while (first < end && isBlank(raw[first])) first++;
@@ -538,7 +615,7 @@ function setProjectType(markdown, type, taskList) {
 // What an archived project's entry keeps from its header, in the order it's written.
 const ARCHIVE_FIELDS = { created: 'Date Created', closed: 'Date Closed', timeframe: 'Active Timeframe', dependency: 'Project Dependency', leader: LEADER_FIELD };
 // An idea's fields. Archived and Promoted are added with a date, and hide the idea.
-const INCUBATOR_FIELDS = { dependency: 'Project Dependency', archived: 'Archived', promoted: 'Promoted' };
+const INCUBATOR_FIELDS = { dependency: 'Project Dependency', archived: 'Archived', promoted: 'Promoted', reviewed: 'Date Reviewed', flagged: 'Flagged for Review' };
 
 // Each `##` entry with the fields named in `labels` ({ key: 'Label' }), each field missing
 // from the entry coming back with no line. `notes` is the rest of the entry's text.
@@ -590,11 +667,15 @@ function addEntryMark(markdown, labels, line, title, label, value) {
 }
 
 // A new task goes at the end of its task list's section, which is added if it's missing.
-function addTask(markdown, text, list) {
+// `depth` nests the new task under the list's last task (1), or under its parent (2), and so on.
+function addTask(markdown, text, list, depth = 0) {
   const raw = rawLines(markdown);
   const section = findSection(stripComments(markdown), taskListHeading(list));
+  if (section) {
+    const at = lastContentLine(raw, section.start + 1, section.end);
+    return insertLine(markdown, at, nestedRow(raw, section.start + 1, at, depth) + `- [ ] ${text}`);
+  }
   const row = `- [ ] ${text}`;
-  if (section) return insertLine(markdown, lastContentLine(raw, section.start + 1, section.end), row);
   const last = lastContentLine(raw, 1, raw.length);
   const lines = [`## ${list}`, '', row];
   return last ? insertLine(markdown, last, ['', ...lines]) : insertLine(markdown, null, lines);
@@ -620,7 +701,25 @@ function milestoneAt(visible, line, title) {
 }
 
 // A new checkbox goes after whatever the milestone already holds.
-function addMilestoneItem(markdown, line, title, text) {
+// The indent a new task needs to sit `depth` levels deep at the end of lines first..last
+// (1-based): under the last task there, or its parent, and so on, never deeper than one
+// below the last task. Two spaces per level, or a tab if the file nests with tabs.
+function nestedRow(raw, first, last, depth) {
+  if (!depth) return '';
+  const rows = [];
+  for (let n = first; n <= last; n++) if (/^\s*(?:[-*+]|\d+[.)])\s+\[[ xX/-]\]/.test(raw[n - 1] || '')) rows.push(raw[n - 1].match(/^\s*/)[0]);
+  if (!rows.length) return '';
+  // The last task, and each task it's nested under, from the top level down.
+  const chain = [];
+  for (const indent of rows) {
+    while (chain.length && chain[chain.length - 1].replace(/\t/g, '    ').length >= indent.replace(/\t/g, '    ').length) chain.pop();
+    chain.push(indent);
+  }
+  const parent = chain[Math.min(depth, chain.length) - 1];
+  return parent + (parent.includes('\t') ? '\t' : '  ');
+}
+
+function addMilestoneItem(markdown, line, title, text, depth = 0) {
   const visible = stripComments(markdown);
   const found = milestoneAt(visible, line, title);
   if (!found) return null;
@@ -631,7 +730,74 @@ function addMilestoneItem(markdown, line, title, text) {
       break;
     }
   }
-  return insertLine(markdown, lastContentLine(rawLines(markdown), line, end), `- [ ] ${text}`);
+  const raw = rawLines(markdown);
+  const at = lastContentLine(raw, line, end);
+  return insertLine(markdown, at, nestedRow(raw, line + 1, at, depth) + `- [ ] ${text}`);
+}
+
+// ----- nesting and reordering tasks -----
+
+// The heading a line sits under, as a 0-based index, or -1. Tasks are only moved within one.
+function headingAbove(visible, line) {
+  for (let i = line - 2; i >= 0; i--) if (/^#{1,6}\s/.test(visible[i])) return i;
+  return -1;
+}
+
+// A row found by its line and text, whatever its status (an edit names the text it showed).
+const rowAtLine = (markdown, line, text, statuses) => scanLines(markdown, createMatcher(statuses)).find((i) => i.line === line && i.editText === text) || null;
+
+// Moves a task, and everything under it, one level in (under the task above it at the same
+// level) or out (to its parent's level). Returns null if the row has changed, or { refused }
+// saying why it can't move.
+function indentRow(markdown, line, text, direction, statuses) {
+  if (!rowAtLine(markdown, line, text, statuses)) return null;
+  const visible = stripComments(markdown);
+  const raw = rawLines(markdown);
+  const { first, last, own } = rowExtent(visible, line);
+  const isRow = (n) => /^\s*(?:[-*+]|\d+[.)])\s+\[[ xX/-]\]/.test(visible[n - 1] || '');
+  // The nearest task above at or above this one's level, within the same heading.
+  let above = 0;
+  for (let n = line - 1; n >= 1; n--) {
+    if (/^#{1,6}\s/.test(visible[n - 1])) break;
+    if (isRow(n) && indentOf(visible[n - 1]) <= own) {
+      above = n;
+      break;
+    }
+  }
+  if (direction === 'in') {
+    if (!above || indentOf(visible[above - 1]) !== own) return { refused: "There's no task above it at the same level to go under." };
+    const step = /^\t/.test(raw[line - 1]) ? '\t' : '  ';
+    return replaceLines(markdown, first, last, raw.slice(first - 1, last).map((l) => (isBlank(l) ? l : step + l)));
+  }
+  if (!own) return { refused: "It's already at the top level." };
+  let parent = 0;
+  for (let n = line - 1; n >= 1; n--) {
+    if (/^#{1,6}\s/.test(visible[n - 1])) break;
+    if (isRow(n) && indentOf(visible[n - 1]) < own) {
+      parent = n;
+      break;
+    }
+  }
+  const width = own - (parent ? indentOf(visible[parent - 1]) : 0);
+  return replaceLines(markdown, first, last, raw.slice(first - 1, last).map((l) => (isBlank(l) ? l : dedent(l, width))));
+}
+
+// Moves a task, with everything under it, to just before or after another task in the same
+// milestone or task list, taking that task's level. Returns null if either row has changed,
+// or { refused } saying why it can't move.
+function reorderRow(markdown, line, text, toLine, toText, after, statuses) {
+  if (!rowAtLine(markdown, line, text, statuses) || !rowAtLine(markdown, toLine, toText, statuses)) return null;
+  const visible = stripComments(markdown);
+  if (headingAbove(visible, line) !== headingAbove(visible, toLine)) return { refused: 'Tasks can only be moved within their own list or milestone.' };
+  const source = rowExtent(visible, line);
+  if (toLine >= source.first && toLine <= source.last) return { refused: "A task can't be moved inside itself." };
+  const target = rowExtent(visible, toLine);
+  const raw = rawLines(markdown);
+  const indent = raw[toLine - 1].match(/^\s*/)[0];
+  const moved = raw.slice(source.first - 1, source.last).map((l) => (isBlank(l) ? l : indent + dedent(l, source.own)));
+  const at = after ? target.last : toLine - 1; // the new rows go after this line
+  if (at < source.first) return removeLines(insertLine(markdown, at, moved), source.first + moved.length, source.last + moved.length);
+  return insertLine(removeLines(markdown, source.first, source.last), at - moved.length, moved);
 }
 
 // Removes a milestone's heading and everything under it. The blank lines before the next
@@ -706,10 +872,10 @@ function moveRow(markdown, line, status, text, toLine, toTitle, statuses) {
 //
 // A milestone whose tasks leave keeps a comment counting them (ARCHIVE_MARKER), so it still
 // shows as complete rather than as having no tasks.
-function takeArchivedRows(markdown, statuses, keep = () => true) {
+function takeArchivedRows(markdown, statuses, keep = () => true, scope) {
   const visible = stripComments(markdown);
   const raw = rawLines(markdown);
-  const archived = scanLines(markdown, createMatcher(statuses)).filter((item) => item.type === 'ARCHIVED' && keep(item.line));
+  const archived = scanLines(markdown, createMatcher(statuses, scope)).filter((item) => item.type === 'ARCHIVED' && keep(item.line));
   const milestones = milestoneSection(visible);
   const rows = [];
   const ranges = [];
@@ -1075,6 +1241,13 @@ module.exports = {
   setProjectType,
   setRowDate,
   advanceRecurring,
+  indentRow,
+  reorderRow,
+  sectionMeta,
+  setSectionFlag,
+  markSectionReviewed,
+  flaggedSections,
+  milestoneTitles,
   takeArchivedRows,
   addTaskArchive,
   ARCHIVE_FIELDS,

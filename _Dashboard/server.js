@@ -19,12 +19,16 @@ const {
   parseColours,
   coloursStylesheet,
   timeframeEntries,
+  splitTimeframe,
+  timeframeText,
   parseComponents,
   editColourCsv,
   parseOptions,
   parseHeader,
   withAdvance,
   createMatcher,
+  taskBlockLines,
+  CHECKBOX_ROW,
   scanLines,
   findTodos,
   replaceStatus,
@@ -96,6 +100,13 @@ const {
   setProjectType,
   setRowDate,
   advanceRecurring,
+  indentRow,
+  reorderRow,
+  sectionMeta,
+  setSectionFlag,
+  markSectionReviewed,
+  flaggedSections,
+  milestoneTitles,
   takeArchivedRows,
   addTaskArchive,
   ARCHIVE_FIELDS,
@@ -304,6 +315,7 @@ const NETWORKING = {
       field('Links'),
       field('Events & Associations', /^events( & associations)?$/i),
       field('Notes', /^(.+ )?notes$/i), // also Octapu Notes, Pixelgrinder Notes and Label Notes
+      field('Tasks'), // where a contact's tasks count, as on an event
     ],
   },
   events: {
@@ -511,7 +523,7 @@ async function readProject(folder, requestedFile) {
   const file = requestedFile && project.files.includes(requestedFile) ? requestedFile : primaryFile(project);
   const content = await readProjectFile(project, file);
   const [statuses, tentacles, leaders, dateFormat] = await Promise.all([readStatuses(), readTentacles(), readLeaders(), readDateFormat()]);
-  const todos = scanLines(content, createMatcher(statuses)).map((t) => Object.assign(t, { folder, file }));
+  const todos = scanLines(content, createMatcher(statuses, await taskScope())).map((t) => Object.assign(t, { folder, file }));
   const { title, timeframe, leader, dates, dependency, flagged } = parseHeader(content, tentacles);
   const blocks = parseBlocks(content);
   const details = { folder, directory, ongoing, archived: isArchived(project), projectTypes: PROJECT_TYPES, file, files: project.files, content, statuses, todos, tentacles, leaders, dateFormat, title, timeframe, leader, dates, dependency, flagged };
@@ -669,11 +681,29 @@ async function readDateFormat() {
   return options.DATEFORMAT || FALLBACK_DATE_FORMAT;
 }
 
+// Where statuses count. In project and tentacle files: checkbox rows in milestones and task
+// lists. On Contacts and Events: checkbox rows in an entry's Tasks field.
+async function taskScope(strict = false) {
+  const taskLists = await readTaskLists();
+  return { allowed: (markdown) => taskBlockLines(markdown, taskLists), strict };
+}
+function entryTaskLines(markdown, page) {
+  const visible = stripComments(markdown);
+  const allowed = new Set();
+  for (const entry of parseEntries(markdown, page.level, isNetworkingField(page)).flatMap((s) => s.entries)) {
+    for (const field of entry.fields.filter((f) => /^tasks$/i.test(f.label))) {
+      for (let line = field.bodyLine; line <= field.lastLine; line++) if (CHECKBOX_ROW.test(visible[line - 1] || '')) allowed.add(line);
+    }
+  }
+  return allowed;
+}
+const networkingScope = (page) => ({ allowed: (markdown) => entryTaskLines(markdown, page), strict: false });
+
 // Status-prefixed items from every markdown file of every project that isn't archived.
 // `find` can be swapped for scanLines to also get checkboxes with no status.
 async function collectTodos(find = findTodos) {
   const statuses = await readStatuses();
-  const match = createMatcher(statuses);
+  const match = createMatcher(statuses, await taskScope());
   const tentacles = await readTentacles();
   const focus = await readLatestFocus();
   const items = [];
@@ -709,7 +739,7 @@ async function collectTodos(find = findTodos) {
   }
   // Tasks on the Contacts and Events pages, as long as they're inside a contact or an event.
   for (const page of await networkingFiles()) {
-    for (const item of find(page.content, match)) {
+    for (const item of find(page.content, createMatcher(statuses, networkingScope(networkingPage(page.folder.slice(NETWORKING_PREFIX.length)))))) {
       const entry = page.entryAt(item.line);
       if (!entry) continue;
       const networking = { page: page.folder.slice(NETWORKING_PREFIX.length), name: page.name, title: entry.title };
@@ -861,7 +891,7 @@ async function collectNav() {
       doneToReview: (await doneSinceReview(await readStatuses(), await readLastReview())).length,
       projectsToReview: toReview.projects.length,
       tentaclesToReview: toReview.tentacles.length,
-      waitingTasks: waiting.length,
+      waitingTasks: waiting.length + (await collectFlaggedSections()).length,
       review: await daysSinceLastEntry(at().REVIEW_FILE),
       plan: await daysSinceLastEntry(at().FOCUS_FILE),
       interval: await readRoundupDays(),
@@ -975,7 +1005,7 @@ async function readTentacle(id, tab, requestedFile) {
     statuses,
     tentacles,
     leaders,
-    todos: scanLines(content, createMatcher(statuses)).map((t) => Object.assign(t, { folder: base.folder, file })),
+    todos: scanLines(content, createMatcher(statuses, await taskScope())).map((t) => Object.assign(t, { folder: base.folder, file })),
     ...splitTaskLists(blocks, await readTaskLists()),
   });
 }
@@ -1291,7 +1321,7 @@ async function collectWeeklyPlan() {
     p.suggested = running.has(p.folder);
   });
 
-  const match = createMatcher(statuses);
+  const match = createMatcher(statuses, await taskScope(true));
   const rowsOf = (content) => scanLines(content, match).filter((row) => row.type !== 'ARCHIVED' && row.editText.trim() !== '');
   for (const { folder, file, name, content } of await allTentacleFiles()) {
     const lines = content.split(/\r\n?|\n/);
@@ -1422,7 +1452,7 @@ async function readNetworking(name) {
       file: page.file,
       content,
       statuses,
-      todos: scanLines(content, createMatcher(statuses)).map((t) => Object.assign(t, { folder, file: page.file })),
+      todos: scanLines(content, createMatcher(statuses, networkingScope(page))).map((t) => Object.assign(t, { folder, file: page.file })),
       sections: upcoming.length ? [{ title: 'Upcoming Events', entries: upcoming }] : [],
       // A new event goes at the end of the file's last heading.
       sectionNames: sectionNames.slice(-1),
@@ -1436,7 +1466,7 @@ async function readNetworking(name) {
     file: page.file,
     content,
     statuses,
-    todos: scanLines(content, createMatcher(statuses)).map((t) => Object.assign(t, { folder, file: page.file })),
+    todos: scanLines(content, createMatcher(statuses, networkingScope(page))).map((t) => Object.assign(t, { folder, file: page.file })),
     sections: sections.filter((s) => s.entries.length),
     sectionNames,
     past: [],
@@ -1559,16 +1589,44 @@ function eventFixes(entry) {
 }
 
 // Every event whose date or Yes/No fields need changing, and how many were checked.
+// Milestone names in an Active Timeframe's brackets that aren't milestones in the file. They
+// can't be guessed, so they're shown in pink to change by hand.
+function unknownTimeframeMilestones(content) {
+  const titles = milestoneTitles(content).map((title) => title.trim().toLowerCase());
+  return parseTimeframes(parseHeader(content, []).timeframe.value, STORAGE_FORMAT)
+    .ranges.flatMap((range) => (range.milestones || []).filter((name) => !titles.includes(name.toLowerCase())))
+    .map((name) => ({ text: `Active Timeframe names "${name}", which isn't a milestone`, kind: 'error' }));
+}
+
+// Status tags the dashboard doesn't read as tasks, as they aren't on a checkbox in a
+// milestone, a task list or (on Contacts and Events) a Tasks field. Each has to be moved or
+// untagged by hand, so they're shown in pink.
+function strayStatusProblems(content, statuses, allowed) {
+  return findTodos(content, createMatcher(statuses))
+    .filter((item) => !allowed.has(item.line))
+    .map((item) => ({ text: `${item.status} on line ${item.line} isn't in a task list or milestone, so it isn't a task: "${item.text}"`, kind: 'error' }));
+}
+
+// Events whose fields need changes, then any status tags outside a Tasks field in Events.md
+// or Contacts.md, a box for each file.
 async function incompatibleEvents() {
+  const statuses = await readStatuses();
   const page = NETWORKING.events;
   const content = await readIfExists(path.join(at().NETWORKING_DIR, page.file));
-  if (content === null) return { checked: 0, rows: [] };
-  const entries = parseEntries(content, page.level, isNetworkingField(page)).flatMap((s) => s.entries);
+  const entries = content === null ? [] : parseEntries(content, page.level, isNetworkingField(page)).flatMap((s) => s.entries);
   const rows = entries
     .map((entry) => ({ entry, problems: eventFixes(entry).problems }))
     .filter(({ problems }) => problems.length)
     .map(({ entry, problems }) => ({ name: entry.title, line: entry.line, problems }));
-  return { checked: entries.length, rows };
+  let checked = entries.length;
+  for (const [name, networking] of Object.entries(NETWORKING)) {
+    const text = await readIfExists(path.join(at().NETWORKING_DIR, networking.file));
+    if (text === null) continue;
+    checked++;
+    const problems = strayStatusProblems(text, statuses, entryTaskLines(text, networking));
+    if (problems.length) rows.push({ name: networking.file, page: name, problems });
+  }
+  return { checked, rows };
 }
 
 // Fix issues for one event: writes each field eventFixes could work out.
@@ -1599,7 +1657,7 @@ function projectFileProblems(project, file, content, { tentacles, leaders, taskL
 // directory named in Options.csv that can't be used, any markdown loose in one of those
 // directories, and how many of these were checked.
 async function incompatibleProjects() {
-  const [tentacles, leaders, projects, taskLists] = await Promise.all([readTentacles(), readLeaders(), listProjects(), readTaskLists()]);
+  const [tentacles, leaders, projects, taskLists, statuses] = await Promise.all([readTentacles(), readLeaders(), listProjects(), readTaskLists(), readStatuses()]);
   const rows = [];
   let checked = 0;
   for (const project of projects) {
@@ -1607,7 +1665,10 @@ async function incompatibleProjects() {
     const main = primaryFile(project);
     for (const file of project.files) {
       checked++;
-      const problems = projectFileProblems(project, file, await readProjectFile(project, file), { tentacles, leaders, taskLists });
+      const content = await readProjectFile(project, file);
+      const problems = projectFileProblems(project, file, content, { tentacles, leaders, taskLists });
+      problems.push(...strayStatusProblems(content, statuses, taskBlockLines(content, taskLists)));
+      problems.push(...unknownTimeframeMilestones(content));
       // Without a file named after the project, its main file is only a guess, so the
       // main file's row offers the folder's files to choose from.
       const missing = file === main && missingMainFile(project);
@@ -1826,7 +1887,7 @@ function tentacleFileProblems(tentacle, files, file, content, taskLists) {
 // Every tentacle file that wouldn't work with the dashboard, any markdown loose in
 // the tentacles' folder, and how many of these were checked.
 async function incompatibleTentacles() {
-  const [tentacles, taskLists] = await Promise.all([readTentacles(), readTaskLists()]);
+  const [tentacles, taskLists, statuses] = await Promise.all([readTentacles(), readTaskLists(), readStatuses()]);
   const rows = [];
   let checked = tentacles.length;
   for (const tentacle of tentacles) {
@@ -1844,12 +1905,16 @@ async function incompatibleTentacles() {
       continue;
     }
     const file = primaryTentacleFile(tentacle, files);
-    const problems = tentacleFileProblems(tentacle, files, file, await fs.promises.readFile(path.join(place.dir, file), 'utf8'), taskLists);
+    const content = await fs.promises.readFile(path.join(place.dir, file), 'utf8');
+    const problems = tentacleFileProblems(tentacle, files, file, content, taskLists);
+    problems.push(...strayStatusProblems(content, statuses, taskBlockLines(content, taskLists)));
     if (file !== expected) problems.push({ text: `File is called "${file}", but Tentacles.csv expects "${expected}"`, kind: 'unexpected' });
     if (problems.length) rows.push({ id: tentacle.id, name: tentacle.name, file, problems });
     for (const extra of files.filter((f) => f !== file)) {
       checked++;
-      const found = tentacleFileProblems(tentacle, files, extra, await fs.promises.readFile(path.join(place.dir, extra), 'utf8'), taskLists);
+      const extraContent = await fs.promises.readFile(path.join(place.dir, extra), 'utf8');
+      const found = tentacleFileProblems(tentacle, files, extra, extraContent, taskLists);
+      found.push(...strayStatusProblems(extraContent, statuses, taskBlockLines(extraContent, taskLists)));
       if (found.length) rows.push({ id: tentacle.id, name: tentacle.name, file: extra, additional: true, problems: found });
     }
   }
@@ -2128,6 +2193,8 @@ async function readIncubatorPage() {
         tentacleName: split ? split.tentacle.name : '',
         name: split ? split.name : title,
         dependency: fields.dependency.value,
+        reviewed: fields.reviewed.value || null,
+        flagged: /^yes$/i.test(fields.flagged.value),
         target: resolveDependency(fields.dependency.value, projects, archive),
         // The dependency's line and value as written, for editing. An idea without one has no line.
         raw: { line: fields.dependency.line, value: fields.dependency.value },
@@ -2496,6 +2563,54 @@ function markReviewed({ folder, file }) {
 
 const flagForReview = ({ folder, file, on }) => updateProjectFile(folder, file, (content) => setReviewFlag(content, on));
 
+// A milestone, Scratchpad block, event, contact or idea, flagged for review or not.
+const flagSection = ({ folder, file, line, title, on }) => updateProjectFile(folder, file, (content) => setSectionFlag(content, line, title, on));
+
+// A section reviewed: its own date, and for a project or tentacle the file's Date Reviewed too.
+function markSectionDone({ folder, file, line, title }) {
+  const today = formatDate(new Date(), STORAGE_FORMAT);
+  const whole = !folder.startsWith(NETWORKING_PREFIX) && folder !== INCUBATOR_FOLDER && folder !== ARCHIVE_FOLDER;
+  return updateProjectFile(folder, file, (content) => {
+    const done = markSectionReviewed(content, line, title, today);
+    return done !== null && whole ? setDateField(done, 'reviewed', today) : done;
+  });
+}
+
+// Every flagged section, for the Review page: in live projects' and tentacles' files, on
+// Contacts and Events, and in the Incubator. Each has the page that shows it.
+async function collectFlaggedSections() {
+  const found = [];
+  const add = (file, kindOf, href) =>
+    flaggedSections(file.content).forEach((s) => found.push({ folder: file.folder, file: file.file, line: s.line, title: s.title, kind: kindOf(s), source: file.name, href: href + '#' + encodeURIComponent(s.title) }));
+  const milestoneLines = (content) => {
+    const lines = stripComments(content);
+    const start = lines.findIndex((l) => /^##\s+milestones?\s*$/i.test(l.trim()));
+    if (start === -1) return () => false;
+    let end = lines.findIndex((l, i) => i > start && /^#{1,2}\s/.test(l));
+    if (end === -1) end = lines.length;
+    return (s) => s.level === 3 && s.line - 1 > start && s.line - 1 < end;
+  };
+  for (const f of await liveProjectFiles()) {
+    const inMilestones = milestoneLines(f.content);
+    add({ ...f, name: projectTitle(f.folder) }, (s) => (inMilestones(s) ? 'Milestone' : 'Block'), 'project.html?folder=' + encodeURIComponent(f.folder) + '&file=' + encodeURIComponent(f.file));
+  }
+  const tentacles = await readTentacles();
+  for (const f of await allTentacleFiles()) {
+    const place = tentaclePlace(tentacles, f.folder.slice(TENTACLE_PREFIX.length));
+    const id = f.folder.slice(TENTACLE_PREFIX.length);
+    const tab = place.chain[0] === id ? '' : '&tab=' + encodeURIComponent(id);
+    add(f, () => 'Block', 'tentacle.html?id=' + encodeURIComponent(place.chain[0]) + tab + '&file=' + encodeURIComponent(f.file));
+  }
+  for (const f of await networkingFiles()) {
+    const name = f.folder.slice(NETWORKING_PREFIX.length);
+    const page = networkingPage(name);
+    add(f, (s) => (s.level === page.level ? page.noun[0].toUpperCase() + page.noun.slice(1) : 'Block'), 'networking.html?page=' + name);
+  }
+  const incubator = await readIfExists(at().INCUBATOR_FILE);
+  if (incubator !== null) add({ folder: INCUBATOR_FOLDER, file: path.basename(at().INCUBATOR_FILE), content: incubator, name: 'Incubator' }, () => 'Idea', 'incubator.html');
+  return found;
+}
+
 // Every markdown file of every tentacle.
 async function allTentacleFiles() {
   const tentacles = await readTentacles();
@@ -2533,7 +2648,8 @@ async function networkingFiles() {
 // Every file a review covers. `sourceOf` names where a line came from, or gives null if the
 // line isn't part of anything to review. Projects are named by their folder instead.
 async function reviewableFiles() {
-  const tentacles = (await allTentacleFiles()).map((f) => Object.assign(f, { sourceOf: () => f.name }));
+  const scope = await taskScope();
+  const tentacles = (await allTentacleFiles()).map((f) => Object.assign(f, { sourceOf: () => f.name, scope }));
   // `sourceIn` gives the same for another version of the file's text.
   const networking = (await networkingFiles()).map((f) => {
     const sourceIn = (text) => {
@@ -2543,19 +2659,19 @@ async function reviewableFiles() {
         return entry ? `${f.name}: ${entry.title}` : null;
       };
     };
-    return Object.assign(f, { sourceOf: sourceIn(f.content), sourceIn });
+    return Object.assign(f, { sourceOf: sourceIn(f.content), sourceIn, scope: networkingScope(networkingPage(f.folder.slice(NETWORKING_PREFIX.length))) });
   });
-  return [...(await liveProjectFiles()), ...tentacles, ...networking];
+  const projects = (await liveProjectFiles()).map((f) => Object.assign(f, { scope }));
+  return [...projects, ...tentacles, ...networking];
 }
 
 const doneRows = (content, match, sourceOf) => findTodos(content, match).filter((item) => item.type === 'DONE' && (!sourceOf || sourceOf(item.line) !== null));
 
 // Every DONE type item a review would archive, with the date from its CLOSED line, if any.
 async function doneItems(statuses) {
-  const match = createMatcher(statuses);
   const found = [];
-  for (const { folder, file, content, sourceOf } of await reviewableFiles()) {
-    for (const item of doneRows(content, match, sourceOf)) {
+  for (const { folder, file, content, sourceOf, scope } of await reviewableFiles()) {
+    for (const item of doneRows(content, createMatcher(statuses, scope), sourceOf)) {
       const stamp = item.dates.find((d) => d.kind === 'CLOSED');
       found.push({ item, folder, file, closed: stamp ? stamp.value.slice(0, 10) : null, source: sourceOf ? sourceOf(item.line) : undefined });
     }
@@ -2592,6 +2708,7 @@ async function collectWeeklyReview() {
     groups: doneStatuses.filter((s) => groups.get(s.name).length).map((s) => ({ status: s.name, items: groups.get(s.name) })),
     toReview: await collectToReview(),
     waiting: await waitingTasks(),
+    sections: await collectFlaggedSections(),
     statuses,
     agenda: await collectAgenda(lastReview),
     dateFormat: await readDateFormat(),
@@ -2689,7 +2806,6 @@ async function submitWeeklyReview({ wins }) {
   if (!text) return { code: 400, body: { error: 'Add at least one win first.' } };
 
   const statuses = await readStatuses();
-  const match = createMatcher(statuses);
   const target = statuses.find((s) => s.type === 'ARCHIVED').name;
   const today = formatDate(new Date(), STORAGE_FORMAT);
   const figures = await measureReport(statuses, await readLastReview(), today, text);
@@ -2700,7 +2816,8 @@ async function submitWeeklyReview({ wins }) {
   for (const f of await reviewableFiles()) {
     // First, tasks that were already ARCHIVED leave for _Task_Archive.md...
     const keep = f.sourceOf ? (line) => f.sourceOf(line) !== null : undefined;
-    const took = takeArchivedRows(f.content, statuses, keep);
+    const match = createMatcher(statuses, f.scope);
+    const took = takeArchivedRows(f.content, statuses, keep, f.scope);
     if (took.rows.length) taken.push({ file: f, rows: took.rows });
     // ...then the done ones are archived in their place, so they stay until the next review.
     let after = took.markdown;
@@ -2829,22 +2946,32 @@ async function changeLeader({ folder, file, line, from, to }) {
   return updateProjectFile(folder, file, (content) => setLeader(content, line, from, to));
 }
 
-async function saveTimeframe({ folder, file, start, end }) {
+// The milestones a timeframe is limited to, as named in the file, or null for all of them.
+// Names that aren't milestones are dropped, and naming every milestone is the same as none.
+function chosenMilestones(content, names) {
+  if (!Array.isArray(names) || !names.length) return null;
+  const titles = milestoneTitles(content);
+  const key = (name) => name.trim().replace(/\s+/g, ' ').toLowerCase();
+  const chosen = titles.filter((title) => names.some((name) => key(name) === key(title)));
+  return chosen.length && chosen.length < titles.length ? chosen : null;
+}
+
+async function saveTimeframe({ folder, file, start, end, milestones }) {
   const format = await readDateFormat();
   const error = timeframeError(start, end, format);
   if (error) return { code: 400, body: { error } };
   const [from, to] = [toStoredDate(start, format), toStoredDate(end, format)];
-  return updateProjectFile(folder, file, (content) => addTimeframe(content, from, to));
+  return updateProjectFile(folder, file, (content) => addTimeframe(content, from, to, chosenMilestones(content, milestones)));
 }
 
 // Changes or removes one of a project's existing timeframes.
-async function changeTimeframe({ folder, file, index, from, start, end, remove }) {
+async function changeTimeframe({ folder, file, index, from, start, end, remove, milestones }) {
   if (remove) return updateProjectFile(folder, file, (content) => editTimeframe(content, index, from, null));
   const format = await readDateFormat();
   const error = timeframeError(start, end, format);
   if (error) return { code: 400, body: { error } };
-  const entry = `${toStoredDate(start, format)} to ${toStoredDate(end, format)}`;
-  return updateProjectFile(folder, file, (content) => editTimeframe(content, index, from, entry));
+  const dates = `${toStoredDate(start, format)} to ${toStoredDate(end, format)}`;
+  return updateProjectFile(folder, file, (content) => editTimeframe(content, index, from, timeframeText(dates, chosenMilestones(content, milestones))));
 }
 
 // Returns an error message, or null if `text` works as a single line of text.
@@ -2898,12 +3025,29 @@ function addNamed(body, name, insert) {
 
 const saveNewMilestone = (body) => addNamed(body, body.title, addMilestone);
 const deleteMilestone = (body) => updateProjectFile(body.folder, body.file, (content) => removeMilestone(content, body.line, body.title));
-const saveNewItem = (body) => addNamed(body, body.text, (content, text) => addMilestoneItem(content, body.line, body.title, text));
+const saveNewItem = (body) => addNamed(body, body.text, (content, text) => addMilestoneItem(content, body.line, body.title, text, body.depth || 0));
+
+// Tab and Shift+Tab, and dragging, on a task. A refusal comes back as a message.
+async function shiftRow(edit, body) {
+  const statuses = await readStatuses();
+  let refused = null;
+  const result = await updateProjectFile(body.folder, body.file, (content) => {
+    const out = edit(content, statuses);
+    if (out && out.refused) {
+      refused = out.refused;
+      return content;
+    }
+    return out;
+  });
+  return refused ? { code: 409, body: { error: refused } } : result;
+}
+const indentTask = (body) => shiftRow((content, statuses) => indentRow(content, body.line, body.text, body.direction, statuses), body);
+const reorderTask = (body) => shiftRow((content, statuses) => reorderRow(content, body.line, body.text, body.toLine, body.toText, body.after, statuses), body);
 const saveNewBlock = async (body) => ((await isReservedBlock(body.folder, body.title)) ? RESERVED_ERROR : addNamed(body, body.title, addBlock));
 async function saveNewTask(body) {
   const list = (await readTaskLists()).find((name) => isTaskList([name], body.list));
   if (!list) return { code: 400, body: { error: 'Invalid request' } };
-  return addNamed(body, body.text, (content, text) => addTask(content, text, list));
+  return addNamed(body, body.text, (content, text) => addTask(content, text, list, body.depth || 0));
 }
 
 async function saveDependency({ folder, file, name }) {
@@ -3403,13 +3547,16 @@ async function settleConflict({ folder, file, name, action }) {
 
 const inFile = ({ folder, file }) => typeof folder === 'string' && typeof file === 'string';
 const isReviewFlag = (body) => inFile(body) && typeof body.on === 'boolean';
+const isSection = (body) => hasLine(body) && typeof body.title === 'string';
+const isSectionFlag = (body) => isSection(body) && typeof body.on === 'boolean';
 const hasLine = (body) => inFile(body) && Number.isInteger(body.line) && body.line >= 1;
 // `from` is null for an untagged checkbox, or a title with no tentacle.
 const isKeywordEdit = (body) => hasLine(body) && typeof body.to === 'string' && (typeof body.from === 'string' || body.from === null);
 const isPriorityEdit = (body) =>
   hasLine(body) && typeof body.status === 'string' && (body.priority === null || PRIORITIES.includes(body.priority) || (typeof body.priority === 'string' && RECUR_VALUE.test(body.priority)));
 const isRecurAdvance = (body) => hasLine(body) && typeof body.status === 'string' && typeof body.text === 'string';
-const isTimeframeEdit = (body) => inFile(body) && typeof body.start === 'string' && typeof body.end === 'string';
+const isMilestoneList = (list) => list === undefined || (Array.isArray(list) && list.every((name) => typeof name === 'string'));
+const isTimeframeEdit = (body) => inFile(body) && typeof body.start === 'string' && typeof body.end === 'string' && isMilestoneList(body.milestones);
 const EDITABLE_TEXT = ['title', 'milestone', 'block', 'todo', 'entry', 'value'];
 const isRawEdit = (body) => inFile(body) && typeof body.from === 'string' && typeof body.to === 'string';
 const isFieldEdit = (body) =>
@@ -3434,8 +3581,11 @@ const isTextEdit = (body) => hasLine(body) && EDITABLE_TEXT.includes(body.kind) 
 const isBodyEdit = (body) =>
   inFile(body) && (body.line === null || (Number.isInteger(body.line) && body.line >= 1)) && typeof body.from === 'string' && typeof body.to === 'string';
 const isNewTitled = (body) => inFile(body) && typeof body.title === 'string';
-const isNewItem = (body) => hasLine(body) && typeof body.title === 'string' && typeof body.text === 'string';
-const isNewTask = (body) => inFile(body) && typeof body.text === 'string' && typeof body.list === 'string';
+const isDepth = (depth) => depth === undefined || (Number.isInteger(depth) && depth >= 0 && depth <= 10);
+const isNewItem = (body) => hasLine(body) && typeof body.title === 'string' && typeof body.text === 'string' && isDepth(body.depth);
+const isNewTask = (body) => inFile(body) && typeof body.text === 'string' && typeof body.list === 'string' && isDepth(body.depth);
+const isRowIndent = (body) => hasLine(body) && typeof body.text === 'string' && ['in', 'out'].includes(body.direction);
+const isRowReorder = (body) => hasLine(body) && typeof body.text === 'string' && Number.isInteger(body.toLine) && body.toLine >= 1 && typeof body.toText === 'string' && typeof body.after === 'boolean';
 const isSetup = (body) => ['tentacleName', 'tentacleId', 'leaderName', 'dateFormat'].every((key) => body[key] === undefined || typeof body[key] === 'string');
 const isNewTentacle = ({ parent, name, id }) => [parent, name, id].every((v) => typeof v === 'string');
 const isRowEdit = (fields) => (body) =>
@@ -3468,7 +3618,7 @@ const isNamedInFile = (body) => inFile(body) && typeof body.name === 'string';
 const isIndex = (n) => Number.isInteger(n) && n >= 0;
 const isTimeframeChange = (body) =>
   inFile(body) && isIndex(body.index) && typeof body.from === 'string' &&
-  (body.remove === true || (typeof body.start === 'string' && typeof body.end === 'string'));
+  (body.remove === true || (typeof body.start === 'string' && typeof body.end === 'string' && isMilestoneList(body.milestones)));
 const isMilestoneMove = (body) =>
   inFile(body) && Array.isArray(body.titles) && body.titles.every((t) => typeof t === 'string') && isIndex(body.from) && isIndex(body.to);
 // `status` is null for a checkbox with no status.
@@ -3588,6 +3738,8 @@ async function route(req, res) {
     if (url.pathname === '/api/agenda-check' && req.method === 'POST') return handleEdit(req, res, isAgendaCheck, checkAgendaItem);
     if (url.pathname === '/api/colour-table' && req.method === 'POST') return handleEdit(req, res, isColourRow, saveColourRow);
     if (url.pathname === '/api/task' && req.method === 'POST') return handleEdit(req, res, isNewTask, saveNewTask);
+    if (url.pathname === '/api/row-indent' && req.method === 'POST') return handleEdit(req, res, isRowIndent, indentTask);
+    if (url.pathname === '/api/row-reorder' && req.method === 'POST') return handleEdit(req, res, isRowReorder, reorderTask);
     if (url.pathname === '/api/tentacles' && req.method === 'POST') return handleEdit(req, res, isNewTentacle, createTentacle);
     if (url.pathname === '/api/file-body' && req.method === 'POST') return handleEdit(req, res, isRawEdit, saveRawFile);
     if (url.pathname === '/api/entry-field' && req.method === 'POST') return handleEdit(req, res, isFieldEdit, saveEntryField);
@@ -3595,6 +3747,8 @@ async function route(req, res) {
     if (url.pathname === '/api/entry-remove' && req.method === 'POST') return handleEdit(req, res, isHeadingRemoval, deleteEntry);
     if (url.pathname === '/api/mark-reviewed' && req.method === 'POST') return handleEdit(req, res, inFile, markReviewed);
     if (url.pathname === '/api/review-flag' && req.method === 'POST') return handleEdit(req, res, isReviewFlag, flagForReview);
+    if (url.pathname === '/api/section-flag' && req.method === 'POST') return handleEdit(req, res, isSectionFlag, flagSection);
+    if (url.pathname === '/api/section-reviewed' && req.method === 'POST') return handleEdit(req, res, isSection, markSectionDone);
     if (url.pathname === '/api/date' && req.method === 'POST') return handleEdit(req, res, isDateEdit, saveDate);
     if (url.pathname === '/api/projects' && req.method === 'POST') return handleEdit(req, res, isNewProject, createProject);
     if (url.pathname === '/api/options' && req.method === 'POST') return handleEdit(req, res, isOptionsEdit, saveOptions);

@@ -200,6 +200,15 @@
     if (selection) selection.removeAllRanges(); // a double-click selects a word
   }
 
+  // One Active Timeframe entry's dates, and the milestones it's limited to, or null for all
+  // of them: "2026-11-01 to 2027-02-28 (Write songs; Record)".
+  function splitTimeframe(entry) {
+    const named = String(entry).match(/^(.*?)\s*\(([^()]*)\)\s*$/);
+    if (!named) return { dates: String(entry).trim(), milestones: null };
+    const milestones = named[2].split(';').map((name) => name.trim()).filter(Boolean);
+    return { dates: named[1].trim(), milestones: milestones.length ? milestones : null };
+  }
+
   const tentacleHref = (root, id) => 'tentacle.html?id=' + encodeURIComponent(root) + (id === root ? '' : '&tab=' + encodeURIComponent(id));
 
   // A YYYY-MM-DD date as a whole number of days, so two can be subtracted.
@@ -420,6 +429,7 @@
     setViewInAddress,
     clearSelection,
     tentacleHref,
+    splitTimeframe,
     byFolderTitle,
     dayNumber,
     suggestIdFrom,

@@ -56,8 +56,29 @@
     });
   }
 
-  // The yellow box comes first, then the projects and tentacles to review.
-  const queueHtml = (data) => waitingBox(data.waiting) + reviewBoxes(data.toReview);
+  // Milestones, blocks, events, contacts and ideas flagged for review, in their own yellow
+  // box while there are any.
+  let sections = [];
+  function sectionsBox(list) {
+    sections = list;
+    if (!list.length) return '';
+    const rows = list.map((s, index) => component('review-section-entry', { href: s.href, title: s.title, kind: s.kind, source: s.source || '', index }));
+    return component('review-queue-box', { kind: 'sections', heading: 'Flagged sections', count: list.length, body: component('review-items', { items: rows.join('') }) });
+  }
+
+  async function markSectionReviewed(index) {
+    const s = sections[index];
+    try {
+      const result = await postJson('api/section-reviewed', { folder: s.folder, file: s.file, line: s.line, title: s.title });
+      if (!result.ok) status.toast(result.error || 'Could not mark that as reviewed.');
+    } catch (_) {
+      status.toast(UNREACHABLE);
+    }
+    status.refresh();
+  }
+
+  // The yellow boxes come first, then the projects and tentacles to review.
+  const queueHtml = (data) => waitingBox(data.waiting) + sectionsBox(data.sections || []) + reviewBoxes(data.toReview);
 
   // ---------- the agenda (AgendaItems.csv) ----------
 
@@ -177,6 +198,8 @@
   }
 
   contentEl.addEventListener('click', (e) => {
+    const sectionButton = e.target.closest('[data-section-reviewed]');
+    if (sectionButton) return markSectionReviewed(Number(sectionButton.dataset.sectionReviewed));
     const check = e.target.closest('[data-agenda-check]');
     if (check) return toggleAgenda(check);
     const link = e.target.closest('[data-review]');

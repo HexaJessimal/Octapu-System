@@ -83,7 +83,8 @@
 
   function entryCard(entry) {
     shown.push(entry);
-    return component('entry-card', {
+    return component('entry-card', Object.assign(documentView.sectionReview(doc, entry.line, entry.title, entry.reviewed, entry.flagged), {
+      flagged: entry.flagged,
       progress: entry.progress && entry.progress !== 'open' ? entry.progress : '',
       target: entry.title === highlighted,
       index: shown.length - 1,
@@ -92,7 +93,7 @@
       noun: doc.noun,
       name: entry.title,
       fields: entry.fields.map(fieldRow).join(''),
-    });
+    }));
   }
 
   function section(title, entries) {
@@ -240,7 +241,12 @@
         if (listTab) listTab.textContent = data.tab;
         draw();
         changes.showConflicts(data);
-        if (firstLoad) goToTarget();
+        if (firstLoad) {
+          goToTarget();
+          // A Todos link also names the task's line, inside the entry just opened.
+          const line = Number(params.get('line'));
+          if (line && view === 'list') documentView.goToLine(contentEl, line);
+        }
         firstLoad = false;
       })
       .catch((err) => {

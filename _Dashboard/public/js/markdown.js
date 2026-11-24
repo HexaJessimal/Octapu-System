@@ -240,7 +240,11 @@
     let body = '';
     if (scanned && ctx.checkbox) body += ctx.checkbox(scanned);
     else if (it.task !== null) body += component('md-check', { label: it.task ? '[done]' : '[open]' });
+    if (scanned && ctx.dragRows) body = component('md-row-handle') + body;
     body += component('md-item-text', { attrs: scanned && ctx.editAttrs ? ctx.editAttrs(scanned) : '', text: lineInline(it.text, it.no, ctx) });
+    // A task with subtasks shows how many of them are done, as a milestone does.
+    const subtasks = it.task !== null ? countSubtasks(it, ctx) : null;
+    if (subtasks && subtasks.total) body += component('md-subtask-count', subtasks);
     if (scanned && ctx.rowMenu) body += ctx.rowMenu(scanned);
     for (const c of it.cont) {
       body += RE.meta.test(c.text)
@@ -249,6 +253,25 @@
     }
     body += it.children.map((l) => renderList(l, ctx)).join('');
     return component('md-item', { classes: cls.join(' '), body });
+  }
+
+  // A task's subtasks at every depth, leaving out cancelled ones. Archived ones are hidden
+  // but still count as done.
+  function countSubtasks(it, ctx) {
+    let total = 0;
+    let done = 0;
+    const walk = (item) =>
+      item.children.forEach((list) =>
+        list.items.forEach((child) => {
+          if (child.task !== null && !child.cancelled) {
+            total++;
+            if (child.task || isArchivedRow(child.no, ctx)) done++;
+          }
+          walk(child);
+        })
+      );
+    walk(it);
+    return { total, done };
   }
 
   function renderList(list, ctx) {
@@ -278,6 +301,7 @@
       checkbox: o.checkbox,
       editAttrs: o.editAttrs,
       rowMenu: o.rowMenu,
+      dragRows: o.dragRows, // tasks get a handle to drag them within their list
       titleLine: o.titleLine,
       titleHtml: o.titleHtml,
       lineHtml: o.lineHtml || {},
@@ -407,6 +431,10 @@
   }
 
   // Every ### under "## Milestones" (until the next # or ## heading) with its checkbox stats.
+  // A section's review lines, written straight under its heading.
+  const SECTION_REVIEWED = /^\s*\*\*\s*Date Reviewed\s*(?:\*\*\s*:|:\s*\*\*)\s*(.*?)\s*$/i;
+  const SECTION_FLAG = /^\s*\*\*\s*Flagged for Review\s*(?:\*\*\s*:|:\s*\*\*)\s*(.*?)\s*$/i;
+
   function parseMilestones(md) {
     const lines = normalise(md).split('\n');
     const result = { found: false, start: -1, end: -1, milestones: [] };
@@ -427,14 +455,28 @@
 
     let current = null;
     let archivedIndent = null; // set while passing an archived row and what's nested under it
+    let inMeta = false; // straight after a heading, where its review lines go
     for (let i = start + 1; i < end; i++) {
       const h = lines[i].match(/^###\s+(.*?)\s*$/);
       if (h) {
-        current = { title: h[1], firstLine: i + 2, body: [], total: 0, done: 0, cancelled: 0 };
+        current = { title: h[1], headingLine: i + 1, firstLine: i + 2, body: [], total: 0, done: 0, cancelled: 0, reviewed: null, flagged: false };
         result.milestones.push(current);
+        inMeta = true;
         continue;
       }
       if (!current) continue;
+      // A milestone's own Date Reviewed and Flagged for Review come first, and aren't its body.
+      if (inMeta) {
+        const reviewed = lines[i].match(SECTION_REVIEWED);
+        const flag = reviewed ? null : lines[i].match(SECTION_FLAG);
+        if (reviewed || flag) {
+          if (reviewed) current.reviewed = reviewed[1] || null;
+          else current.flagged = /^yes$/i.test(flag[1]);
+          current.firstLine = i + 2;
+          continue;
+        }
+        inMeta = false;
+      }
       current.body.push(lines[i]);
       // Tasks a review moved to the Task Archive still count as finished.
       const moved = lines[i].match(/^\s*<!--\s*(\d+)\s+tasks?\s+in the Task Archive\s*-->\s*$/i);

@@ -85,11 +85,13 @@ For something you do again and again, such as paying a bill, choose **R** (recur
 
 In the Todos list on the right, a recurring task due within three days has a yellow border, and one whose date has passed has a red border. They go to the top of the list, the red ones first, whatever **Sort** is set to.
 
-The same status menu has **Schedule** and **Deadline** options. Each asks for a date, which you can type or choose with the calendar button, and shows it under the task. A task with a date appears in **Due in the next 7 days** and **Overdue tasks** on the Dashboard's Overview. To remove a date, choose the option again and clear the box.
+The grey menu at the end of the task's row has **Schedule** and **Deadline** options, above Cancel and Delete. Each asks for a date, which you can type or choose with the calendar button, and shows it under the task. A task with a date appears in **Due in the next 7 days** and **Overdue tasks** on the Dashboard's Overview. To remove a date, choose the option again and clear the box.
 
 ## View your tentacle-wide todo list
 
-The **Todos** list on the right shows every line, in every tentacle and non-archived project, that has a status. So do the tasks of your contacts on **Contacts** and your events on **Events**, linking to the contact or event. A task with no status stays in its own list and doesn't appear here.
+The **Todos** list on the right shows every task with a status, in every tentacle and non-archived project. So do the tasks of your contacts on **Contacts** and your events on **Events**. A task with no status stays in its own list and doesn't appear here. Selecting a task's name opens its page at that task, outlined, opening its milestone if it was closed.
+
+A status only counts on a checkbox in a milestone, in a task list such as **Tasks**, or in a contact's or event's **Tasks** field. A status written anywhere else, such as in your notes, is just text, and it's listed on Compatibility so you can move it into a list.
 
 Use **Filter** to narrow the list, and **Sort** to change the order: **Project** (A to Z, the default), **Status (alphabetical)**, **Status (type)**, **Priority** (A first, none last), **Scheduled date** or **Deadline date** (soonest first, undated last). Finished tasks always stay below the line. Each of **Type**, **Status**, **Priority**, **Tentacle** and **Project** opens a list where you can tick as many choices as you like. **Type** chooses which status types show, and the others narrow the list further. Leave them on **All** to show everything, or select **Show all** at the top of a list to go back to it. Archived items only appear here when you tick **ARCHIVED** under **Type**, and on other pages only when `SHOWARCHIVED` is ticked in Options.
 
@@ -182,7 +184,11 @@ The colours show progress: green is complete, yellow is in progress, orange is n
 
 ## Edit the raw project markdown to add subtasks
 
-The plus button adds top-level tasks only, so subtasks are added by hand. Open the **Raw** tab, double-click to edit, and indent a task underneath the one it belongs to.
+When you add a task with a plus button, press **Tab** before Return to make it a subtask of the task above, and Tab again to go another level down. **Shift+Tab** goes back up. While you're editing a task's text by double-clicking it, Tab and Shift+Tab move the task, with everything under it, in under the task above or back out.
+
+A task with subtasks shows how many of them are done, such as **1/3**, beside its text. To change the order of tasks, drag a task by the dots that appear before it when you point at it, and drop it above or below another task in the same milestone or list. Its subtasks come with it.
+
+You can also add subtasks by hand. Open the **Raw** tab, double-click to edit, and indent a task underneath the one it belongs to.
 
 [[IMAGE#Screenshots/26-AddingSubTasksInRaw.png]]
 
@@ -192,7 +198,7 @@ Save, and the indented tasks appear nested under their parent on the Overview.
 
 ## Set a timeframe for an active project
 
-On the Overview, select the plus button beside **Active Timeframe**, choose a start and end month and year, and select **Add**. A timeframe always runs from the first day of its start month to the last day of its end month. A project can have more than one timeframe.
+On the Overview, select the plus button beside **Active Timeframe**, choose a start and end month and year, and select **Add**. Under **Milestones**, untick any milestones this timeframe isn't for. A timeframe for only some milestones lists them under its dates, and on the Timeline its bar is coloured by those milestones alone. In the file the names go in brackets, separated by semicolons: `2026-11-01 to 2027-02-28 (Write songs; Record), 2027-03-01 to 2027-04-30 (Mix; Release)`. A timeframe always runs from the first day of its start month to the last day of its end month. A project can have more than one timeframe.
 
 The timeframe puts the project on the Timeline. It also adds the project to **Priorities this month** while today falls inside it.
 
@@ -211,6 +217,14 @@ Under **Time Management** in the left menu, Review and Plan are outlined when th
 Open **Review**. The yellow box at the top lists every task with a WAITING type status, such as **REVIEW**, with its status button so you can move it on. Below it, the cyan and purple boxes list every project and tentacle that hasn't been reviewed yet, or that has been flagged for review.
 
 To flag one, select the flag in the **Reviewed** box at the top of its page. It turns the colour of the box it puts the page in, cyan on a project and purple on a tentacle, and says **Flagged for review**, and the page is listed on Review whatever its review date. Reviewing it again updates the date and takes the flag away. Select the flag again to take it away yourself.
+
+Milestones, Scratchpad blocks, events, contacts and Incubator ideas have flags of their own, beside their titles, and each shows when it was last reviewed in small text under its title. A flagged one has a yellow border, and is listed in the **Flagged sections** box on the Review page. **Mark as reviewed** there takes its flag away and sets its date to today. For a milestone or block it also sets the Date Reviewed of the project or tentacle it's in. In the file, the date and flag are written straight under the section's heading:
+
+```
+### Record
+**Date Reviewed**: 2026-11-24
+**Flagged for Review**: Yes
+```
 
 [[IMAGE#Screenshots/81-FlagForReview.png]]
 
@@ -282,7 +296,7 @@ Double-click an idea's name, its project dependency or its notes to change them.
 
 ## View the timeline
 
-The Timeline is on the Dashboard's Overview tab. Projects are graded through the colours of their milestones, and a project with no milestones is shown as `N/A` in the key. The tick boxes above it show or hide **Active** and **Inactive** projects, **Archive** ones while `SHOWARCHIVED` is ticked, and the **Deadlines**, **Bookings** and **Releases** lines. Archived projects are green, the complete colour. **3 months**, **6 months** and **12 months** zoom the chart in and out. As you scroll sideways, rows with nothing within two months of the dates on screen are hidden, so the chart stays a sensible height however many years it covers. An event's application deadline is a cyan line until you've applied or it's booked. Its date is purple once it's booked, and grey until then. An event of several days has a line at each end, with a paler band between. Point at a line to see which event it is. Every record in a catalog with a **Release date** is a white line on that day. Point at it to see its cover, title and date. Where one item depends on another, it sits underneath with an arrow joining them. Select any bar to open it.
+The Timeline is on the Dashboard's Overview tab. Projects are graded through the colours of their milestones, and a project with no milestones is shown as `N/A` in the key. The tick boxes above it show or hide **Active** and **Inactive** projects, **Archive** ones while `SHOWARCHIVED` is ticked, and the **Deadlines**, **Bookings** and **Releases** lines. Archived projects are green, the complete colour. **3 months**, **6 months** and **12 months** zoom the chart in and out. As you scroll sideways, rows with nothing within two months of the dates on screen are hidden, so the chart stays a sensible height however many years it covers. An event's application deadline is a cyan line until you've applied or it's booked. Its date is purple once it's booked, and grey until then. An event of several days has a line at each end, with a paler band between. Point at a line to see which event it is. Every record in a catalog with a **Release date** is a white line on that day. Point at it to see its cover, title and date. Where one item depends on another, it sits underneath with an arrow joining them. A project with more than one timeframe has an arrow from each of its bars to the next. Select any bar to open it.
 
 [[IMAGE#Screenshots/38-TimelineView.png]]
 
@@ -652,6 +666,7 @@ The dependency then shows as a link on the Overview. On the Timeline the project
 
 Every task has a grey button at the end of its row, in documents and in the Todos sidebar. It opens the task's menu:
 
+- **Schedule** and **Deadline** give the task a date, as in [Assign a task to yourself and select a priority](#assign-a-task-to-yourself-and-select-a-priority).
 - **Cancel** strikes the task through and unticks it. It stays in the file but drops off the Todos list and out of your progress counts.
 - **Delete** removes the line from the file, after asking.
 

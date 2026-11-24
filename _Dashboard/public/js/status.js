@@ -139,7 +139,7 @@
 
   // The pencil and remove buttons beside one existing timeframe.
   function timeframeEntryControl(project, entry, index) {
-    return component('control-timeframe-entry', { attrs: documentAttrs(project, 'timeframe-' + index, entry), index, label: displayDates(entry) });
+    return component('control-timeframe-entry', { attrs: documentAttrs(project, 'timeframe-' + index, entry), index, label: displayDates(global.PMS.splitTimeframe(entry).dates) });
   }
 
   // Project Dependency: a plus when empty, a pencil once set, opening a list of projects.
@@ -254,12 +254,14 @@
   }
 
   // Where a todo links to, and the name to show for it.
-  // A task from Contacts or Events links to its contact or event, named after it.
+  // A task from Contacts or Events links to its contact or event, named after it. Every link
+  // carries the task's line, so the page can open at the task itself.
   function itemLink(item) {
     const { tentacle, networking } = item;
-    if (networking) return { label: networking.title, href: 'networking.html?page=' + networking.page + '#' + encodeURIComponent(networking.title) };
+    const line = '&line=' + item.line;
+    if (networking) return { label: networking.title, href: 'networking.html?page=' + networking.page + line + '#' + encodeURIComponent(networking.title) };
     const page = tentacle ? tentacleHref(tentacle.root, tentacle.id) : 'project.html?folder=' + encodeURIComponent(item.folder);
-    return { label: tentacle ? tentacle.name : global.PMS.parseFolder(item.folder).title, href: page + '&file=' + encodeURIComponent(item.file) };
+    return { label: tentacle ? tentacle.name : global.PMS.parseFolder(item.folder).title, href: page + '&file=' + encodeURIComponent(item.file) + line };
   }
 
   function controlKind(el) {
@@ -410,7 +412,7 @@
   }
 
   function statusMenu(current) {
-    return statusOptions(current) + component('status-menu-actions');
+    return statusOptions(current);
   }
 
   // Each status shows its type's icon and colour rather than a heading per type, with a thin
@@ -475,6 +477,22 @@
 
   const monthFields = (start, end) => monthInput('start', 'Start', start) + monthInput('end', 'End', end);
 
+  // A tick box per milestone, for limiting a timeframe to some of them. `chosen` is the
+  // timeframe's current list, or null for all.
+  function milestoneFields(chosen) {
+    if (!milestones.length) return '';
+    const key = (name) => name.trim().toLowerCase();
+    const boxes = milestones.map((m) => component('timeframe-milestone', { title: m.title, checked: !chosen || chosen.some((name) => key(name) === key(m.title)) }));
+    return component('timeframe-milestones', { boxes: boxes.join('') });
+  }
+
+  // The ticked milestones, or none when they're all ticked, which means every milestone.
+  function chosenMilestones(form) {
+    const boxes = Array.from(form.querySelectorAll('input[name="milestone"]'));
+    const ticked = boxes.filter((box) => box.checked).map((box) => box.value);
+    return ticked.length && ticked.length < boxes.length ? ticked : undefined;
+  }
+
   // The first or last day of the chosen month, written in the DATEFORMAT.
   function chosenDate(form, name, lastDay) {
     const year = Number(readField(form, name + 'Year'));
@@ -510,13 +528,16 @@
       );
     }
     if (caret.matches('.timeframe-edit')) {
-      const [start, end = ''] = ctrl.dataset.status.split(/\s+to\s+/i);
-      return buildForm('Change this timeframe', monthFields(start, end), 'Save', (form) =>
-        submitForm(form, ctrl, 'api/timeframe-change', Object.assign({ index: Number(ctrl.dataset.index), from: ctrl.dataset.status }, timeframeDates(form)))
+      const entry = global.PMS.splitTimeframe(ctrl.dataset.status);
+      const [start, end = ''] = entry.dates.split(/\s+to\s+/i);
+      return buildForm('Change this timeframe', monthFields(start, end) + milestoneFields(entry.milestones), 'Save', (form) =>
+        submitForm(form, ctrl, 'api/timeframe-change', Object.assign({ index: Number(ctrl.dataset.index), from: ctrl.dataset.status, milestones: chosenMilestones(form) }, timeframeDates(form)))
       );
     }
     if (caret.matches('.timeframe-add')) {
-      return buildForm('Add a timeframe', monthFields(), 'Add', (form) => submitForm(form, ctrl, 'api/timeframe', timeframeDates(form)));
+      return buildForm('Add a timeframe', monthFields() + milestoneFields(null), 'Add', (form) =>
+        submitForm(form, ctrl, 'api/timeframe', Object.assign({ milestones: chosenMilestones(form) }, timeframeDates(form)))
+      );
     }
     if (caret.matches('.priority-button')) return menuPanel(priorityMenu(ctrl.dataset.priority), 'status-menu priority-menu');
     if (caret.matches('.project-status-button')) {

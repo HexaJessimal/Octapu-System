@@ -172,6 +172,14 @@
 
   let firstLoad = true;
 
+  // A Todos link names the task's line, which is shown on the Overview.
+  function goToTask() {
+    const line = Number(params.get('line'));
+    if (!line) return;
+    if (view !== 'overview') setView('overview');
+    documentView.goToLine(contentEl, line);
+  }
+
   function load() {
     const query = new URLSearchParams({ id: params.get('id') || '' });
     ['tab', 'file'].forEach((key) => {
@@ -191,7 +199,10 @@
         drawTabs();
         draw();
         changes.showConflicts(data);
-        if (firstLoad) goToTarget();
+        if (firstLoad) {
+          goToTarget();
+          goToTask();
+        }
         firstLoad = false;
       })
       .catch((err) => showError('Tentacle not found', err.message));
