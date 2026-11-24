@@ -1,6 +1,9 @@
 // Finds status-prefixed todo items in markdown. Pure functions, no dependencies.
 'use strict';
 
+// The rules the pages share: priority tokens, checkbox rows, timeframes, cancelled rows.
+const { PRIORITY_TOKEN, RECUR_VALUE, CHECKBOX_ROW, isCancelled, timeframeEntries, splitTimeframe, timeframeText } = require('./public/js/rules');
+
 // The status types are fixed. Status names always come from _Options/Status.csv.
 const TYPE_MARKS = { UNASSIGNED: ' ', ASSIGNED: '/', WAITING: '-', DONE: 'x', ARCHIVED: 'x' };
 const NEXT_TYPE = { UNASSIGNED: 'ASSIGNED', ASSIGNED: 'DONE', WAITING: 'DONE', DONE: 'ARCHIVED' };
@@ -10,11 +13,8 @@ const STATUS_TYPES = Object.keys(TYPE_MARKS);
 const STORAGE_FORMAT = 'YYYY-MM-DD';
 
 // A priority is an org-style [#A] token straight after the status. No token means no priority.
-// R is a recurring task, written with how often it comes round: [#R|5D], [#R|2W], [#R|3M], [#R|1Y].
+// R is a recurring task, written with how often it comes round (PRIORITY_TOKEN in rules.js).
 const PRIORITIES = ['A', 'B', 'C'];
-const PRIORITY_TOKEN = /^((?:\*\*|__|\*|_)?\s*)\[#([A-C]|R\|(10|[1-9])([DWMY]))\]/;
-const RECUR_VALUE = /^R\|(10|[1-9])([DWMY])$/;
-const RECUR_UNITS = { D: 'days', W: 'weeks', M: 'months', Y: 'years' };
 
 // A YYYY-MM-DD date moved on by `count` days, weeks, months or years (`unit` D, W, M or Y).
 // Months and years keep the day of the month where they can, and otherwise use the month's
@@ -322,7 +322,7 @@ function createMatcher(statuses, scope) {
         editText,
         contentAt,
         contentEnd: line.trimEnd().length,
-        cancelled: /^~~.+~~$/.test(editText),
+        cancelled: isCancelled(editText),
       };
     }
     const start = line.length - rest.length;
@@ -356,9 +356,6 @@ function createMatcher(statuses, scope) {
   };
   return Object.assign(match, { scope: scope || null });
 }
-
-// A checkbox row: a list item opening with [ ], [x], [/] or [-].
-const CHECKBOX_ROW = /^\s*(?:[-*+]|\d+[.)])\s+\[[ xX/-]\]/;
 
 // The lines of a project or tentacle file where a status counts: checkbox rows under a ###
 // milestone in ## Milestones, or under a ## heading named in TASKLISTS (`taskLists`).
@@ -415,7 +412,8 @@ function scanLines(markdown, match) {
     if (!inside && scope.strict) return;
     let item = match(line);
     if (item && item.status && !inside) item = plain(line);
-    if (item) items.push(Object.assign(item, { line: idx + 1, dates: planningDates(lines, idx) }));
+    // `outside` marks a box that's only a tick box, not a task, so ticking it adds no status.
+    if (item) items.push(Object.assign(item, { line: idx + 1, dates: planningDates(lines, idx) }, scope && !inside ? { outside: true } : {}));
   });
   return items;
 }
@@ -519,6 +517,21 @@ function moveToStatus(markdown, lineNo, from, to, statuses, now) {
   return typeOf(to) === 'DONE' && typeOf(from) !== 'DONE' ? setClosed(updated, lineNo, closedStamp(now)) : updated;
 }
 
+// Ticks or unticks a checkbox that has no status where it is. `allowed` is the set of lines
+// where statuses count. There, ticking gives the row the DONE status, as a task's box does.
+// Anywhere else only the box changes, so a tick box in notes never gains a keyword, and one
+// with a stray status (shown as plain) still toggles. Returns null if the row has changed.
+function toggleCheckbox(markdown, lineNo, text, checked, statuses, allowed, now) {
+  const scope = { allowed: () => allowed };
+  const item = scanLines(markdown, createMatcher(statuses, scope)).find((i) => i.line === lineNo);
+  if (!item || item.status || item.mark === null || item.editText !== text) return null;
+  const done = statuses.filter((s) => s.type === 'DONE');
+  const doneName = (done.find((s) => s.name === 'DONE') || done[0] || {}).name;
+  if (checked && !item.outside && doneName) return moveToStatus(markdown, lineNo, null, doneName, statuses, now);
+  const mark = checked ? 'x' : ' ';
+  return editLine(markdown, lineNo, (line) => line.slice(0, item.markAt) + mark + line.slice(item.markAt + 1));
+}
+
 // Sets, changes or (with null) removes the priority token on a status line. `priority` is A,
 // B, C or a recurring R with its period, such as R|5D. Returns null if the line no longer has
 // that status.
@@ -577,24 +590,6 @@ function insertLine(markdown, lineNo, text) {
   const added = [].concat(text).join(eol);
   return editLine(markdown, lineNo || 1, (line) => (lineNo ? line + eol + added : added + eol + line));
 }
-
-// The comma-separated entries of an Active Timeframe value, as written.
-// A comma inside a timeframe's brackets of milestone names doesn't start another timeframe.
-function timeframeEntries(value) {
-  return value.split(/,(?![^()]*\))/).map((v) => v.trim()).filter(Boolean);
-}
-
-// One timeframe's dates, and the milestones it's limited to: "2026-11-01 to 2027-02-28
-// (Write songs; Record)" covers those two, and with no brackets it covers them all (null).
-function splitTimeframe(entry) {
-  const named = entry.match(/^(.*?)\s*\(([^()]*)\)\s*$/);
-  if (!named) return { dates: entry.trim(), milestones: null };
-  const milestones = named[2].split(';').map((name) => name.trim()).filter(Boolean);
-  return { dates: named[1].trim(), milestones: milestones.length ? milestones : null };
-}
-
-// A timeframe as written: its dates, then any milestone names in brackets.
-const timeframeText = (dates, milestones) => dates + (milestones && milestones.length ? ` (${milestones.join('; ')})` : '');
 
 // Finds the page title (and the tentacle keyword opening it), the Active Timeframe field and
 // the Leader field. timeframe.anchor is the line a missing timeframe would be added after.
@@ -1138,15 +1133,11 @@ module.exports = {
   editAgendaCsv,
   PRIORITIES,
   RECUR_VALUE,
-  RECUR_UNITS,
   addPeriod,
   PLANNING_LINE,
   withDefaultStatuses,
-  closedStamp,
-  setClosed,
   moveToStatus,
   titleIndex,
-  headerLines,
   setPlanningDate,
   timeframeEntries,
   splitTimeframe,
@@ -1165,7 +1156,6 @@ module.exports = {
   coloursStylesheet,
   parseComponents,
   editColourCsv,
-  normaliseHex,
   parseOptions,
   parseHeader,
   setTentacle,
@@ -1185,7 +1175,6 @@ module.exports = {
   PROJECT_TYPES,
   newTentacleFile,
   appendTentacleCsv,
-  DATE_FIELDS,
   timeframeError,
   addTimeframe,
   editTimeframe,
@@ -1201,5 +1190,6 @@ module.exports = {
   scanLines,
   findTodos,
   replaceStatus,
+  toggleCheckbox,
   setPriority,
 };

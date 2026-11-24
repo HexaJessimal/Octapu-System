@@ -626,7 +626,7 @@ html:has(.view-bar) {
 }
 .milestone header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
@@ -1732,9 +1732,6 @@ textarea.inline-field {
 .timeframe-add.is-set {
   --button-icon: url('../img/pencil-solid-full.svg');
 }
-.timeframe-remove {
-  --button-icon: url('../img/circle-xmark-solid-full.svg');
-}
 /* The flag on the Reviewed box: grey until it's on, then with a note beside it, in the colour of
    the Review page box it puts the page in: cyan for projects, purple for tentacles. */
 .review-flag-projects {
@@ -1781,9 +1778,6 @@ textarea.inline-field {
 }
 /* The minus buttons that delete a row, card or entry match the plus buttons: a hollow circle in
    the raised colour (cyan on a project page), turning pink when pointed at. */
-.row-remove {
-  --button-icon: url('../img/circle-minus-outline.svg');
-}
 .add-button::before,
 .timeframe-add::before,
 .timeframe-remove::before,
@@ -1993,9 +1987,6 @@ textarea.inline-field {
   display: flex;
   align-items: center;
   gap: 10px;
-}
-.milestone header {
-  align-items: center;
 }
 /* A section's title, with its review date in small text below. */
 .section-heading-text {
@@ -3113,6 +3104,7 @@ a.home-stat:hover {
   margin: 0;
 }
 .row-remove {
+  --button-icon: url('../img/circle-minus-outline.svg');
   position: relative;
   appearance: none;
   display: block;
@@ -3697,6 +3689,7 @@ a.home-stat:hover {
   flex: none;
 }
 .timeframe-remove {
+  --button-icon: url('../img/circle-xmark-solid-full.svg');
   position: relative;
   appearance: none;
   width: 18px;

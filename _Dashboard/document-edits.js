@@ -2,6 +2,7 @@
 // Each edit checks the text it replaces is still there, and returns null if it isn't.
 'use strict';
 
+const { CHECKBOX_ROW, MILESTONES_HEADING, MILESTONE_HEADING, SECTION_REVIEWED, SECTION_FLAG, ARCHIVE_MARKER, archiveMarker } = require('./public/js/rules');
 const { PLANNING_LINE, setPlanningDate, addPeriod, stripComments, titleIndex, findField, setHeaderField, editLine, insertLine, createMatcher, scanLines, parseHeader, moveToStatus, LEADER_FIELD, OLD_LEADER_FIELD } = require('./todos');
 
 const HEADER_FIELD = /^\s*\*\*[^*]+\*\*\s*:/;
@@ -10,8 +11,6 @@ const HEADER_FIELD = /^\s*\*\*[^*]+\*\*\s*:/;
 const PROJECT_TYPE_FIELD = /^\s*\*\*\s*project type\s*(?:\*\*\s*:|:\s*\*\*)/i;
 const PROJECT_HEADER_FIELD = /^\s*\*\*\s*(?:project type|(?:date\s+)?created):\*\*/i;
 const SECTION_HEADING = /^#{1,2}\s/; // a level 1 or 2 heading starts a new section
-const MILESTONES_HEADING = /^##\s+milestones?\s*$/i;
-const MILESTONE_HEADING = /^###\s+(.*?)\s*$/;
 const RESERVED_TITLE = /^(milestones?|notes)$/i;
 
 const isReservedTitle = (title) => RESERVED_TITLE.test(title.trim());
@@ -111,8 +110,6 @@ function setRowDate(markdown, line, status, text, kind, date, statuses) {
 
 // ----- a section's own review: Date Reviewed and Flagged for Review under its heading -----
 
-const SECTION_REVIEWED = /^\s*\*\*\s*Date Reviewed\s*(?:\*\*\s*:|:\s*\*\*)\s*(.*?)\s*$/i;
-const SECTION_FLAG = /^\s*\*\*\s*Flagged for Review\s*(?:\*\*\s*:|:\s*\*\*)\s*(.*?)\s*$/i;
 
 // The review lines straight under the heading at 0-based `heading`: its date (or null), whether
 // it's flagged, each line's 1-based number, and `end`, the 0-based index after them.
@@ -707,7 +704,7 @@ function milestoneAt(visible, line, title) {
 function nestedRow(raw, first, last, depth) {
   if (!depth) return '';
   const rows = [];
-  for (let n = first; n <= last; n++) if (/^\s*(?:[-*+]|\d+[.)])\s+\[[ xX/-]\]/.test(raw[n - 1] || '')) rows.push(raw[n - 1].match(/^\s*/)[0]);
+  for (let n = first; n <= last; n++) if (CHECKBOX_ROW.test(raw[n - 1] || '')) rows.push(raw[n - 1].match(/^\s*/)[0]);
   if (!rows.length) return '';
   // The last task, and each task it's nested under, from the top level down.
   const chain = [];
@@ -754,7 +751,7 @@ function indentRow(markdown, line, text, direction, statuses) {
   const visible = stripComments(markdown);
   const raw = rawLines(markdown);
   const { first, last, own } = rowExtent(visible, line);
-  const isRow = (n) => /^\s*(?:[-*+]|\d+[.)])\s+\[[ xX/-]\]/.test(visible[n - 1] || '');
+  const isRow = (n) => CHECKBOX_ROW.test(visible[n - 1] || '');
   // The nearest task above at or above this one's level, within the same heading.
   let above = 0;
   for (let n = line - 1; n >= 1; n--) {
@@ -899,12 +896,6 @@ function takeArchivedRows(markdown, statuses, keep = () => true, scope) {
   }
   return { markdown: remaining, rows };
 }
-
-// "<!-- 3 tasks in the Task Archive -->", left where a milestone's archived tasks were. It's a
-// comment, so Obsidian and the dashboard don't show it, but the progress bar counts it as
-// that many finished tasks.
-const ARCHIVE_MARKER = /^\s*<!--\s*(\d+)\s+tasks?\s+in the Task Archive\s*-->\s*$/i;
-const archiveMarker = (count) => `<!-- ${count} ${count === 1 ? 'task' : 'tasks'} in the Task Archive -->`;
 
 // Adds `count` to the marker of the milestone whose heading is at 0-based `heading`, or adds
 // a marker after the milestone's last line.

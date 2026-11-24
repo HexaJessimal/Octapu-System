@@ -71,6 +71,8 @@
       scheduled: plannedDate(item, 'SCHEDULED'),
       deadline: plannedDate(item, 'DEADLINE'),
       recur: recurValue(item),
+      // A box with no status is ticked or unticked through api/check, which needs its mark.
+      mark: item.status || item.mark === null || item.mark === undefined ? '' : item.mark,
     });
   }
 
@@ -82,19 +84,23 @@
     return (done.find((s) => s.name === 'DONE') || done[0] || {}).name || null;
   }
 
-  // A recurring task's box moves its schedule on rather than ticking it.
+  // A recurring task's box moves its schedule on rather than ticking it. A box with no status
+  // ticks and unticks. In a task list ticking it gives it the DONE status; elsewhere (`outside`)
+  // it stays a plain tick box, with no status menu.
   function checkbox(item) {
     const iconType = item.type || MARK_TYPES[item.mark];
     const target = checkboxTarget(item.status);
-    const clickable = item.recur || (item.mark !== 'x' && target);
-    let title = clickable ? 'Move to ' + target : item.mark === 'x' ? 'Ticked' : 'No next status';
+    const ticked = item.mark === 'x';
+    const clickable = item.recur || !item.status || (!ticked && target);
+    let title = clickable ? 'Move to ' + target : ticked ? 'Ticked' : 'No next status';
+    if (!item.status) title = ticked ? 'Untick' : item.outside || !target ? 'Tick' : 'Move to ' + target;
     if (item.recur) title = 'Move the schedule on ' + describePeriod(recurValue(item));
     return component('control-checkbox', {
       attrs: dataAttrs(item),
       icon: iconType ? iconType.toLowerCase() : '',
       title,
       disabled: !clickable,
-      caret: !item.status,
+      caret: !item.status && !item.outside,
     });
   }
 
@@ -343,6 +349,11 @@
     sendEdit(ctrl, 'api/status', { from: ctrl.dataset.status || null, to });
   }
 
+  // A box with no status: ticked, or unticked if it already is.
+  function toggleBox(ctrl) {
+    sendEdit(ctrl, 'api/check', { text: ctrl.dataset.text || '', checked: ctrl.dataset.mark !== 'x' });
+  }
+
   function changePriority(ctrl, value) {
     sendEdit(ctrl, 'api/priority', { status: ctrl.dataset.status, priority: value === NO_PRIORITY ? null : value });
   }
@@ -409,10 +420,6 @@
   async function removeTimeframe(ctrl) {
     if (!(await confirmDelete(displayDates(ctrl.dataset.status), 'Delete this timeframe?'))) return;
     sendEdit(ctrl, 'api/timeframe-change', { index: Number(ctrl.dataset.index), from: ctrl.dataset.status, remove: true });
-  }
-
-  function statusMenu(current) {
-    return statusOptions(current);
   }
 
   // Each status shows its type's icon and colour rather than a heading per type, with a thin
@@ -547,7 +554,7 @@
     if (caret.matches('.type-button')) return menuPanel(labelMenu(projectTypes.map((t) => ({ id: t, name: t })), 'project-type', ctrl.dataset.status));
     if (caret.matches('.leader-button')) return menuPanel(labelMenu(leaders, 'leader', ctrl.dataset.status));
     if (caret.matches('.header-button')) return menuPanel(labelMenu(tentacles, 'tentacle', ctrl.dataset.status));
-    return menuPanel(statusMenu(ctrl.dataset.status));
+    return menuPanel(statusOptions(ctrl.dataset.status));
   }
 
   function openMenu(caret, built) {
@@ -637,6 +644,7 @@
     const boxCtrl = box && box.closest('.status-control');
     if (boxCtrl) {
       if (boxCtrl.dataset.recur) advanceRecurring(boxCtrl);
+      else if (!boxCtrl.dataset.status) toggleBox(boxCtrl);
       else change(boxCtrl, checkboxTarget(boxCtrl.dataset.status));
       return;
     }

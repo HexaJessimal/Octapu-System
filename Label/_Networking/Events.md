@@ -13,6 +13,8 @@
 **Artist/s**
 #MUSART
 
+**Application Deadline**:
+
 **Event Date**: 2026-07-25
 
 **Application Submitted**: Yes
@@ -59,6 +61,8 @@ Check out on Sunday is: **11:00am**
 **Artist/s**
 #MUSART
 
+**Application Deadline**:
+
 **Event Date**: 2026-08-21
 
 **Application Submitted**: Yes
@@ -99,6 +103,8 @@ Live show
 **Artist/s** 
 #MUSART 
 
+**Application Deadline**:
+
 **Event Date**: 2026-10-31
 
 **Application Submitted**: Yes
@@ -138,9 +144,13 @@ TBD
 **Artist/s** 
 #MUSART 
 
+**Application Deadline**:
+
 **Event Date**: 2027-07-24
 
 **Application Submitted**: Yes
+
+**Booking Confirmed**: No
 
 **Venue**
 The Eiffel Tower

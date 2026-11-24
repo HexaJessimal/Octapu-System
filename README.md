@@ -1,6 +1,6 @@
 # Octapu System Dashboard
 
-Version 0.7
+Version 0.8
 
 A small, self-contained dashboard for the markdown-driven project management system in this folder. Markdown files are the source of truth, so you can keep editing them in any text editor. The dashboard only changes them when you make an edit in it.
 
@@ -594,9 +594,10 @@ Each status type has its own checkbox in the markdown, and its own icon in the d
 | `DONE`       | `[x]`    | `circle-check-solid-full.svg`      |
 | `ARCHIVED`   | `[x]`    | `circle-solid-full.svg`            |
 
-- **Click a checkbox that isn't ticked** to move it on. A checkbox with a status moves to its next status, and one without a status goes straight to `DONE` (or the first `DONE` type status, if the CSV has no status with that name).
-- **Ticked checkboxes** can't be clicked. Use the status name or caret instead.
-- **Checkboxes with no status** show a caret next to them, so you can give them any status from the CSV.
+- **Click a checkbox that isn't ticked** to move it on. A checkbox with a status moves to its next status, and one without a status in a task list or milestone goes straight to `DONE` (or the first `DONE` type status, if the CSV has no status with that name).
+- **Ticked checkboxes with a status** can't be clicked. Use the status name or caret instead. A ticked checkbox with no status can be unticked.
+- **Checkboxes with no status** in a task list or milestone show a caret next to them, so you can give them any status from the CSV.
+- **Checkboxes anywhere else**, such as a list in your notes, are ordinary tick boxes: clicking ticks or unticks them, and never adds a status. A stray status on one is shown as plain text (and listed on Compatibility), and the box still ticks.
 
 Changes you make to the markdown files or the CSV appear when you refresh the browser. You don't need to restart the server.
 
@@ -619,11 +620,14 @@ Label/                 one entity's folder, as named in _Dashboard/entities.csv
 Freelance/             another entity's folder, laid out the same way
 _Dashboard/
   entities.csv         the entities (Name,Directory)
-  server.js            tiny HTTP server (Node built-ins only)
+  server.js            tiny HTTP server (Node built-ins only): routes, request checks, static files, start-up
+  lib/                 the server's work, one file per area (see How the code is organised)
   todos.js             finds status-prefixed items in markdown
   document-edits.js    blocks, milestones and single-line text edits
   catalogs.js          catalog files: names, rows and catalog numbers
   changes.js           line diffs, change logs and Syncthing conflict copies
+  test/                unit tests (node --test)
+  dev/                 checks to run against a copy of the data: API snapshot and page sweep
   defaults/Colours.csv the colours a new install starts with
   public/
     setup.html         first-time setup form
@@ -646,6 +650,7 @@ _Dashboard/
     css/style.css      theme
     font/              the Bytesized font for the name beside the logo
     img/               icons
+    js/rules.js        markdown rules shared with the server: priorities, timeframes, review lines, milestone progress
     js/projects.js     helpers shared by every page, including the component renderer and the entity dropdown
     js/markdown.js     markdown renderer + milestone/meta parsers
     js/nav.js          left-hand menu
@@ -686,3 +691,24 @@ _Dashboard/
 - **Slots:** `{{slot}}` is escaped, `{{{slot}}}` is HTML that's already safe, and `{{#if slot}}...{{else}}...{{/if}}` is optional markup. Line breaks and the indentation after them are removed, so a space that matters has to be on the same line as its neighbours.
 - **CSS** lives in `public/css/style.css`. The colours come from `_Options/Colours.csv`. Values only known while the page runs, such as where a Timeline bar starts, are passed in as named custom properties like `--from`, and the stylesheet says what to do with them.
 - **JavaScript** lives in `public/js`. Anything used by more than one page goes in `js/projects.js`.
+- **Rules both sides need**, such as how a priority token, a timeframe or a section's review line is written, and how a milestone's progress is counted, live once in `public/js/rules.js`. Pages load it as `PMS.rules`, and the server `require`s the same file.
+- **The server** is `server.js`, which only routes requests, checks them and serves files, and the modules in `lib/`. Each module only uses the ones above it in this list, so none of them depend on each other in a loop:
+  - `context.js`: which entity a request works on, its data paths, and what the request has already read (a page load reads each file once, and any write clears what was kept)
+  - `renames.js`: files and folders that have been renamed, used both to find the old name and by Compatibility's Core files page
+  - `store.js`: settings, project and tentacle folders, catalogs, and safe writes with change logs
+  - `tasks.js`: where statuses count, the Todos list and status changes
+  - `networking.js`: Contacts and Events
+  - `documents.js`: project, tentacle, Archive Index and Incubator pages and their edits
+  - `compatibility.js`: the Compatibility pages and their fixes
+  - `timeline.js`: the Timeline
+  - `review.js`: the Review page, its agenda, reports and the Task Archive
+  - `settings.js`: first-time setup, the Options page and preparing an entity's folders
+  - `nav.js`: the menu, the Dashboard, the Plan page and the Help Guide's read tick
+
+### Checking changes
+
+Run these from `_Dashboard`. The page sweep and API snapshot need a server running on a **copy** of the data, never your own files, as they make requests that can change it.
+
+- `node --test` runs the unit tests in `test/`.
+- `node dev/api-snapshot.js <port> record before.json` saves every page's data from the server on that port. After a change, `node dev/api-snapshot.js <port> compare before.json` lists any answer that differs.
+- `node dev/sweep.js <port>` opens every page of every entity in headless Chrome and reports script errors. Add a folder name to also save a screenshot of each page. Set `CHROME_PATH` if Chrome isn't in its usual place.

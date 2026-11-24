@@ -1,6 +1,6 @@
 <!-- The status, priority, tentacle, date and timeframe controls, and the menus they open. -->
 
-<template name="control-data">data-folder="{{folder}}" data-file="{{file}}" data-line="{{{line}}}" data-status="{{status}}"{{#if hasText}} data-text="{{text}}"{{/if}}{{#if cancelled}} data-cancelled="true"{{/if}}{{#if scheduled}} data-scheduled="{{scheduled}}"{{/if}}{{#if deadline}} data-deadline="{{deadline}}"{{/if}}{{#if recur}} data-recur="{{recur}}"{{/if}}</template>
+<template name="control-data">data-folder="{{folder}}" data-file="{{file}}" data-line="{{{line}}}" data-status="{{status}}"{{#if hasText}} data-text="{{text}}"{{/if}}{{#if cancelled}} data-cancelled="true"{{/if}}{{#if scheduled}} data-scheduled="{{scheduled}}"{{/if}}{{#if deadline}} data-deadline="{{deadline}}"{{/if}}{{#if recur}} data-recur="{{recur}}"{{/if}}{{#if mark}} data-mark="{{mark}}"{{/if}}</template>
 
 <template name="control-checkbox">
   <span class="status-control check-control" {{{attrs}}}>

@@ -8,20 +8,11 @@
   // Apostrophes stay as they are, so the patterns below can match plain text.
   const esc = (s) => global.PMS.escapeHtml(s).replace(/&#39;/g, "'");
   const component = (name, data) => global.PMS.component(name, data);
+  const rules = global.PMS.rules;
+  const { indentOf, isCancelled } = rules;
 
   function normalise(md) {
     return String(md || '').replace(/\r\n?/g, '\n');
-  }
-
-  // Indent width with tabs counted as 4 columns.
-  function indentOf(line) {
-    let n = 0;
-    for (const ch of line) {
-      if (ch === ' ') n += 1;
-      else if (ch === '\t') n += 4;
-      else break;
-    }
-    return n;
   }
 
   const RE = {
@@ -38,11 +29,6 @@
 
   function isBlockStart(line) {
     return RE.fence.test(line) || RE.heading.test(line) || RE.hr.test(line) || RE.quote.test(line) || RE.item.test(line);
-  }
-
-  function isCancelled(text) {
-    const t = text.trim();
-    return t.startsWith('~~') && t.endsWith('~~') && t.length > 4;
   }
 
   function safeUrl(url) {
@@ -112,11 +98,11 @@
       // The status control also shows the priority, so its token is dropped from the text.
       const name = esc(status.name).replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
       // A recurring task's is R and its period, as in [#R|5D].
-      const pattern = new RegExp('^([*_\\s]*)' + name + '(\\*\\*|__|\\*|_)?(\\s*\\[#(?:[A-C]|R\\|(?:10|[1-9])[DWMY])\\])?');
+      const pattern = new RegExp('^([*_\\s]*)' + name + '(\\*\\*|__|\\*|_)?(\\s*' + rules.PRIORITY + ')?');
       s = s.replace(pattern, (_, pre, closer) => pre + hold(status.html) + (closer || ''));
     }
     // any other org-style priority [#A], or a recurring [#R|5D] shown as R
-    s = s.replace(/\[#([A-C]|R)(?:\|(?:10|[1-9])[DWMY])?\]/g, (_, p) => hold(component('md-priority', { level: p.toLowerCase(), priority: p })));
+    s = s.replace(rules.anyPriority(), (_, p) => hold(component('md-priority', { level: p.toLowerCase(), priority: p })));
 
     // Code and URLs are already held aside, so they keep their exact characters.
     s = global.PMS.displayDates(s);
@@ -423,92 +409,9 @@
     return meta;
   }
 
-  // True if a checkbox's text opens with a status of the ARCHIVED type. Those names come from
-  // _Options/Status.csv, by way of the api/tags.js script each page loads first.
-  function startsWithArchivedStatus(text) {
-    const words = text.replace(/^[*_\s]+/, '').split(/[\s:*_]/, 1);
-    return (global.PMS_ARCHIVED_STATUSES || []).includes(words[0]);
-  }
-
-  // Every ### under "## Milestones" (until the next # or ## heading) with its checkbox stats.
-  // A section's review lines, written straight under its heading.
-  const SECTION_REVIEWED = /^\s*\*\*\s*Date Reviewed\s*(?:\*\*\s*:|:\s*\*\*)\s*(.*?)\s*$/i;
-  const SECTION_FLAG = /^\s*\*\*\s*Flagged for Review\s*(?:\*\*\s*:|:\s*\*\*)\s*(.*?)\s*$/i;
-
-  function parseMilestones(md) {
-    const lines = normalise(md).split('\n');
-    const result = { found: false, start: -1, end: -1, milestones: [] };
-
-    const start = lines.findIndex((l) => /^##\s+milestones?\s*$/i.test(l.trim()));
-    if (start === -1) return result;
-    result.found = true;
-    result.start = start;
-
-    let end = lines.length;
-    for (let i = start + 1; i < lines.length; i++) {
-      if (/^#{1,2}\s/.test(lines[i])) {
-        end = i;
-        break;
-      }
-    }
-    result.end = end;
-
-    let current = null;
-    let archivedIndent = null; // set while passing an archived row and what's nested under it
-    let inMeta = false; // straight after a heading, where its review lines go
-    for (let i = start + 1; i < end; i++) {
-      const h = lines[i].match(/^###\s+(.*?)\s*$/);
-      if (h) {
-        current = { title: h[1], headingLine: i + 1, firstLine: i + 2, body: [], total: 0, done: 0, cancelled: 0, reviewed: null, flagged: false };
-        result.milestones.push(current);
-        inMeta = true;
-        continue;
-      }
-      if (!current) continue;
-      // A milestone's own Date Reviewed and Flagged for Review come first, and aren't its body.
-      if (inMeta) {
-        const reviewed = lines[i].match(SECTION_REVIEWED);
-        const flag = reviewed ? null : lines[i].match(SECTION_FLAG);
-        if (reviewed || flag) {
-          if (reviewed) current.reviewed = reviewed[1] || null;
-          else current.flagged = /^yes$/i.test(flag[1]);
-          current.firstLine = i + 2;
-          continue;
-        }
-        inMeta = false;
-      }
-      current.body.push(lines[i]);
-      // Tasks a review moved to the Task Archive still count as finished.
-      const moved = lines[i].match(/^\s*<!--\s*(\d+)\s+tasks?\s+in the Task Archive\s*-->\s*$/i);
-      if (moved) {
-        current.total += Number(moved[1]);
-        current.done += Number(moved[1]);
-        continue;
-      }
-      const m = lines[i].match(/^\s*(?:[-*+]|\d+[.)])\s+\[([ xX/-])\]\s*(.*)$/);
-      if (!m) continue;
-      if (archivedIndent !== null && indentOf(lines[i]) > archivedIndent) continue;
-      archivedIndent = null;
-      if (startsWithArchivedStatus(m[2])) {
-        archivedIndent = indentOf(lines[i]);
-        current.total++; // hidden, but still a finished task
-        current.done++;
-        continue;
-      }
-      if (isCancelled(m[2])) {
-        current.cancelled++;
-        continue;
-      }
-      current.total++;
-      if (m[1].toLowerCase() === 'x') current.done++;
-    }
-
-    for (const ms of result.milestones) {
-      ms.body = ms.body.join('\n');
-      ms.state = ms.total === 0 ? 'none' : ms.done === ms.total ? 'done' : ms.done > 0 ? 'partial' : 'todo';
-    }
-    return result;
-  }
+  // Every ### under "## Milestones" with its checkbox stats (rules.js). Archived rows count as
+  // done; their status names come from _Options/Status.csv by way of the api/tags.js script.
+  const parseMilestones = (md) => rules.parseMilestones(md, global.PMS_ARCHIVED_STATUSES || []);
 
   global.PMS = Object.assign(global.PMS || {}, {
     markdown: {

@@ -5,6 +5,7 @@
 //   YYYY-MM-DD_TENTACLE_Project_Title -> archived (separator may be '-', '.' or '_')
 (function (global) {
   'use strict';
+  const { splitTimeframe } = global.PMS.rules;
 
   const ARCHIVE_RE = /^(\d{4})[.\-_](\d{2})[.\-_](\d{2})[_\s-]*/;
 
@@ -198,15 +199,6 @@
   function clearSelection() {
     const selection = window.getSelection && window.getSelection();
     if (selection) selection.removeAllRanges(); // a double-click selects a word
-  }
-
-  // One Active Timeframe entry's dates, and the milestones it's limited to, or null for all
-  // of them: "2026-11-01 to 2027-02-28 (Write songs; Record)".
-  function splitTimeframe(entry) {
-    const named = String(entry).match(/^(.*?)\s*\(([^()]*)\)\s*$/);
-    if (!named) return { dates: String(entry).trim(), milestones: null };
-    const milestones = named[2].split(';').map((name) => name.trim()).filter(Boolean);
-    return { dates: named[1].trim(), milestones: milestones.length ? milestones : null };
   }
 
   const tentacleHref = (root, id) => 'tentacle.html?id=' + encodeURIComponent(root) + (id === root ? '' : '&tab=' + encodeURIComponent(id));
