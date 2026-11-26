@@ -11,7 +11,7 @@
   const LINE_KINDS = ['deadlines', 'bookings', 'releases'];
   const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   // The same states and colours as the milestone progress bar.
-  const STATE_COLOURS = { done: 'var(--green)', partial: 'var(--yellow)', todo: 'var(--orange)', none: 'var(--pink)' };
+  const STATE_COLOURS = { done: 'var(--complete)', partial: 'var(--caution)', todo: 'var(--pending)', none: 'var(--alert)' };
 
   // Grades the bar through the project's milestones, left to right. A bar for a project
   // with no milestones keeps the plain bar colour.

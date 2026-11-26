@@ -20,12 +20,13 @@
   --text: #ffffff;
   --text-soft: #c7c7c7;
   --shadow-colour: #000000;
-  --green: #00ff6a;
-  --yellow: #ffea00;
-  --orange: #ff9100;
-  --pink: #ff3d7f;
-  --purple: #7c4dff;
-  --cyan: #00e5ff;
+  --on-highlight: #2a2a2a;
+  --complete: #00ff6a;
+  --caution: #ffea00;
+  --pending: #ff9100;
+  --alert: #ff3d7f;
+  --tentacle: #7c4dff;
+  --project: #00e5ff;
   --accent-soft: color-mix(in srgb, var(--accent) 15%, transparent);
 
   /* A printed report: paper, ink and lines, so it isn't dark on the page. */
@@ -37,6 +38,11 @@
 
   --radius: 12px;
   --radius-sm: 7px;
+  /* Smaller corners, and the round ends of pills. CORNERS set to SQUARE sets them all to 0;
+     circles (50%) stay round. */
+  --radius-xs: 4px;
+  --radius-hair: 2px;
+  --radius-pill: 999px;
   --shadow: 0 6px 24px color-mix(in srgb, var(--shadow-colour) 30%, transparent), 0 1px 0 color-mix(in srgb, var(--text) 3%, transparent) inset;
   --font: system-ui, -apple-system, 'Segoe UI', Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
@@ -143,7 +149,7 @@ html:has(.view-bar) {
 .brand-mark {
   width: 28px;
   height: 28px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: linear-gradient(135deg, var(--accent), var(--surface-raised));
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--text) 8%, transparent) inset;
   flex: none;
@@ -190,7 +196,7 @@ html:has(.view-bar) {
   padding: 4px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 .chip,
 .toggle button {
@@ -201,7 +207,7 @@ html:has(.view-bar) {
   font: inherit;
   font-size: 0.9rem;
   padding: 6px 14px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -221,7 +227,7 @@ html:has(.view-bar) {
   font-size: 0.75rem;
   min-width: 1.6em;
   padding: 0 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--shadow-colour) 20%, transparent);
   color: var(--text-soft);
   text-align: center;
@@ -238,7 +244,7 @@ html:has(.view-bar) {
   color: var(--text);
   background: transparent;
   border: 1px solid var(--surface-raised);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 9px 16px;
 }
 .search::placeholder {
@@ -271,10 +277,10 @@ html:has(.view-bar) {
 .list-progress i {
   flex: 1 1 0;
   min-width: 2px;
-  border-radius: 2px;
+  border-radius: var(--radius-hair);
 }
 .list-progress.is-empty {
-  border-radius: 2px;
+  border-radius: var(--radius-hair);
   background: var(--surface-raised);
   opacity: 0.5;
 }
@@ -332,7 +338,7 @@ html:has(.view-bar) {
   font-weight: 600;
   letter-spacing: 0.02em;
   padding: 3px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   white-space: nowrap;
   border: 1px solid transparent;
 }
@@ -344,14 +350,14 @@ html:has(.view-bar) {
   background: currentColor;
 }
 .pill-active {
-  color: var(--green);
+  color: var(--complete);
   background: transparent;
-  border-color: var(--green);
+  border-color: var(--complete);
 }
 .pill-inactive {
-  color: var(--orange);
+  color: var(--pending);
   background: transparent;
-  border-color: var(--orange);
+  border-color: var(--pending);
 }
 .pill-archived {
   color: var(--border);
@@ -386,7 +392,7 @@ html:has(.view-bar) {
   cursor: pointer;
 }
 .project-page .folder-button {
-  color: var(--cyan);
+  color: var(--project);
 }
 .folder-button::before {
   content: '';
@@ -488,7 +494,7 @@ html:has(.view-bar) {
   flex: 1;
   height: 6px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface-raised);
   overflow: hidden;
 }
@@ -497,11 +503,11 @@ html:has(.view-bar) {
 }
 .overall .meter::-webkit-progress-value {
   background: var(--accent);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 .overall .meter::-moz-progress-bar {
   background: var(--accent);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .section-title {
@@ -528,8 +534,8 @@ html:has(.view-bar) {
   gap: 2px;
   min-height: 64px;
   padding: 8px 10px;
-  border-radius: 6px;
-  color: var(--border);
+  border-radius: var(--radius-xs);
+  color: var(--on-highlight);
   text-decoration: none;
   box-shadow: 0 1px 0 color-mix(in srgb, var(--text) 10%, transparent) inset, 0 -2px 0 color-mix(in srgb, var(--shadow-colour) 15%, transparent) inset;
   transition: filter 0.15s ease, transform 0.15s ease;
@@ -539,12 +545,12 @@ html:has(.view-bar) {
   transform: translateY(-1px);
 }
 .segment:first-child {
-  border-top-left-radius: 9px;
-  border-bottom-left-radius: 9px;
+  border-top-left-radius: var(--radius-sm);
+  border-bottom-left-radius: var(--radius-sm);
 }
 .segment:last-child {
-  border-top-right-radius: 9px;
-  border-bottom-right-radius: 9px;
+  border-top-right-radius: var(--radius-sm);
+  border-bottom-right-radius: var(--radius-sm);
 }
 .segment .seg-title {
   font-size: 0.8rem;
@@ -560,16 +566,16 @@ html:has(.view-bar) {
 }
 
 .state-done {
-  background: var(--green);
+  background: var(--complete);
 }
 .state-partial {
-  background: var(--yellow);
+  background: var(--caution);
 }
 .state-todo {
-  background: var(--orange);
+  background: var(--pending);
 }
 .state-none {
-  background: var(--pink);
+  background: var(--alert);
 }
 
 .legend {
@@ -588,7 +594,7 @@ html:has(.view-bar) {
 .legend i {
   width: 10px;
   height: 10px;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   display: inline-block;
 }
 .legend i.legend-plain {
@@ -613,16 +619,16 @@ html:has(.view-bar) {
   background: var(--surface);
 }
 .milestone.state-done {
-  border-left-color: var(--green);
+  border-left-color: var(--complete);
 }
 .milestone.state-partial {
-  border-left-color: var(--yellow);
+  border-left-color: var(--caution);
 }
 .milestone.state-todo {
-  border-left-color: var(--orange);
+  border-left-color: var(--pending);
 }
 .milestone.state-none {
-  border-left-color: var(--pink);
+  border-left-color: var(--alert);
 }
 .milestone header {
   display: flex;
@@ -772,7 +778,7 @@ html:has(.view-bar) {
   background: var(--surface-raised);
   border: 1px solid color-mix(in srgb, var(--text) 4%, transparent);
   padding: 1px 6px;
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
 }
 .doc pre {
   background: var(--surface);
@@ -844,7 +850,7 @@ html:has(.view-bar) {
   height: 18px;
   padding: 0;
   border: 1px solid color-mix(in srgb, var(--text-soft) 45%, transparent);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: color-mix(in srgb, var(--text-soft) 12%, transparent);
   cursor: pointer;
   opacity: 0.7;
@@ -871,13 +877,13 @@ li:hover > .row-menu-control .row-menu-button,
   top: 0.32em;
   width: 1.05em;
   height: 1.05em;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   border: 1.5px solid var(--text-soft);
   background: var(--surface-raised);
 }
 .doc li.task.done > .check {
-  background: var(--green);
-  border-color: var(--green);
+  background: var(--complete);
+  border-color: var(--complete);
 }
 .doc li.task.done > .check::after {
   content: '';
@@ -886,7 +892,7 @@ li:hover > .row-menu-control .row-menu-button,
   top: 0.1em;
   width: 0.28em;
   height: 0.55em;
-  border: solid var(--border);
+  border: solid var(--on-highlight);
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
 }
@@ -916,7 +922,7 @@ li:hover > .row-menu-control .row-menu-button,
   font-size: 0.85em;
   padding: 0 6px;
   border: 1px solid currentColor;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--accent);
 }
 .prio {
@@ -926,29 +932,29 @@ li:hover > .row-menu-control .row-menu-button,
   letter-spacing: 0.05em;
   padding: 0 5px;
   border: 1px solid currentColor;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   vertical-align: 0.12em;
   margin-right: 2px;
   background: transparent;
   color: var(--text-soft);
 }
 .prio-a {
-  color: var(--green);
+  color: var(--complete);
 }
 .prio-b {
-  color: var(--yellow);
+  color: var(--caution);
 }
 .prio-c {
-  color: var(--pink);
+  color: var(--alert);
 }
 /* R, a recurring task. */
 .prio-r {
-  color: var(--cyan);
+  color: var(--project);
 }
 
 .error {
   padding: 18px 20px;
-  border-left: 4px solid var(--pink);
+  border-left: 4px solid var(--alert);
 }
 
 /* ---------- todo sidebar ---------- */
@@ -1137,10 +1143,13 @@ li:hover > .row-menu-control .row-menu-button,
 .nav-logo:hover .nav-brand {
   opacity: 1;
 }
+/* The logo is drawn light for a dark page. A light theme sets --logo-filter to turn it dark while
+   keeping its hues. */
 .nav-logo img {
   display: block;
   max-width: 72px;
   max-height: 56px;
+  filter: var(--logo-filter, none);
 }
 .nav-brand {
   color: var(--text);
@@ -1194,7 +1203,7 @@ summary.nav-link {
 }
 .nav-link.nav-tentacle:hover,
 .nav-link.nav-tentacle[aria-current='page'] {
-  color: color-mix(in srgb, var(--level), white 30%);
+  color: color-mix(in srgb, var(--level), var(--text) 30%);
 }
 /* A tentacle with others under it: the caret at the end of its row shows or hides them. */
 .nav-branch-head {
@@ -1256,7 +1265,7 @@ summary.nav-link {
   margin-left: 6px;
   padding: 0 5px;
   border: 1px solid currentColor;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 0.72rem;
   font-weight: 700;
   line-height: 1.5;
@@ -1264,43 +1273,43 @@ summary.nav-link {
 }
 /* A filled green circle, unlike the outlined counts after it. */
 .nav-count-done {
-  border-color: var(--green);
-  background: var(--green);
-  color: var(--bg);
+  border-color: var(--complete);
+  background: var(--complete);
+  color: var(--on-highlight);
 }
 .nav-count-projects {
-  color: var(--cyan);
+  color: var(--project);
 }
 .nav-count-tentacles {
-  color: var(--purple);
+  color: var(--tentacle);
 }
 .nav-count-waiting {
-  color: var(--yellow);
+  color: var(--caution);
 }
 /* Problems on a Compatibility page, in the colour Compatibility uses for unexpected files. */
 .nav-count-issues {
-  color: var(--orange);
+  color: var(--pending);
 }
 .nav-link.nav-due {
-  box-shadow: inset 0 0 0 1px var(--green);
-  color: color-mix(in srgb, var(--green), white 27%);
+  box-shadow: inset 0 0 0 1px var(--complete);
+  color: color-mix(in srgb, var(--complete), var(--text) 27%);
 }
 .nav-link.nav-due:hover {
-  color: color-mix(in srgb, var(--green), white 55%);
+  color: color-mix(in srgb, var(--complete), var(--text) 55%);
 }
 .nav-link.nav-due[aria-current='page'] {
-  color: color-mix(in srgb, var(--green), white 55%);
+  color: color-mix(in srgb, var(--complete), var(--text) 55%);
 }
 .nav-link.nav-unread {
-  box-shadow: inset 0 0 0 1px var(--green);
+  box-shadow: inset 0 0 0 1px var(--complete);
 }
 .nav-link.nav-soon {
-  box-shadow: inset 0 0 0 1px var(--yellow);
-  color: color-mix(in srgb, var(--yellow), white 27%);
+  box-shadow: inset 0 0 0 1px var(--caution);
+  color: color-mix(in srgb, var(--caution), var(--text) 27%);
 }
 .nav-link.nav-soon:hover,
 .nav-link.nav-soon[aria-current='page'] {
-  color: color-mix(in srgb, var(--yellow), white 55%);
+  color: color-mix(in srgb, var(--caution), var(--text) 55%);
 }
 .nav-note {
   display: inline-block;
@@ -1457,11 +1466,11 @@ summary.nav-link {
   background: var(--mark);
 }
 .gantt-mark.is-deadline {
-  --mark: var(--cyan);
+  --mark: var(--project);
 }
 .gantt-mark.is-event,
 .gantt-span.is-event {
-  --mark: var(--purple);
+  --mark: var(--tentacle);
 }
 /* Grey, as for an unset priority, until the event is booked. */
 .gantt-mark.is-unbooked,
@@ -1480,10 +1489,10 @@ summary.nav-link {
   height: 12px;
 }
 .legend-line.is-deadline {
-  background: var(--cyan);
+  background: var(--project);
 }
 .legend-line.is-event {
-  background: var(--purple);
+  background: var(--tentacle);
 }
 .legend-line.is-unbooked {
   background: var(--text-soft);
@@ -1507,9 +1516,9 @@ summary.nav-link {
   width: 140px;
   padding: 6px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--surface);
-  box-shadow: 0 6px 18px rgb(0 0 0 / 0.35);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--shadow-colour) 35%, transparent);
   font-size: 0.8rem;
 }
 .gantt-mark.is-release:hover .release-card {
@@ -1523,7 +1532,7 @@ summary.nav-link {
   width: 100%;
   aspect-ratio: 1;
   object-fit: cover;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   margin-bottom: 4px;
 }
 .release-name {
@@ -1536,7 +1545,7 @@ summary.nav-link {
   background: var(--text);
 }
 .legend i.legend-archived {
-  background: var(--green);
+  background: var(--complete);
 }
 .gantt-toolbar {
   display: flex;
@@ -1578,7 +1587,7 @@ summary.nav-link {
   margin: 5px 2px;
   padding: 0 7px;
   overflow: hidden;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: var(--bar);
   color: var(--text);
   font-size: 0.72rem;
@@ -1593,14 +1602,14 @@ summary.nav-link {
 .gantt-bar span {
   overflow: hidden;
   padding: 1px 5px;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   background: color-mix(in srgb, var(--bg) 80%, transparent);
   text-overflow: ellipsis;
 }
 .gantt-warning {
   margin-bottom: 14px;
   padding: 12px 18px;
-  border-left: 4px solid var(--yellow);
+  border-left: 4px solid var(--caution);
   color: var(--text-soft);
   font-size: 0.9rem;
 }
@@ -1618,7 +1627,7 @@ summary.nav-link {
    on catalogs and the Options tables). */
 [data-edit],
 [data-cell] {
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   cursor: text;
 }
 [data-edit]:hover,
@@ -1719,7 +1728,7 @@ textarea.inline-field {
 .project-page .add-button,
 .project-page .row-remove,
 .project-page .timeframe-add:not(.is-set) {
-  color: var(--cyan);
+  color: var(--project);
 }
 .project-page .add-button:hover,
 .project-page .timeframe-add:not(.is-set):hover,
@@ -1727,7 +1736,7 @@ textarea.inline-field {
   color: var(--accent);
 }
 .project-page .facts div {
-  border-color: var(--cyan);
+  border-color: var(--project);
 }
 .timeframe-add.is-set {
   --button-icon: url('../img/pencil-solid-full.svg');
@@ -1735,10 +1744,10 @@ textarea.inline-field {
 /* The flag on the Reviewed box: grey until it's on, then with a note beside it, in the colour of
    the Review page box it puts the page in: cyan for projects, purple for tentacles. */
 .review-flag-projects {
-  --flag-colour: var(--cyan);
+  --flag-colour: var(--project);
 }
 .review-flag-tentacles {
-  --flag-colour: var(--purple);
+  --flag-colour: var(--tentacle);
 }
 .review-flag-control {
   margin-left: 8px;
@@ -1810,10 +1819,10 @@ textarea.inline-field {
 /* An event's card shows how far it has got, in the Timeline's colours: cyan once applied
    for, purple once booked. */
 .card.is-applied {
-  border-color: var(--cyan);
+  border-color: var(--project);
 }
 .card.is-booked {
-  border-color: var(--purple);
+  border-color: var(--tentacle);
 }
 .event-filters {
   margin-bottom: 14px;
@@ -1878,7 +1887,7 @@ textarea.inline-field {
   gap: 8px;
 }
 .entry-value.is-invalid {
-  color: var(--pink);
+  color: var(--alert);
 }
 .entry-date-button {
   position: relative;
@@ -1933,9 +1942,10 @@ textarea.inline-field {
   color: var(--text);
   font-weight: 600;
 }
-/* Tentacle tabs are coloured by level, with the priority colours: the top-level tentacle like
-   priority A, its tentacles like B, the next level orange, and anything deeper grey like an
-   unset priority. The open tab is underlined in its own colour. */
+/* Tentacle tabs and menu entries are coloured by level in the theme's purples, so they can't be
+   taken for a status or priority: the top level in the raised surface colour (lifted towards
+   the text so it can be read), its tentacles in the tentacle colour, the next level in the
+   accent, and anything deeper grey. The open tab is underlined in its own colour. */
 .org-tab[class*='org-level-'] {
   color: var(--level);
 }
@@ -1946,13 +1956,13 @@ textarea.inline-field {
   border-bottom-color: var(--level);
 }
 .org-level-0 {
-  --level: var(--green);
+  --level: color-mix(in srgb, var(--surface-raised), var(--text) 35%);
 }
 .org-level-1 {
-  --level: var(--yellow);
+  --level: var(--tentacle);
 }
 .org-level-2 {
-  --level: var(--orange);
+  --level: var(--accent);
 }
 .org-level-deep {
   --level: var(--text-soft);
@@ -2015,15 +2025,15 @@ textarea.inline-field {
    progress colour down the left. */
 .scratch-block.is-flagged,
 .milestone.is-flagged {
-  border-top-color: var(--yellow);
-  border-right-color: var(--yellow);
-  border-bottom-color: var(--yellow);
+  border-top-color: var(--caution);
+  border-right-color: var(--caution);
+  border-bottom-color: var(--caution);
 }
 .scratch-block.is-flagged {
-  border-left-color: var(--yellow);
+  border-left-color: var(--caution);
 }
 .section-flag.is-on {
-  color: var(--yellow);
+  color: var(--caution);
 }
 .milestone header h3 {
   flex: 1 1 200px;
@@ -2059,7 +2069,7 @@ li.drop-after {
   margin-left: 8px;
   padding: 0 6px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 0.72rem;
   color: var(--text-soft);
   vertical-align: 1px;
@@ -2068,7 +2078,7 @@ li.drop-after {
   flex: none;
   width: 10px;
   height: 16px;
-  border-radius: 2px;
+  border-radius: var(--radius-hair);
   background-image: radial-gradient(circle, var(--text-soft) 1.2px, transparent 1.4px);
   background-size: 5px 5.3px;
   cursor: grab;
@@ -2087,7 +2097,7 @@ li.drop-after {
   height: 18px;
   padding: 0;
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: transparent;
   color: var(--text-soft);
   cursor: pointer;
@@ -2196,10 +2206,10 @@ li.drop-after {
   --issue: var(--accent);
 }
 .compat-error {
-  --issue: var(--pink);
+  --issue: var(--alert);
 }
 .compat-unexpected {
-  --issue: var(--orange);
+  --issue: var(--pending);
 }
 .compat-choices {
   display: flex;
@@ -2239,17 +2249,17 @@ li.drop-after {
   margin-bottom: 18px;
 }
 .review-box-projects {
-  --review-colour: var(--cyan);
+  --review-colour: var(--project);
 }
 .review-box-tentacles {
-  --review-colour: var(--purple);
+  --review-colour: var(--tentacle);
 }
 /* Flagged sections, yellow like the waiting tasks. */
 .review-box-sections {
-  --review-colour: var(--yellow);
+  --review-colour: var(--caution);
 }
 .nav-count-sections {
-  color: var(--yellow);
+  color: var(--caution);
 }
 .review-section {
   display: flex;
@@ -2259,7 +2269,7 @@ li.drop-after {
 }
 /* Waiting tasks, yellow like the WAITING statuses. */
 .review-box-waiting {
-  --review-colour: var(--yellow);
+  --review-colour: var(--caution);
 }
 .review-queue .review-box {
   border-color: var(--review-colour);
@@ -2409,21 +2419,21 @@ li.drop-after {
 }
 /* Suggestions: a project in a timeframe today, and the last item left in a milestone. */
 .review-box.is-suggested {
-  border-color: var(--cyan);
+  border-color: var(--project);
   border-left-width: 4px;
 }
 .plan-tag {
   flex: none;
   padding: 0 6px;
   border: 1px solid currentColor;
-  border-radius: 4px;
-  color: var(--cyan);
+  border-radius: var(--radius-xs);
+  color: var(--project);
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.05em;
 }
 .plan-item.is-last-item {
-  box-shadow: inset 0 0 0 1px var(--yellow);
+  box-shadow: inset 0 0 0 1px var(--caution);
 }
 .focus-remove {
   margin-left: auto;
@@ -2466,7 +2476,7 @@ li.drop-after {
   border-color: var(--surface-raised);
 }
 .archive-button:hover {
-  border-color: var(--pink);
+  border-color: var(--alert);
 }
 .idea-notes {
   white-space: pre-line;
@@ -2539,17 +2549,17 @@ li.drop-after {
   overflow-wrap: anywhere;
 }
 .primary-button.danger-button {
-  background: color-mix(in srgb, var(--pink) 33%, transparent);
-  border-color: var(--pink);
-  color: color-mix(in srgb, var(--pink), white 49%);
+  background: color-mix(in srgb, var(--alert) 33%, transparent);
+  border-color: var(--alert);
+  color: color-mix(in srgb, var(--alert), var(--text) 49%);
 }
 .primary-button.danger-button:hover {
-  background: color-mix(in srgb, var(--pink) 53%, transparent);
+  background: color-mix(in srgb, var(--alert) 53%, transparent);
 }
 .form-error {
   margin: 0;
   font-size: 0.85rem;
-  color: var(--pink);
+  color: var(--alert);
 }
 .modal-actions {
   display: flex;
@@ -2581,15 +2591,6 @@ li.drop-after {
 .options-toggle .check-box {
   margin-top: 1px;
 }
-.options-form select {
-  padding: 8px 10px;
-  border: 1px solid var(--surface-raised);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  letter-spacing: 0;
-}
 .options-toggle small,
 .options-choice small {
   display: block;
@@ -2597,13 +2598,17 @@ li.drop-after {
   font-size: 0.75rem;
   letter-spacing: 0;
 }
+/* The same size as the dropdowns beside it. */
 .options-form input {
-  padding: 8px 10px;
+  box-sizing: border-box;
+  min-height: 28px;
+  padding: 4px 8px;
   border: 1px solid var(--surface-raised);
   border-radius: var(--radius-sm);
-  background: transparent;
+  background: var(--surface);
   color: var(--text);
   font: inherit;
+  font-size: 0.82rem;
   letter-spacing: 0;
 }
 .options-actions {
@@ -2628,7 +2633,7 @@ li.drop-after {
   color: var(--text-soft);
 }
 .options-message.is-error {
-  color: var(--pink);
+  color: var(--alert);
 }
 .home-stats {
   display: grid;
@@ -2648,7 +2653,7 @@ a.home-stat:hover {
   background: var(--surface-raised);
 }
 .home-stat.is-alert {
-  border-left: 4px solid var(--pink);
+  border-left: 4px solid var(--alert);
 }
 .home-stat-label {
   display: block;
@@ -2733,10 +2738,10 @@ a.home-stat:hover {
   color: var(--text-soft);
 }
 .report-delta.is-good {
-  color: var(--green);
+  color: var(--complete);
 }
 .report-delta.is-bad {
-  color: var(--pink);
+  color: var(--alert);
 }
 .report-charts {
   display: grid;
@@ -2765,17 +2770,17 @@ a.home-stat:hover {
 .series-accent {
   --series: var(--accent);
 }
-.series-green {
-  --series: var(--green);
+.series-complete {
+  --series: var(--complete);
 }
-.series-orange {
-  --series: var(--orange);
+.series-pending {
+  --series: var(--pending);
 }
-.series-yellow {
-  --series: var(--yellow);
+.series-caution {
+  --series: var(--caution);
 }
-.series-pink {
-  --series: var(--pink);
+.series-alert {
+  --series: var(--alert);
 }
 /* Context next to the accent, and the UNASSIGNED status's own colour. */
 .series-soft {
@@ -2797,13 +2802,13 @@ a.home-stat:hover {
 .chart-key-line {
   width: 14px;
   height: 2px;
-  border-radius: 1px;
+  border-radius: var(--radius-hair);
   background: var(--series);
 }
 .chart-key-box {
   width: 10px;
   height: 10px;
-  border-radius: 2px;
+  border-radius: var(--radius-hair);
   background: var(--series);
 }
 .chart {
@@ -2952,7 +2957,7 @@ a.home-stat:hover {
   list-style: none;
 }
 .home-tasks .is-late {
-  color: var(--pink);
+  color: var(--alert);
 }
 .home-plan {
   padding: 14px 16px;
@@ -3001,7 +3006,7 @@ a.home-stat:hover {
   height: 1.15em;
   margin-right: 0.5em;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   vertical-align: -0.2em;
 }
 .label-card {
@@ -3062,7 +3067,7 @@ a.home-stat:hover {
   min-width: 3.4em;
   padding: 2px 8px;
   border: 1px solid var(--accent);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--accent);
   font-family: var(--mono);
   font-size: 0.78rem;
@@ -3125,7 +3130,7 @@ a.home-stat:hover {
   cursor: pointer;
 }
 .row-remove:hover {
-  color: var(--pink);
+  color: var(--alert);
 }
 /* Beside a milestone's plus button, at the same size. */
 .milestone-menu-button {
@@ -3169,7 +3174,7 @@ a.home-stat:hover {
 .sidebar-head .count {
   font-size: 0.75rem;
   padding: 1px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--accent-soft);
   color: var(--accent);
 }
@@ -3179,34 +3184,54 @@ a.home-stat:hover {
   position: relative; /* each dropdown's list spans the whole filter, not just its button */
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px 8px;
-  padding: 0 18px 14px;
+  gap: 6px 8px;
+  padding: 0 18px 10px;
   border-bottom: 1px solid var(--border);
 }
 .todo-filter {
   display: grid;
-  gap: 4px;
+  gap: 2px;
   min-width: 0;
 }
 .todo-filter-label {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-soft);
 }
+/* Every dropdown in the Todos filter and on the Options page looks the same, whether it's a
+   real <select> or a tick box list's button: the browser's arrow is swapped for one drawn
+   with two gradients, so it takes the theme's colour. */
 .sidebar-controls select,
-.multi-select-button {
+.multi-select-button,
+.options-form select {
   box-sizing: border-box;
   width: 100%;
-  min-height: 32px;
+  /* A fixed height with the line filling it, because a <select> centres its text but a
+     <summary> puts it at the top, so any spare height would set them at different heights. */
+  height: 28px;
+  margin: 0;
   font: inherit;
-  font-size: 0.85rem;
-  line-height: 1.2;
+  font-size: 0.82rem;
+  line-height: 26px;
+  letter-spacing: 0;
   color: var(--text);
-  background: var(--surface);
+  background-color: var(--surface);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-soft) 50%),
+    linear-gradient(135deg, var(--text-soft) 50%, transparent 50%);
+  background-position: calc(100% - 13px) 50%, calc(100% - 9px) 50%;
+  background-size: 4px 4px;
+  background-repeat: no-repeat;
   border: 1px solid var(--surface-raised);
   border-radius: var(--radius-sm);
-  padding: 6px 8px;
+  padding: 0 24px 0 8px; /* room on the right for the arrow */
+  appearance: none;
+  cursor: pointer;
+}
+.sidebar-controls select:hover,
+.options-form select:hover {
+  border-color: var(--accent);
 }
 /* A plain block that clips its text, because browsers don't reliably lay out a <summary>
    as flex, and long choices would otherwise spill into the next column. */
@@ -3217,20 +3242,10 @@ a.home-stat:hover {
   position: relative;
   display: block;
   overflow: hidden;
-  padding-right: 24px; /* room for the arrow */
-  cursor: pointer;
   list-style: none;
 }
 .multi-select-button::-webkit-details-marker {
   display: none;
-}
-.multi-select-button::after {
-  content: '▾';
-  position: absolute;
-  top: 50%;
-  right: 8px;
-  transform: translateY(-50%);
-  color: var(--text-soft);
 }
 .multi-select-button:hover,
 .multi-select[open] .multi-select-button {
@@ -3277,8 +3292,8 @@ a.home-stat:hover {
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
-  padding: 5px 6px;
-  font-size: 0.85rem;
+  padding: 3px 6px;
+  font-size: 0.82rem;
   color: var(--text);
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -3371,7 +3386,7 @@ a.home-stat:hover {
   font-size: 0.86em;
   background: var(--surface-raised);
   padding: 0 4px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 
 .badge {
@@ -3381,20 +3396,20 @@ a.home-stat:hover {
   letter-spacing: 0.05em;
   padding: 0 6px;
   border: 1px solid currentColor;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: transparent;
 }
 .badge.type-0 {
   color: var(--text-soft);
 }
 .badge.type-1 {
-  color: var(--orange);
+  color: var(--pending);
 }
 .badge.type-2 {
-  color: var(--yellow);
+  color: var(--caution);
 }
 .badge.type-3 {
-  color: var(--green);
+  color: var(--complete);
 }
 .badge.type-4 {
   color: var(--border);
@@ -3418,7 +3433,7 @@ a.home-stat:hover {
   cursor: pointer;
 }
 .status-name {
-  border-radius: 4px 0 0 4px;
+  border-radius: var(--radius-xs) 0 0 var(--radius-xs);
 }
 .status-name:disabled {
   cursor: default;
@@ -3427,7 +3442,7 @@ a.home-stat:hover {
   position: relative;
   width: 16px;
   padding: 0;
-  border-radius: 0 4px 4px 0;
+  border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
   box-shadow: 1px 0 0 color-mix(in srgb, var(--shadow-colour) 25%, transparent) inset;
 }
 .status-name.badge,
@@ -3544,7 +3559,7 @@ a.home-stat:hover {
   width: 100%;
   padding: 6px 8px;
   border: 1px solid var(--surface-raised);
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   background: transparent;
   color: var(--text);
   font: inherit;
@@ -3554,7 +3569,7 @@ a.home-stat:hover {
   width: 100%;
   padding: 6px 4px;
   border: 1px solid var(--surface-raised);
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   background: var(--surface);
   color: var(--text);
   font: inherit;
@@ -3618,7 +3633,7 @@ a.home-stat:hover {
 .timeframe-error {
   margin: 0;
   font-size: 0.8rem;
-  color: var(--pink);
+  color: var(--alert);
 }
 .status-menu.timeframe-form button {
   padding: 6px 8px;
@@ -3709,7 +3724,7 @@ a.home-stat:hover {
   cursor: pointer;
 }
 .timeframe-remove:hover {
-  color: var(--pink);
+  color: var(--alert);
 }
 
 .priority-control {
@@ -3762,7 +3777,7 @@ a.home-stat:hover {
   height: 1.15em;
   padding: 0;
   border: 1.5px solid var(--text-soft);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: var(--surface-raised);
   font: inherit;
   font-size: 0.95em;
@@ -3788,15 +3803,15 @@ a.home-stat:hover {
 }
 .icon-assigned {
   --icon: url('../img/circle-user-solid-full.svg');
-  color: var(--orange);
+  color: var(--pending);
 }
 .icon-waiting {
   --icon: url('../img/circle-half-stroke-solid-full.svg');
-  color: var(--yellow);
+  color: var(--caution);
 }
 .icon-done {
   --icon: url('../img/circle-check-solid-full.svg');
-  color: var(--green);
+  color: var(--complete);
 }
 .icon-archived {
   --icon: url('../img/circle-solid-full.svg');
@@ -3811,7 +3826,7 @@ a.home-stat:hover {
 .check-caret {
   width: 14px;
   height: 1.1em;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   box-shadow: none;
   background: var(--surface-raised);
   color: var(--text-soft);
@@ -3843,20 +3858,24 @@ a.home-stat:hover {
   border-radius: var(--radius-sm);
 }
 .todo.tint-project {
-  border-color: var(--cyan);
+  border-color: var(--project);
 }
 .todo.tint-milestone {
-  border-color: var(--purple);
+  border-color: var(--tentacle);
 }
 .todo.tint-inactive {
-  border-color: var(--pink);
+  border-color: var(--alert);
 }
-/* Recurring tasks due within three days, and those overdue, which the list puts first. */
+/* Recurring tasks that are due, overdue, or more than three days overdue (late), which the
+   list puts first. */
 .todo.recur-due {
-  border-color: var(--yellow);
+  border-color: var(--caution);
 }
 .todo.recur-overdue {
-  border-color: var(--pink);
+  border-color: var(--pending);
+}
+.todo.recur-late {
+  border-color: var(--alert);
 }
 .check-box.has-icon:not(:disabled):hover {
   border-color: transparent;
@@ -3895,7 +3914,7 @@ select optgroup {
   width: 100%;
   padding: 4px 8px;
   border: 0;
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   background: transparent;
   color: var(--text);
   font: inherit;
@@ -3913,7 +3932,7 @@ select optgroup {
   background: var(--border);
 }
 .status-menu button.is-danger {
-  color: var(--pink);
+  color: var(--alert);
 }
 /* A status in the menu: its type's icon and colour. The icon-<type> classes set both. */
 .status-menu button.status-menu-status {
@@ -3937,9 +3956,9 @@ select optgroup {
   background: color-mix(in srgb, var(--surface-raised) 60%, transparent);
 }
 .status-menu button.status-menu-status.icon-unassigned { color: var(--text-soft); }
-.status-menu button.status-menu-status.icon-assigned { color: var(--orange); }
-.status-menu button.status-menu-status.icon-waiting { color: var(--yellow); }
-.status-menu button.status-menu-status.icon-done { color: var(--green); }
+.status-menu button.status-menu-status.icon-assigned { color: var(--pending); }
+.status-menu button.status-menu-status.icon-waiting { color: var(--caution); }
+.status-menu button.status-menu-status.icon-done { color: var(--complete); }
 .status-menu-sep.is-thin {
   margin: 4px 6px;
   opacity: 0.6;
@@ -3959,7 +3978,7 @@ select optgroup {
   max-width: calc(100vw - 32px);
   padding: 10px 16px;
   background: var(--surface-raised);
-  border-left: 4px solid var(--pink);
+  border-left: 4px solid var(--alert);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow);
 }
@@ -4084,7 +4103,7 @@ select optgroup {
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
-    border-radius: 6px !important;
+    border-radius: var(--radius-xs) !important;
   }
 }
 
@@ -4127,11 +4146,11 @@ select optgroup {
 }
 .diff-add,
 .diff-to {
-  --diff: var(--green);
+  --diff: var(--complete);
 }
 .diff-remove,
 .diff-from {
-  --diff: var(--pink);
+  --diff: var(--alert);
 }
 .diff-from code {
   text-decoration: line-through;
@@ -4149,8 +4168,8 @@ select optgroup {
 
 .conflict-warning {
   margin-bottom: 16px;
-  border-color: var(--yellow);
-  background: color-mix(in srgb, var(--yellow) 6%, var(--surface));
+  border-color: var(--caution);
+  background: color-mix(in srgb, var(--caution) 6%, var(--surface));
 }
 .conflict-warning header {
   display: flex;
@@ -4160,7 +4179,7 @@ select optgroup {
 }
 .conflict-warning h2 {
   margin: 0;
-  color: var(--yellow);
+  color: var(--caution);
 }
 .conflict-note {
   margin: 8px 0 0;

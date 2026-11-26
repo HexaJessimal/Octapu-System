@@ -5,12 +5,12 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const { PRIORITIES, coloursStylesheet, parseComponents, RECUR_VALUE, PROJECT_TYPES } = require('./todos');
+const { PRIORITIES, parseComponents, RECUR_VALUE, PROJECT_TYPES } = require('./todos');
 const { currentName } = require('./lib/renames');
 const {
   requestContext, USER_COOKIE, DASHBOARD_DIR, PUBLIC_DIR, ROOT_DIR, HELP_FILE, IMAGES_DIR,
   ENTITY_COOKIE, dataPaths, disk, at, readEntities, entityRootOf, readCookie, selectedEntity,
-  isInside, readIfExists,
+  isInside, readIfExists, ENTITIES_FILE, OLD_ENTITIES_FILE,
 } = require('./lib/context');
 const {
   field, isArchived, readProjectDirs, listProjects, projectName, dependencyKey, readStatuses,
@@ -42,7 +42,7 @@ const {
   submitWeeklyReview, readTaskArchive,
 } = require('./lib/review');
 const {
-  readEntityTable, saveEntityRow, readStatusTable, readLeaderTable, readColourTable, saveStatusRow,
+  readEntityTable, saveEntityRow, readStatusTable, readLeaderTable, readColourTable, coloursCss, saveStatusRow,
   saveLeaderRow, saveColourRow, saveOptions, setupState, saveSetup,
 } = require('./lib/settings');
 const {
@@ -482,7 +482,7 @@ async function route(req, res) {
     if (url.pathname === '/api/task-archive') return sendJson(res, 200, await readTaskArchive());
     if (url.pathname === '/api/agenda-table') return sendJson(res, 200, await readAgendaTable());
     if (url.pathname === '/api/colour-table') return sendJson(res, 200, await readColourTable());
-    if (url.pathname === '/api/colours.css') return send(res, 200, coloursStylesheet((await readColourTable()).rows), MIME['.css']);
+    if (url.pathname === '/api/colours.css') return send(res, 200, await coloursCss(), MIME['.css']);
     if (url.pathname === '/api/home') return sendJson(res, 200, await collectHome());
     if (url.pathname === '/api/help') {
       const content = await readIfExists(HELP_FILE);
@@ -561,6 +561,14 @@ async function renameOldTentaclesFile(root) {
   console.log(`Renamed ${path.relative(ROOT_DIR, old)} to Tentacles.csv`);
 }
 
+// entities.csv used to be in _Dashboard. It's moved up to the main folder once, before the
+// entities are read, and never over one that's already there.
+async function moveOldEntitiesFile() {
+  if ((await readIfExists(ENTITIES_FILE)) !== null || (await readIfExists(OLD_ENTITIES_FILE)) === null) return;
+  await disk.rename(OLD_ENTITIES_FILE, ENTITIES_FILE);
+  console.log('Moved _Dashboard/entities.csv to the main folder');
+}
+
 // The Help Guide, its screenshots and the logo ship in _Dashboard/defaults.
 const DEFAULTS_DIR = path.join(DASHBOARD_DIR, 'defaults');
 
@@ -592,6 +600,7 @@ async function prepareEntity(root) {
 }
 
 async function createMissingFolders() {
+  await moveOldEntitiesFile();
   for (const entity of await readEntities()) await prepareEntity(entityRootOf(entity));
   await disk.mkdir(IMAGES_DIR, { recursive: true });
   await copyIfMissing(path.join(DEFAULTS_DIR, '_Help_Guide.md'), HELP_FILE);

@@ -228,9 +228,16 @@
     row.scrollIntoView({ block: 'nearest' });
   }
 
+  // The editable text of the list row a double-click landed in, for clicks on the row's empty
+  // space beside the text. A row that's only a link would otherwise have nowhere to double-click.
+  const rowText = (el) => {
+    const row = el.closest('li');
+    return row ? row.querySelector(':scope > .item-text[data-edit]') : null;
+  };
+
   document.addEventListener('dblclick', (e) => {
     if (open) return;
-    const target = e.target.closest('[data-edit]');
+    const target = e.target.closest('[data-edit]') || rowText(e.target);
     if (!target || e.target.closest('button, a, input, textarea, select')) return;
     clearSelection();
     startEditing(target);

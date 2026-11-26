@@ -299,7 +299,12 @@ const SWITCH_VALUES = ['TRUE', 'FALSE'];
 // Options with a fixed set of values, shown as a dropdown, and the value used when the file
 // doesn't have them. ARCHIVEMODE: HEADERS keeps an archived project's header in _Archive.md
 // and leaves its folder alone, for Syncthing to move off; FULL renames the folder instead.
-const CHOICE_OPTIONS = { ARCHIVEMODE: { values: ['HEADERS', 'FULL'], fallback: 'HEADERS' } };
+const CHOICE_OPTIONS = {
+  ARCHIVEMODE: { values: ['HEADERS', 'FULL'], fallback: 'HEADERS' },
+  // CUSTOM is _Options/Colours.csv. The others are the theme files in _Dashboard/defaults/themes.
+  THEME: { values: ['DARK', 'LITE', 'MONO', 'CYAN', 'CUSTOM'], fallback: 'DARK' },
+  CORNERS: { values: ['ROUND', 'SQUARE'], fallback: 'ROUND' },
+};
 
 // The file's options in its order, then any switch or choice it doesn't have yet, where
 // saving adds it.
@@ -599,6 +604,7 @@ module.exports = {
   SWITCH_VALUES,
   CHOICE_OPTIONS,
   readOptionsWithSwitches,
+  readChoice,
   readArchiveMode,
   readSwitch,
   readShowArchived,

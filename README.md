@@ -11,7 +11,7 @@ A small, self-contained dashboard for the markdown-driven project management sys
 
 ## Entities and tentacles
 
-An **entity** is a separate organisation with its own data, such as a record label and your freelance work. Each one is a row of `_Dashboard/entities.csv`:
+An **entity** is a separate organisation with its own data, such as a record label and your freelance work. Each one is a row of `entities.csv` in the main folder:
 
 ```
 Name,Directory
@@ -21,7 +21,7 @@ Freelance Work,Freelance
 
 `Directory` is a folder directly inside the main folder. Everything an entity holds lives in it: `_Catalogs`, `_Tentacles`, `_Options`, `_Networking`, `_Time_Management`, `_Archive.md`, `_Incubator.md` and its project directories, which `PROJECTS` names relative to that folder. The Help Guide, this README, `HelpGuide.pdf` and `_Images` (screenshots, the logo and catalog covers) are shared, and stay in the main folder.
 
-A dropdown at the top of the left menu, also on the setup and login pages, chooses the entity. The choice is kept in a browser cookie, so each browser can work on a different one. Every page then reads and writes only that entity's folder, including the `_Options` CSVs, so its statuses, tentacles, leaders, colours and options are its own. Switching from a project, tentacle or catalog page goes to the Dashboard, as that item may not exist in the other entity. The file is read on every request, so a new row appears without a restart. Choosing a new entity creates its folders and starter files, then opens first-time setup for it. With only one entity the dropdown is hidden. Without `entities.csv`, or with no usable rows, the main folder itself is the only entity, as before entities existed. A `Directory` that's `_Dashboard`, `_Images`, starts with `.`, or isn't a single folder name is skipped.
+A dropdown at the top of the left menu, also on the setup and login pages, chooses the entity. The choice is kept in a browser cookie, so each browser can work on a different one. Every page then reads and writes only that entity's folder, including the `_Options` CSVs, so its statuses, tentacles, leaders, colours and options are its own. Switching from a project, tentacle or catalog page goes to the Dashboard, as that item may not exist in the other entity. The file is read on every request, so a new row appears without a restart. Choosing a new entity creates its folders and starter files, then opens first-time setup for it. With only one entity the dropdown is hidden. Before 0.8 the file was `_Dashboard/entities.csv`, and start-up moves it to the main folder unless one is there already. Without `entities.csv`, or with no usable rows, the main folder itself is the only entity, as before entities existed. A `Directory` that's `_Dashboard`, `_Images`, starts with `.`, or isn't a single folder name is skipped.
 
 Inside an entity, its organisations and sub-organisations are **tentacles**: each row of `_Options/Tentacles.csv` (`id,Name,Parent`), top-level or not. A project's person in charge is its **leader**, from `_Options/Leaders.csv`, written `**Leader**:` in its header.
 
@@ -220,7 +220,7 @@ The **Report** tab draws the file:
 - **Wins logged:** a column per review.
 - **Every report:** a table of every figure, newest first, including Active and Scheduled projects, which have no chart of their own.
 
-Point at or tab to a chart to show a line across it at that review, with every value it shows. The charts take their colours from `_Options/Colours.csv`, matching what each colour means elsewhere: green for done, orange for assigned, yellow for waiting, grey for unassigned and pink for overdue.
+Point at or tab to a chart to show a line across it at that review, with every value it shows. The charts take their colours from the theme, matching what each colour means elsewhere: `complete` for done, `pending` for assigned, `caution` for waiting, grey for unassigned and `alert` for overdue.
 
 **Generate report** saves a single HTML file, named with today's date, holding the Overview and Report tabs as they look at that moment. The table of every report stays on the tab and isn't included. The styles and icons are inside it, so it opens in any browser with the dashboard closed, and can be emailed or kept. Links, menus, hover readouts, the add, drag and collapse buttons, and the Timeline's tick boxes and zoom buttons are left out, as they only work inside the dashboard. The Timeline in the file shows every row, not only those near the months on screen. Printing it, including to PDF, uses dark text on white, from the `print-` colours in `_Options/Colours.csv`, and shows the whole Timeline.
 
@@ -331,7 +331,7 @@ Until it's converted, a hand-written Event Date is read day-first, as `25.07.26`
 
 ### Options
 
-**General** edits the values in `_Options/Options.csv`, including the `PROJECTS` directory list. `SHOWARCHIVED`, `SYNCCONFLICTS` and `MULTIUSER` are tick boxes, and `ARCHIVEMODE` is a dropdown of `HEADERS` or `FULL` (see Archiving a project). They're always listed, even if the file doesn't have them yet.
+**General** edits the values in `_Options/Options.csv`, including the `PROJECTS` directory list. `SHOWARCHIVED`, `SYNCCONFLICTS` and `MULTIUSER` are tick boxes. The dropdowns are `ARCHIVEMODE`, `HEADERS` or `FULL` (see Archiving a project); `THEME`, `DARK` (the default), `LITE`, `MONO` or `CYAN` (the files in `_Dashboard/defaults/themes/`), or `CUSTOM` (the Colours tab); and `CORNERS`, `ROUND` (the default) or `SQUARE`, which takes the rounding off every box, button and label but leaves circles round. They're always listed, even if the file doesn't have them yet.
 
 #### Working as a team
 
@@ -382,9 +382,9 @@ Once a project's header has been archived (the **Archive** button in `HEADERS` m
 
 **Agenda** lists `_Time_Management/AgendaItems.csv`, edited in the same way, and creates it with its first row. **Type** is `text`, `REVIEW` or `REVIEW_ALL`: a rule `[[REVIEW|LABEL]]` is shown as the type `REVIEW` and the item `LABEL`, and saved back in that form. For a rule, **Item** is a dropdown of every target the type allows: `Dashboard`, each tentacle ID and each non-archived project (`ID#Title`) for `REVIEW`, and each group, `Tentacles#ID` for each tentacle with tentacles, and each `PROJECTS` directory for `REVIEW_ALL`. A target that no longer exists stays in its row's dropdown. Changing a rule's type picks the first target of the new type, and changing it to `text` keeps the target as the text. The Checked column isn't shown.
 
-**Entities** lists `_Dashboard/entities.csv`, shared by every entity, edited in the same way: double-click a Name or Directory to change it, the plus button adds a row and the minus button removes one. A Directory has the same rules as in the file. Adding an entity whose folder doesn't exist makes the folder, chooses the new entity and opens first-time setup, which makes its folders and files; a folder that exists is just added. Removing one only takes its row out of the file, leaving the folder alone, and the last row can't be removed. A Directory that isn't there yet is marked "not made yet". Every change reloads the page, as the entity dropdown lists them.
+**Entities** lists `entities.csv` in the main folder, shared by every entity, edited in the same way: double-click a Name or Directory to change it, the plus button adds a row and the minus button removes one. A Directory has the same rules as in the file. Adding an entity whose folder doesn't exist makes the folder, chooses the new entity and opens first-time setup, which makes its folders and files; a folder that exists is just added. Removing one only takes its row out of the file, leaving the folder alone, and the last row can't be removed. A Directory that isn't there yet is marked "not made yet". Every change reloads the page, as the entity dropdown lists them.
 
-**Colours** lists every colour on the dashboard, from `_Options/Colours.csv`, with what each is used for. The list is kept short, so one colour often has several uses, and changing it changes all of them. Double-click a colour to change it. It takes a 6 character hex value, with or without the `#`, and the new colour shows straight away. Paler tints of a colour, such as the current month on the Timeline, are worked out from it. Status and priority tags use the same colours everywhere, including on highlighted items in the Todos sidebar. The `print-` colours are only used when a generated report is printed.
+**Colours** lists every colour on the dashboard, from `_Options/Colours.csv`, with what each is used for. It's only used while `THEME` is `CUSTOM`, and the tab says so when another theme is on. The colours are named by role: `accent`, `bg`, `surface`, `surface-raised`, `border`, `text`, `text-soft`, `shadow-colour`, `on-highlight` (text and ticks on a filled highlight colour), `complete`, `caution`, `pending`, `alert`, `tentacle`, `project` and the `print-` colours. Before 0.8 the highlight colours were named `green`, `yellow`, `orange`, `pink`, `purple` and `cyan`; rows with those names are ignored, and Compatibility's **Core files** page lists the file and renames them, adding `on-highlight` with the old `border` value. A light `bg` switches form controls and scrollbars to light and darkens the logo. The list is kept short, so one colour often has several uses, and changing it changes all of them. Double-click a colour to change it. It takes a 6 character hex value, with or without the `#`, and the new colour shows straight away. Paler tints of a colour, such as the current month on the Timeline, are worked out from it. Status and priority tags use the same colours everywhere, including on highlighted items in the Todos sidebar. The `print-` colours are only used when a generated report is printed.
 
 You can also edit the file by hand and refresh the page. The `Name` of each row is how the stylesheet finds it, so it needs to stay as it is. A row that's missing, or whose value isn't a 6 character hex value, uses the built-in colour from `public/css/style.css`. Pale page backgrounds may leave parts the browser draws itself, such as scrollbars and dropdown lists, dark, because the dashboard declares a dark colour scheme.
 
@@ -394,7 +394,7 @@ Status names and leader tags are written into your markdown files. Renaming or d
 
 Each tentacle has a folder named after its `id` inside `_Tentacles/`, nested inside its parent's folder when it has a `Parent`. For example, `_Tentacles/OCTAPU/PIXELGRINDER/Pixelgrinder.md`. The markdown file is named after the tentacle's `Name`; if there's no file with that exact name, the first markdown file in the folder is used. A tentacle whose `Parent` isn't in the CSV is left out.
 
-Each top-level tentacle has one page, with a tab for itself and a tab for each tentacle under it. Each level of tabs is a row: the top-level tentacle, then those under it, then those under the open tab's tentacle at each level down. Tabs above the open one are underlined faintly. The tabs are coloured by level, using the priority colours: the top-level tentacle like priority A, the level below like priority B, the third level orange, and anything deeper grey. The Overview's facts show **Created**, **Reviewed**, **Incomplete tasks** and **Parent**, which links to the parent's tab, or says **None (top level)**.
+Each top-level tentacle has one page, with a tab for itself and a tab for each tentacle under it. Each level of tabs is a row: the top-level tentacle, then those under it, then those under the open tab's tentacle at each level down. Tabs above the open one are underlined faintly. The tabs are coloured by level in the theme's purples, kept apart from the status colours: the top-level tentacle in `surface-raised` lightened towards the text colour, the level below in `tentacle`, the third level in `accent`, and anything deeper grey. The Overview's facts show **Created**, **Reviewed**, **Incomplete tasks** and **Parent**, which links to the parent's tab, or says **None (top level)**.
 
 - **Plus tab:** at the end of the last row, asks for a name, an ID and which tentacle it goes **Under** (the open tab's to start with), then creates the folder and markdown file and adds the row to `_Options/Tentacles.csv`. The new file has `Date Created` set to today, `Date Reviewed`, `## Notes` and a heading for each entry in `TASKLISTS`, so it passes the Compatibility check. The ID is suggested from the name. It can use letters, numbers and hyphens, and can't match an existing `id`.
 - **Timeline**, on the Overview below the summary: the Dashboard's Timeline for this tab's own projects (those whose name starts with its ID) and its archive entries, without the projects of tentacles under it, and without event and release lines. Its zoom and Active, Inactive and Archive tick boxes are shared with the Dashboard's.
@@ -572,7 +572,7 @@ In the markdown, a priority is a token straight after the status, such as `- [/]
 
 - Making a task recurring when it wasn't schedules it one period from today (`SCHEDULED:` on the line below, replacing any it had). Changing the period, or changing R to another priority, leaves the date as it is.
 - Selecting a recurring task's status name or tick box moves its `SCHEDULED` date on by one period (from today if it has none), and leaves its status and tick box alone (`POST /api/recur`). Its other statuses can still be chosen from the caret. Months and years keep the day of the month, or use the month's last day if it's shorter, so 31 January plus a month is 28 or 29 February.
-- In the Todos sidebar, an open recurring task whose `SCHEDULED` date is past has a red (`pink`) border, and one due today or within three days a yellow border. Both go above every other open item, red first, each group in the chosen Sort. The Priority filter and sort list `R` after `C`.
+- In the Todos sidebar (`recurState` in sidebar.js), an open recurring task is highlighted from a few days before its `SCHEDULED` date, by its period (`leadDays`, counting a month as 30 days and a year as 365): under 7 days only on the day, 7 to 27 days from the day before, and 28 days (4W, 1M) or more from 7 days before. Its border is `caution` while due, `pending` once the date has passed, and `alert` when more than 3 days past (`RECUR_LATE_DAYS`). They go above every other open item, the most overdue first, each group in the chosen Sort. The Priority filter and sort list `R` after `C`.
 
 ### Dates
 
@@ -608,7 +608,8 @@ Changes you make to the markdown files or the CSV appear when you refresh the br
 _Help_Guide.md         the step by step guide shown in the dashboard
 HelpGuide.pdf          the same guide as a PDF, to read or print without the dashboard
 _Images/               pictures for [[IMAGE#...]] links, and the logo, shared by every entity
-Label/                 one entity's folder, as named in _Dashboard/entities.csv
+entities.csv           the entities (Name,Directory), each a folder beside it
+Label/                 one entity's folder, as named in entities.csv
   Projects/            its projects (each directory in PROJECTS, relative to this folder)
   _Incubator.md        ideas for projects
   _Task_Archive.md     tasks each review has taken out of their files once archived
@@ -620,7 +621,6 @@ Label/                 one entity's folder, as named in _Dashboard/entities.csv
   _Options/           the CSV files behind the Options page, Tentacles.csv among them
 Freelance/             another entity's folder, laid out the same way
 _Dashboard/
-  entities.csv         the entities (Name,Directory)
   server.js            tiny HTTP server (Node built-ins only): routes, request checks, static files, start-up
   lib/                 the server's work, one file per area (see How the code is organised)
   todos.js             finds status-prefixed items in markdown
@@ -630,6 +630,7 @@ _Dashboard/
   test/                unit tests (node --test)
   dev/                 checks to run against a copy of the data: API snapshot and page sweep
   defaults/Colours.csv the colours a new install starts with
+  defaults/themes/     the DARK, LITE, MONO and CYAN themes
   public/
     setup.html         first-time setup form
     login.html         multi-user login
@@ -690,7 +691,7 @@ _Dashboard/
 
 - **HTML** lives in `public/components/*.html`, as `<template name="...">` blocks. A script asks for one by name with `PMS.component('name', { slot: value })`, or `PMS.element` for a live element such as a dialog. Pages load them all through `api/components.js`, so a new or changed template only needs a browser refresh.
 - **Slots:** `{{slot}}` is escaped, `{{{slot}}}` is HTML that's already safe, and `{{#if slot}}...{{else}}...{{/if}}` is optional markup. Line breaks and the indentation after them are removed, so a space that matters has to be on the same line as its neighbours.
-- **CSS** lives in `public/css/style.css`. The colours come from `_Options/Colours.csv`. Values only known while the page runs, such as where a Timeline bar starts, are passed in as named custom properties like `--from`, and the stylesheet says what to do with them.
+- **CSS** lives in `public/css/style.css`. The colours come from `api/colours.css`, made from the theme or `_Options/Colours.csv`, which every page loads after `style.css`. Corner sizes are only ever the `--radius` variables, never a fixed size, so `CORNERS` can square them all. Values only known while the page runs, such as where a Timeline bar starts, are passed in as named custom properties like `--from`, and the stylesheet says what to do with them.
 - **JavaScript** lives in `public/js`. Anything used by more than one page goes in `js/projects.js`.
 - **Rules both sides need**, such as how a priority token, a timeframe or a section's review line is written, and how a milestone's progress is counted, live once in `public/js/rules.js`. Pages load it as `PMS.rules`, and the server `require`s the same file.
 - **The server** is `server.js`, which only routes requests, checks them and serves files, and the modules in `lib/`. Each module only uses the ones above it in this list, so none of them depend on each other in a loop:

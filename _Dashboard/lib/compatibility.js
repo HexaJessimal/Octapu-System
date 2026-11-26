@@ -5,14 +5,15 @@ const fs = require('fs');
 const path = require('path');
 const {
   parseHeader, createMatcher, taskBlockLines, findTodos, STORAGE_FORMAT, projectTitleError,
-  parseTimeframes, tentacleChain, stripComments, LEADER_FIELD, OLD_LEADER_FIELD,
+  parseTimeframes, tentacleChain, stripComments, LEADER_FIELD, OLD_LEADER_FIELD, parseColours,
+  renameColourRows,
 } = require('../todos');
 const {
   tentacleProblems, projectProblems, unknownMarkdown, hasDashboardStructure, applyFixes,
   milestoneTitles, ARCHIVE_FIELDS, parseNamedEntries, renameOldLeader, parseEntries, eventDateValue,
   readOldEventDate, setInlineField,
 } = require('../document-edits');
-const { RENAMED, renamed } = require('./renames');
+const { RENAMED, RENAMED_COLOURS, renamed } = require('./renames');
 const { logName, isLogOf } = require('../changes');
 const { readText, disk, currentRoot, at, readIfExists } = require('./context');
 const {
@@ -20,7 +21,7 @@ const {
   STATUS_PREFIX, listMarkdown, parseProjectDirs, readOptions, readTaskLists, listProjects,
   primaryFile, readProjectFile, projectTitle, namedFile, readStatuses, readTentacles, readLeaders,
   tentaclePlace, primaryTentacleFile, tentacleFiles, writeFileSafely, updateProjectFile, isFolder,
-  folderTentacle, fileTitle,
+  folderTentacle, fileTitle, editLabelFile, DEFAULT_COLOURS_FILE,
 } = require('./store');
 const { entryTaskLines } = require('./tasks');
 const { NOT_FOUND, eventFieldTarget } = require('./networking');
@@ -234,8 +235,23 @@ async function renameWithLogs(dir, file, target) {
 const renameDir = (rule) => (rule.where === 'networking' ? at().NETWORKING_DIR : currentRoot());
 const renameLocation = (rule) => (rule.where === 'networking' ? '_Networking' : '');
 
+// Colours.csv rows still named after a hue. They're ignored, so those colours come from the
+// stylesheet until the rows are renamed.
+async function oldColourNames() {
+  const text = await readIfExists(at().COLOURS_FILE);
+  if (text === null) return [];
+  const names = new Set(parseColours(text).map((row) => row.name));
+  return RENAMED_COLOURS.filter(([from]) => names.has(from));
+}
+
 async function incompatibleCoreFiles() {
   const rows = [];
+  const colours = await oldColourNames();
+  if (colours.length) {
+    const list = colours.map(([from, to]) => `${from} (now ${to})`).join(', ');
+    const text = `Colours.csv still uses the old colour names ${list}. Those rows are ignored, so the dashboard uses its own colours for them until they're renamed. Fix issues renames them and adds on-highlight, the colour of text on a highlight, which used to be the border colour`;
+    rows.push({ key: 'colours', name: 'Colours.csv', file: 'Colours.csv', directory: '_Options', href: 'options.html?tab=colours', problems: [{ text, kind: 'fixable' }] });
+  }
   for (const rule of RENAMED) {
     const dir = renameDir(rule);
     if (!fs.existsSync(path.join(dir, rule.from))) continue;
@@ -245,10 +261,15 @@ async function incompatibleCoreFiles() {
       : { text: `${rule.from} should be called ${rule.to}, as ${rule.why}`, kind: 'fixable' };
     rows.push({ key: rule.key, name: rule.from, file: rule.from, directory: renameLocation(rule), href: rule.href, problems: [problem] });
   }
-  return { checked: RENAMED.length, rows };
+  return { checked: RENAMED.length + 1, rows };
 }
 
 async function fixCoreFile(key, file) {
+  if (key === 'colours') {
+    if (file !== 'Colours.csv') return { code: 400, body: { error: 'Invalid request' } };
+    const defaults = parseColours((await readIfExists(DEFAULT_COLOURS_FILE)) || '');
+    return editLabelFile(at().COLOURS_FILE, 'Name,Colour,Used for', (text) => renameColourRows(text, defaults), {});
+  }
   const rule = renamed(key);
   if (!rule || rule.from !== file) return { code: 400, body: { error: 'Invalid request' } };
   const dir = renameDir(rule);

@@ -64,6 +64,8 @@
   // What each dropdown option does, and what each of its values means.
   const CHOICE_NOTES = {
     ARCHIVEMODE: 'What the Archive button on a project does. HEADERS sets Date Closed and copies its header into _Archive.md, leaving the folder for you to move off (to a NAS, say). FULL sets Date Closed and renames the folder with today\'s date.',
+    THEME: 'The colours of every page. DARK is the usual purple theme on a dark page, LITE is the same on a pale page, MONO is black on white with a few highlight colours, and CYAN is cyan on black. CUSTOM uses your own colours from the Colours tab (_Options/Colours.csv).',
+    CORNERS: 'ROUND gives boxes, buttons and labels rounded corners. SQUARE makes them all square, leaving only true circles round.',
   };
 
   function field(o) {
@@ -108,7 +110,12 @@
         message.className = 'options-message' + (result.ok ? '' : ' is-error');
         message.textContent = result.ok ? 'Saved.' : result.error || 'Could not save the options.';
         if (result.ok && values.MULTIUSER === 'TRUE' && !window.PMS_USER) location.assign('login.html'); // turning it on asks who you are
-        else if (result.ok) window.PMS.status.refresh(); // the sidebars show dates in the new format
+        else if (result.ok) {
+          window.PMS.status.refresh(); // the sidebars show dates in the new format
+          // THEME and CORNERS change the colours stylesheet, so it's fetched again.
+          const link = document.querySelector('link[href^="api/colours.css"]');
+          if (link) link.href = 'api/colours.css?' + Date.now();
+        }
       } catch (_) {
         message.className = 'options-message is-error';
         message.textContent = UNREACHABLE;

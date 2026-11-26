@@ -38,6 +38,17 @@ const RENAMED = [
   },
 ];
 
+// Colours.csv names that described a hue rather than a use, so stopped making sense once the
+// colour was changed. Rows with the old names are ignored until Core files renames them.
+const RENAMED_COLOURS = [
+  ['green', 'complete'],
+  ['yellow', 'caution'],
+  ['orange', 'pending'],
+  ['pink', 'alert'],
+  ['purple', 'tentacle'],
+  ['cyan', 'project'],
+];
+
 const renamed = (key) => RENAMED.find((rule) => rule.key === key);
 
 // The name in use in `dir`: the new one, or the old one while only that exists. `exists`
@@ -47,4 +58,4 @@ function currentName(dir, key, exists) {
   return !exists(path.join(dir, rule.to)) && exists(path.join(dir, rule.from)) ? rule.from : rule.to;
 }
 
-module.exports = { RENAMED, renamed, currentName };
+module.exports = { RENAMED, RENAMED_COLOURS, renamed, currentName };

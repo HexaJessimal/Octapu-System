@@ -162,9 +162,13 @@
   }
 
   // A column's path: square at the bottom, with a 4px rounded top when `round`.
+  // The rounding of a column's top follows the stylesheet's small corners, so CORNERS set to
+  // SQUARE squares the columns too.
+  const cornerSize = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--radius-xs')) || 0;
+
   function columnPath(left, width, base, top, round) {
     const right = r1(left + width);
-    const r = round ? Math.min(4, width / 2, base - top) : 0;
+    const r = round ? Math.min(cornerSize(), width / 2, base - top) : 0;
     return `M${left} ${r1(base)} L${left} ${r1(top + r)} Q${left} ${top} ${r1(left + r)} ${top} L${r1(right - r)} ${top} Q${right} ${top} ${right} ${r1(top + r)} L${right} ${r1(base)} Z`;
   }
 
@@ -293,12 +297,12 @@
             subtitle: 'Tasks completed in each period, under those still open at each review, and how many are overdue',
             right: 76,
             bars: [
-              { key: 'completed', series: 'green', label: label('completed') },
-              { key: 'assigned', series: 'orange', label: label('assigned') },
-              { key: 'waiting', series: 'yellow', label: label('waiting') },
+              { key: 'completed', series: 'complete', label: label('completed') },
+              { key: 'assigned', series: 'pending', label: label('assigned') },
+              { key: 'waiting', series: 'caution', label: label('waiting') },
               { key: 'unassigned', series: 'soft', label: label('unassigned') },
             ],
-            lines: [{ key: 'overdue', series: 'pink', label: label('overdue'), short: 'Overdue' }],
+            lines: [{ key: 'overdue', series: 'alert', label: label('overdue'), short: 'Overdue' }],
           }) +
           chart({
             key: 'plan',

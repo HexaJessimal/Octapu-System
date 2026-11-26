@@ -83,7 +83,7 @@ Once a task has a status, a second small dropdown appears beside it. Use that to
 
 For something you do again and again, such as paying a bill, choose **R** (recurring), shown in cyan. A small form asks how often: a number from 1 to 10, and **Days**, **Weeks**, **Months** or **Years**. The first time you make a task recurring, it's scheduled that far ahead. After that, selecting its status name or its tick box doesn't change its status or tick it. It moves the scheduled date on by that much instead, so it's ready for next time. To change how often, choose **R** again. To stop it recurring, choose another priority.
 
-In the Todos list on the right, a recurring task due within three days has a yellow border, and one whose date has passed has a red border. They go to the top of the list, the red ones first, whatever **Sort** is set to.
+In the Todos list on the right, a recurring task gets a border when it's due. One that comes round more often than weekly is highlighted only on its day, one that comes round weekly up to monthly from the day before, and one that comes round every 4 weeks, every month or less often from a week before. The border is the **caution** colour when it's due, **pending** once its date has passed, and **alert** when it's more than three days overdue. They go to the top of the list, the most overdue first, whatever **Sort** is set to.
 
 The grey menu at the end of the task's row has **Schedule** and **Deadline** options, above Cancel and Delete. Each asks for a date, which you can type or choose with the calendar button, and shows it under the task. A task with a date appears in **Due in the next 7 days** and **Overdue tasks** on the Dashboard's Overview. To remove a date, choose the option again and clear the box.
 
@@ -391,6 +391,8 @@ Open **Options** at the bottom of the left menu. The **General** tab holds:
 - `SYNCCONFLICTS`: tick it to be warned about Syncthing conflicts, as described in [Work together as a team](#work-together-as-a-team).
 - `MULTIUSER`: tick it to log in and keep a Changelog of who changed what, as described in [Work together as a team](#work-together-as-a-team).
 - `ARCHIVEMODE`: what the **Archive** button on a project does, as described in [Archive a finished project](#archive-a-finished-project).
+- `THEME`: the colours of every page. **DARK**, the default, is the usual purple theme on a dark page. **LITE** is the same on a pale page, **MONO** is black on white with a few colours kept for what needs attention, and **CYAN** is cyan on black. **CUSTOM** uses your own colours from the **Colours** tab, described in [Customise your dashboard colours](#customise-your-dashboard-colours).
+- `CORNERS`: **ROUND** gives boxes, buttons and labels rounded corners, and **SQUARE** makes them square. Round icons stay round.
 
 [[IMAGE#Screenshots/45-Options.png]]
 
@@ -416,7 +418,7 @@ Tasks are assigned using statuses, so if you'd like to assign tasks to the new p
 
 ## Customise your dashboard colours
 
-The **Colours** tab lists every colour the dashboard uses and what it's for. Double-click a colour and enter a 6 character hex value, such as `#00ff6a`. The change shows straight away. One colour often has several uses, and changing it changes them all.
+The **Colours** tab lists every colour the dashboard uses and what it's for. They're named after what they mark rather than how they look, such as **complete**, **caution** and **alert**, so a name still makes sense whatever colour you give it. Your colours are used while `THEME` on the **General** tab is **CUSTOM**; pick one of the other themes to use a ready-made set instead. Double-click a colour and enter a 6 character hex value, such as `#00ff6a`. The change shows straight away. One colour often has several uses, and changing it changes them all.
 
 The colours starting `print-` are only used when you print a generated report, described in [Read your report and save it](#read-your-report-and-save-it), so it comes out as dark text on white paper.
 
@@ -489,7 +491,8 @@ Your files are organised like this:
 
 [[IMAGE#Screenshots/51-DirectoryStructure.png]]
 
-- `_Dashboard`: the dashboard's own code, and `entities.csv`, the list of your entities.
+- `entities.csv`: the list of your entities.
+- `_Dashboard`: the dashboard's own code.
 - `_Images`: pictures used in your notes and this guide, shared by all your entities.
 - `Label`, `Freelance` and so on: a folder for each entity, holding everything below.
 - `_Tentacles`: a folder per tentacle, named after its ID, with tentacles inside their parent, and `Reports.md`.
@@ -711,7 +714,7 @@ On a projects list, the buttons along the top show **All**, **Active** or **Inac
 
 ## Read your tentacle's tabs
 
-The tabs along the top of a tentacle's page are coloured by how deep each one is: green for your tentacle, yellow for its tentacles, orange for theirs, and grey for anything deeper. The open tab is underlined in its colour.
+The tabs along the top of a tentacle's page are coloured by how deep each one is, in shades of the theme's purple so they're never mistaken for a status: your tentacle in the raised purple, its tentacles in the tentacle purple, theirs in the accent colour, and grey for anything deeper. The open tab is underlined in its colour.
 
 Each level has its own row. Your tentacle is on the first, the tentacles under it on the second, and the tentacles under the open one on the row below that. The tabs above the open one are underlined faintly, so you can see the way back up.
 
@@ -739,7 +742,7 @@ Then open the address it prints, such as `http://127.0.0.1:8080`.
 
 An entity is a separate set of everything: its own projects, tentacles, leaders, statuses, colours, options, catalogs, Contacts, Events, Incubator and Archive. Use one for each organisation you run, such as a record label and your freelance work.
 
-Your entities are listed on the **Entities** tab of the Options page, which is `entities.csv` in the `_Dashboard` folder. Select the plus button and enter a name and a folder name, such as **Freelance Work** and `Freelance`. The folder goes in the main `Octapu-System` folder. If it isn't there yet, the dashboard makes it, switches to the new entity and opens the setup form, as in [Launch the dashboard and create your tentacle](#launch-the-dashboard-and-create-your-tentacle). When you finish the form, it makes all the entity's folders and files.
+Your entities are listed on the **Entities** tab of the Options page, which is `entities.csv` in the main `Octapu-System` folder. Select the plus button and enter a name and a folder name, such as **Freelance Work** and `Freelance`. The folder goes in the main `Octapu-System` folder. If it isn't there yet, the dashboard makes it, switches to the new entity and opens the setup form, as in [Launch the dashboard and create your tentacle](#launch-the-dashboard-and-create-your-tentacle). When you finish the form, it makes all the entity's folders and files.
 
 [[IMAGE#Screenshots/88-EntitiesTab.png]]
 

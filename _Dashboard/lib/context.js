@@ -27,7 +27,10 @@ const HELP_FILE = path.join(ROOT_DIR, '_Help_Guide.md');
 const IMAGES_DIR = path.join(ROOT_DIR, '_Images');
 
 // The entities (Name,Directory), each keeping its data in its own folder of the main folder.
-const ENTITIES_FILE = path.join(DASHBOARD_DIR, 'entities.csv');
+// The list is the user's data, so it sits in the main folder beside them. It used to be kept
+// in _Dashboard, and start-up moves it from there (server.js moveOldEntitiesFile).
+const ENTITIES_FILE = path.join(ROOT_DIR, 'entities.csv');
+const OLD_ENTITIES_FILE = path.join(DASHBOARD_DIR, 'entities.csv');
 const ENTITY_COOKIE = 'pms_entity';
 // Without entities.csv, the main folder itself holds the data, as before entities existed.
 const FALLBACK_ENTITY = { name: 'Octapu System', dir: '' };
@@ -182,6 +185,7 @@ module.exports = {
   HELP_FILE,
   IMAGES_DIR,
   ENTITIES_FILE,
+  OLD_ENTITIES_FILE,
   ENTITY_COOKIE,
   dataPaths,
   readText,

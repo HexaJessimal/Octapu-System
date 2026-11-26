@@ -361,7 +361,7 @@
     return 'badge type-' + TYPES.indexOf(type);
   }
 
-  // The entities from _Dashboard/entities.csv as a dropdown. With only one there's nothing to
+  // The entities from entities.csv as a dropdown. With only one there's nothing to
   // choose. It's on every page with the menu, and on setup and login, which have none.
   function entityPicker() {
     const entities = global.PMS_ENTITIES || [];
