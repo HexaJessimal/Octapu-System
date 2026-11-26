@@ -200,29 +200,48 @@
     if (!SORTS.some(([value]) => value === sort)) sort = DEFAULT_SORT;
   }
 
-  // A recurring task due within this many days is outlined yellow, and an overdue one red.
-  const RECUR_SOON_DAYS = 3;
-  const isoDay = (date) => date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+  // How long each recurring unit is, in days, near enough to pick how early it's highlighted.
+  const UNIT_DAYS = { D: 1, W: 7, M: 30, Y: 365 };
+  // How many days before its date a recurring task is highlighted, by how often it comes round:
+  // more often than weekly only on the day, weekly up to monthly from the day before, and
+  // monthly (4 weeks counts) or less often from a week before.
+  const leadDays = (recur) => {
+    const period = recur ? recur.count * UNIT_DAYS[recur.unit] : 0;
+    return period >= 28 ? 7 : period >= 7 ? 1 : 0;
+  };
+  // Past its date it's overdue, and more than this many days past it's late.
+  const RECUR_LATE_DAYS = 3;
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  // Whole days from today to an ISO date, by the calendar, so the time of day doesn't matter.
+  const daysUntil = (iso) => {
+    const [y, m, d] = iso.split('-').map(Number);
+    const now = new Date();
+    return Math.round((Date.UTC(y, m - 1, d) - Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())) / DAY_MS);
+  };
 
-  // 'overdue', 'due' or null, for an open recurring task, from its SCHEDULED date.
+  // 'late', 'overdue', 'due' or null, for an open recurring task, from its SCHEDULED date.
   function recurState(item) {
     if (item.priority !== 'R' || isDone(item.type) || isArchived(item.type)) return null;
     const scheduled = item.dates.find((d) => d.kind === 'SCHEDULED');
     const day = scheduled && scheduled.value.slice(0, 10);
-    if (!day) return null;
-    const now = new Date();
-    const today = isoDay(now);
-    if (day < today) return 'overdue';
-    const soon = isoDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() + RECUR_SOON_DAYS));
-    return day <= soon ? 'due' : null;
+    if (!day || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
+    const days = daysUntil(day);
+    if (days < -RECUR_LATE_DAYS) return 'late';
+    if (days < 0) return 'overdue';
+    return days <= leadDays(item.recur) ? 'due' : null;
   }
+  const RECUR_NOTES = {
+    late: 'Recurring task, more than ' + RECUR_LATE_DAYS + ' days overdue',
+    overdue: 'Recurring task, overdue',
+    due: 'Recurring task, due soon',
+  };
 
   function renderItem(item) {
     const { label, href } = status.itemLink(item);
     const recur = recurState(item);
     return component('todo-item', {
       recur,
-      note: recur === 'overdue' ? 'Recurring task, overdue' : recur === 'due' ? 'Recurring task, due within ' + RECUR_SOON_DAYS + ' days' : HIGHLIGHT_NOTES[item.highlight],
+      note: recur ? RECUR_NOTES[recur] : HIGHLIGHT_NOTES[item.highlight],
       ticked: item.mark === 'x',
       tint: recur ? null : item.highlight,
       checkbox: item.mark === null ? '' : status.checkbox(item),
@@ -240,8 +259,8 @@
   function renderList() {
     FILTERS.forEach(([key]) => renderFilter(key));
     const list = sorted(visibleItems());
-    // Overdue recurring tasks come first, then those due soon, each in the chosen order.
-    const rank = (i) => ({ overdue: 0, due: 1 }[recurState(i)] ?? 2);
+    // Late recurring tasks come first, then overdue, then due, each in the chosen order.
+    const rank = (i) => ({ late: 0, overdue: 1, due: 2 }[recurState(i)] ?? 3);
     const open = list.filter((i) => !isDone(i.type)).sort((a, b) => rank(a) - rank(b));
     const done = list.filter((i) => isDone(i.type));
     root.querySelector('#todo-count').textContent = list.length;
