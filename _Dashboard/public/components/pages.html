@@ -257,7 +257,7 @@
 <template name="plan-pick">
   <li>
     <button type="button" class="plan-item{{#if last}} is-last-item{{/if}}" data-focus-add="{{{index}}}"{{#if last}} title="The last unfinished item in this milestone"{{/if}}>
-      {{{badge}}}<span>{{text}}</span><small>{{milestone}}</small>
+      {{{badge}}}<span>{{{text}}}</span><small>{{milestone}}</small>
     </button>
   </li>
 </template>
@@ -267,6 +267,7 @@
     <header>
       <button type="button" class="collapse-button" data-collapse aria-expanded="{{{expanded}}}" aria-label="Show or hide this block"></button>
       <h2>{{title}}</h2>
+      {{#if path}}<small class="plan-path" title="{{path}}">{{path}}</small>{{/if}}
       {{#if suggested}}<span class="plan-tag">Suggested</span>{{/if}}
       <span class="ms-count">{{{count}}}</span>
     </header>

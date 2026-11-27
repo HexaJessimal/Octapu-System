@@ -81,13 +81,14 @@
 
 <!-- The grey menu at the end of a task row. -->
 <template name="control-row-menu">
-  <span class="status-control row-menu-control" {{{attrs}}}{{#if inMilestone}} data-in-milestone="true" data-milestone-line="{{{milestoneLine}}}"{{/if}}{{#if blockable}} data-blockable="true"{{/if}}>
+  <span class="status-control row-menu-control" {{{attrs}}}{{#if inMilestone}} data-in-milestone="true" data-milestone-line="{{{milestoneLine}}}"{{/if}}{{#if blockable}} data-blockable="true"{{/if}}{{#if blockExists}} data-block-exists="true"{{/if}}{{#if childable}} data-childable="true"{{/if}}>
     <button type="button" class="row-menu-button" aria-haspopup="menu" aria-expanded="false" title="More for this task" aria-label="More for this task"></button>
   </span>
 </template>
 
-<!-- Dates first, then Cancel and Delete. -->
+<!-- Add child task (on the task's own page), the dates, then Cancel and Delete. -->
 <template name="row-menu-actions">
+  {{#if childable}}<button type="button" role="menuitem" data-row="child">Add child task</button>{{/if}}
   <button type="button" role="menuitem" data-plan="SCHEDULED">Schedule</button>
   <button type="button" role="menuitem" data-plan="DEADLINE">Deadline</button>
   <div class="status-menu-sep" role="separator"></div>

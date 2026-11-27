@@ -10,7 +10,8 @@
   }
 
   // Tasks get the row menu. A linked Scratchpad block is only offered on pages with a
-  // Scratchpad, other than Networking's. `where` adds a task's milestone, on a project.
+  // Scratchpad, other than Networking's: created, or linked when one has the task's name.
+  // `where` adds a task's milestone, on a project.
   function renderOptions(doc, lineNumbers, where = {}) {
     const blockable = Array.isArray(doc.blocks) && !String(doc.folder || '').startsWith('networking:');
     const key = (text) => String(text || '').trim().toLowerCase();
@@ -19,8 +20,7 @@
       todos: new Map(doc.todos.map((t) => [t.line, t])),
       badge: status.control,
       checkbox: status.checkbox,
-      // A task that already has its block doesn't offer another.
-      rowMenu: (item) => status.rowMenu(item, Object.assign({ blockable: blockable && !blocks.has(key(item.editText)) }, where)),
+      rowMenu: (item) => status.rowMenu(item, Object.assign({ blockable, blockExists: blocks.has(key(item.editText)), childable: true }, where)),
       lineNumbers,
     };
   }

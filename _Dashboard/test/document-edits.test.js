@@ -96,3 +96,30 @@ test('addTaskArchive puts the newest review first', () => {
   const second = edits.addTaskArchive(first, '2026-11-24', groups);
   assert.ok(second.indexOf('2026-11-24') < second.indexOf('2026-11-01'));
 });
+
+test('linkRowToBlock adds a block, or only links to one that exists', () => {
+  const md = '# T\n\n## Tasks\n- [ ] TODO plan the tour\n';
+  const created = edits.linkRowToBlock(md, 4, 'TODO', 'plan the tour', 'LABEL Tour', STATUSES);
+  assert.match(created, /- \[ \] TODO \[\[LABEL Tour#plan the tour\|plan the tour\]\]/);
+  assert.match(created, /\n## plan the tour\n/);
+  // An existing block is linked by its own title, and no second block is added.
+  const withBlock = md + '\n## Plan the Tour\nnotes\n';
+  const linked = edits.linkRowToBlock(withBlock, 4, 'TODO', 'plan the tour', 'LABEL Tour', STATUSES, 'Plan the Tour');
+  assert.match(linked, /- \[ \] TODO \[\[LABEL Tour#Plan the Tour\|plan the tour\]\]/);
+  assert.equal(linked.split('\n## ').length, withBlock.split('\n## ').length);
+});
+
+test('insertRow adds a first subtask after the date lines, or a row after the whole task', () => {
+  const md = ['## Tasks', '- [ ] TODO parent', '  SCHEDULED: <2026-11-30 Mon>', '  - [ ] TODO older child', '- [ ] TODO next', ''].join('\n');
+  const child = edits.insertRow(md, 2, 'parent', 'new child', 'child', STATUSES);
+  assert.equal(child.line, 4);
+  assert.deepEqual(child.markdown.split('\n').slice(1, 5), ['- [ ] TODO parent', '  SCHEDULED: <2026-11-30 Mon>', '  - [ ] new child', '  - [ ] TODO older child']);
+  // The next row goes straight after the new one, at its level.
+  const after = edits.insertRow(child.markdown, 4, 'new child', 'second child', 'after', STATUSES);
+  assert.equal(after.line, 5);
+  assert.equal(after.markdown.split('\n')[4], '  - [ ] second child');
+  // A task with nothing under it gets its subtask one step in.
+  const first = edits.insertRow(md, 5, 'next', 'only child', 'child', STATUSES);
+  assert.equal(first.markdown.split('\n')[5], '  - [ ] only child');
+  assert.equal(edits.insertRow(md, 2, 'changed', 'x', 'child', STATUSES), null);
+});

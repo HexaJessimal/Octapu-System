@@ -14,7 +14,7 @@ const {
 } = require('../todos');
 const {
   isReservedTitle, parseBlocks, setBlockBody, addBlock, addMilestone, addMilestoneItem,
-  removeMilestone, moveRow, promoteRow, linkRowToBlock, finishMilestone, milestoneBody,
+  removeMilestone, moveRow, promoteRow, linkRowToBlock, insertRow, finishMilestone, milestoneBody,
   moveMilestone, setProjectType, setRowDate, advanceRecurring, indentRow, reorderRow,
   milestoneTitles, ARCHIVE_FIELDS, INCUBATOR_FIELDS, parseNamedEntries, addNamedEntry, addEntryMark,
   removeNamedEntry, addTask, isTaskList, cancelRow, deleteRow, editText,
@@ -671,6 +671,23 @@ async function shiftRow(edit, body) {
 const indentTask = (body) => shiftRow((content, statuses) => indentRow(content, body.line, body.text, body.direction, statuses), body);
 const reorderTask = (body) => shiftRow((content, statuses) => reorderRow(content, body.line, body.text, body.toLine, body.toText, body.after, statuses), body);
 const saveNewBlock = async (body) => ((await isReservedBlock(body.folder, body.title)) ? RESERVED_ERROR : addNamed(body, body.title, addBlock));
+// A new task just below another (Add child task, and Enter after adding a subtask). The new
+// row's line is sent back so the page can open the next one under it.
+async function insertTask(body) {
+  const text = body.newText.trim();
+  const error = lineError(text);
+  if (error) return { code: 400, body: { error } };
+  const statuses = await readStatuses();
+  let line = null;
+  const result = await updateProjectFile(body.folder, body.file, (content) => {
+    const out = insertRow(content, body.line, body.text, text, body.place, statuses);
+    if (!out) return null;
+    line = out.line;
+    return out.markdown;
+  });
+  return result.code === 200 ? { code: 200, body: { ok: true, line } } : result;
+}
+
 async function saveNewTask(body) {
   const list = (await readTaskLists()).find((name) => isTaskList([name], body.list));
   if (!list) return { code: 400, body: { error: 'Invalid request' } };
@@ -718,7 +735,9 @@ async function linkTarget(folder) {
 }
 
 // Create linked Scratchpad block: a "## <task text>" block, with the task's text made into a
-// link to it. Not for text that's already a link, or that couldn't be one.
+// link to it, or only the link when a block with that title (in any case) is there already,
+// which the menu offers as Link to Scratchpad block. Not for text that's already a link, or
+// that couldn't be one.
 async function linkTaskToBlock({ folder, file, line, status, text }) {
   const title = text.trim();
   if (/[#[\]|]/.test(title)) return { code: 400, body: { error: "A task whose text has # [ ] or | in it can't link to a block." } };
@@ -726,10 +745,9 @@ async function linkTaskToBlock({ folder, file, line, status, text }) {
   if (!target) return { code: 400, body: { error: 'Linked blocks are only for project and tentacle pages.' } };
   const full = await editableFile(folder, file);
   if (!full) return NOT_FOUND;
-  const existing = parseBlocks(await fs.promises.readFile(full, 'utf8')).some((b) => b.title !== null && b.title.trim().toLowerCase() === title.toLowerCase());
-  if (existing) return { code: 409, body: { error: `There's already a block called "${title}".` } };
+  const block = parseBlocks(await fs.promises.readFile(full, 'utf8')).find((b) => b.title !== null && b.title.trim().toLowerCase() === title.toLowerCase());
   const statuses = await readStatuses();
-  return updateProjectFile(folder, file, (content) => linkRowToBlock(content, line, status, text, target, statuses));
+  return updateProjectFile(folder, file, (content) => linkRowToBlock(content, line, status, text, target, statuses, block ? block.title.trim() : null));
 }
 
 // Mark all as done: every open task in the milestone moves to the first DONE status.
@@ -942,6 +960,7 @@ module.exports = {
   deleteMilestone,
   saveNewItem,
   indentTask,
+  insertTask,
   reorderTask,
   saveNewBlock,
   saveNewTask,

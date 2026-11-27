@@ -90,8 +90,8 @@
     contentEl.innerHTML = component('home-board', {
       // Written row by row so that the boxes side by side line up.
       sections:
+        // The plan and the priorities are usually the longer two, so they share a row.
         section('Current plan', null, component('card-section', { body: planBody(data.plan) })) +
-        taskSection('Due in the next 7 days', data.upcoming, data.today, 'Nothing due in the next 7 days.') +
         section(
           'Priorities this month',
           data.inTimeframe.length,
@@ -99,6 +99,7 @@
             body: component('project-list', { items: inTimeframe.length ? inTimeframe.map(timeframeRow).join('') : component('empty-item', { message: 'No projects are in a timeframe today.' }) }),
           })
         ) +
+        taskSection('Due in the next 7 days', data.upcoming, data.today, 'Nothing due in the next 7 days.') +
         taskSection('Overdue tasks', data.overdue, data.today, 'Nothing overdue.'),
     });
   }

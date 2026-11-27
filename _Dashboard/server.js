@@ -26,7 +26,7 @@ const {
   readIncubatorPage, saveIdea, archiveIdea, promoteIdea, saveNewFile, savePlanningDate,
   changeProjectType, changePriority, advanceRecurringTask, changeTentacle, changeLeader,
   saveTimeframe, changeTimeframe, saveText, saveRawFile, saveBlockBody, saveNewMilestone,
-  deleteMilestone, saveNewItem, indentTask, reorderTask, saveNewBlock, saveNewTask, saveDependency,
+  deleteMilestone, saveNewItem, indentTask, insertTask, reorderTask, saveNewBlock, saveNewTask, saveDependency,
   saveMilestoneOrder, changeRow, moveTask, promoteTask, linkTaskToBlock, finishWholeMilestone,
   promoteMilestone, saveDate, createProject, createCatalog, saveCatalogRow, readChangelog,
   readConflicts, settleConflict,
@@ -232,6 +232,7 @@ const isDepth = (depth) => depth === undefined || (Number.isInteger(depth) && de
 const isNewItem = (body) => hasLine(body) && typeof body.title === 'string' && typeof body.text === 'string' && isDepth(body.depth);
 const isEntryTask = (body) => hasLine(body) && typeof body.title === 'string' && typeof body.text === 'string' && isDepth(body.depth);
 const isNewTask = (body) => inFile(body) && typeof body.text === 'string' && typeof body.list === 'string' && isDepth(body.depth);
+const isRowInsert = (body) => hasLine(body) && typeof body.text === 'string' && typeof body.newText === 'string' && ['child', 'after'].includes(body.place);
 const isRowIndent = (body) => hasLine(body) && typeof body.text === 'string' && ['in', 'out'].includes(body.direction);
 const isRowReorder = (body) => hasLine(body) && typeof body.text === 'string' && Number.isInteger(body.toLine) && body.toLine >= 1 && typeof body.toText === 'string' && typeof body.after === 'boolean';
 const isSetup = (body) => ['tentacleName', 'tentacleId', 'leaderName', 'dateFormat'].every((key) => body[key] === undefined || typeof body[key] === 'string');
@@ -388,6 +389,7 @@ async function route(req, res) {
     if (url.pathname === '/api/colour-table' && req.method === 'POST') return handleEdit(req, res, isColourRow, saveColourRow);
     if (url.pathname === '/api/task' && req.method === 'POST') return handleEdit(req, res, isNewTask, saveNewTask);
     if (url.pathname === '/api/row-indent' && req.method === 'POST') return handleEdit(req, res, isRowIndent, indentTask);
+    if (url.pathname === '/api/row-insert' && req.method === 'POST') return handleEdit(req, res, isRowInsert, insertTask);
     if (url.pathname === '/api/row-reorder' && req.method === 'POST') return handleEdit(req, res, isRowReorder, reorderTask);
     if (url.pathname === '/api/tentacles' && req.method === 'POST') return handleEdit(req, res, isNewTentacle, createTentacle);
     if (url.pathname === '/api/file-body' && req.method === 'POST') return handleEdit(req, res, isRawEdit, saveRawFile);

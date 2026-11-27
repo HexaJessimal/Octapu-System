@@ -2412,6 +2412,10 @@ li.drop-after {
 .plan-item:hover {
   background: var(--surface-raised);
 }
+/* A link in an item looks like one, but a click on it picks the item like anywhere else. */
+.plan-item a {
+  pointer-events: none;
+}
 .plan-item small {
   margin-left: auto;
   color: var(--text-soft);
@@ -2421,6 +2425,15 @@ li.drop-after {
 .review-box.is-suggested {
   border-color: var(--project);
   border-left-width: 4px;
+}
+/* Which file a Plan box's items are from, beside its title. */
+.plan-path {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.75rem;
+  color: var(--text-soft);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .plan-tag {
   flex: none;
@@ -2962,12 +2975,13 @@ a.home-stat:hover {
 .home-plan {
   padding: 14px 16px;
 }
+/* Tentacle and project headings in their colours, as on the Review page. */
 .home-plan h3 {
   margin: 0 0 4px;
   font-size: 0.72rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-soft);
+  color: var(--tentacle);
 }
 .home-plan h3:not(:first-child) {
   margin-top: 14px;
@@ -2975,6 +2989,10 @@ a.home-stat:hover {
 .home-plan h4 {
   margin: 6px 0 2px;
   font-size: 0.92rem;
+  color: var(--project);
+}
+.home-plan h4 a {
+  color: inherit;
 }
 .home-plan ul {
   margin: 0;

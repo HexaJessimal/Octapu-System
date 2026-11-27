@@ -40,7 +40,7 @@ Select **Get started**. The dashboard creates the settings files it needs in the
 
 - **The tiles** along the top show your **Scheduled Projects** (those in a timeframe today), your open and inactive projects, how soon the next Review and Plan are due, and how many tasks are overdue.
 - **Timeline** charts your projects by month, with your events and application deadlines as lines.
-- **Current plan, Due in the next 7 days, Priorities this month and Overdue tasks** sit below it.
+- **Current plan and Priorities this month**, then **Due in the next 7 days and Overdue tasks**, sit below it. The plan names each tentacle and project in their own colours.
 - **The left menu** takes you everywhere else. Review and Plan get a coloured outline when they're due.
 - **The Todos list** on the right stays on every page.
 - **Both sidebars** can be made wider or narrower by dragging their inner edge, and double-clicking the edge puts it back. The round arrow button on each edge folds that sidebar away to a thin strip, and selecting it again brings it back. Each browser remembers how you left them. A name too long for the menu ends in **…**; point at it to see it in full.
@@ -258,6 +258,7 @@ There's no screenshot of this step. The Wins box is at the bottom of the Review 
 
 Open **Plan**. The top boxes list everything that hasn't been assigned yet: tasks in your active Milestone projects, tasks and status-tagged lines in your tentacles, and tasks under a contact or event in Networking. The small arrow on any box on this page collapses it.
 
+- Beside each box's title, in small text, is the file its tasks come from, such as `Projects/+LABEL_A_New_Idea/A_Second_Project_File.md`.
 - A project with a timeframe that includes today is outlined and tagged **Suggested**.
 - A task that's the last one unfinished in its milestone is outlined too.
 
@@ -682,7 +683,9 @@ A task in a Milestone project's milestone has more choices:
 - **Move to** lists the project's other milestones. The task moves to the end of the one you choose, with any subtasks under it.
 - **Promote to new milestone** turns the task into a milestone of its own, at the end of the list. Its subtasks become the new milestone's tasks.
 
-On project and tentacle pages, **Create linked Scratchpad block** adds a Scratchpad block named after the task, and turns the task's text into a link to it. It isn't offered once that block exists.
+**Add child task**, in the grey menu at the end of a task on its own page, opens a blank row nested just under the task, ready to type into. Press Return to save it, and another blank row opens straight below it for the next one, at the same level. Leave the row empty or press Esc to stop. The same goes for a subtask added with the plus button and Tab: Return opens the next row at that depth.
+
+On project and tentacle pages, **Create linked Scratchpad block** adds a Scratchpad block named after the task, and turns the task's text into a link to it. When a block with exactly the task's name is already there, the menu offers **Link to Scratchpad block** instead, which only turns the task's text into a link to it.
 
 [[IMAGE#Screenshots/82-TaskMenu.png]]
 

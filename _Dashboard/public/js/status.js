@@ -216,7 +216,9 @@
   // The grey menu at the end of a task row: Cancel and Delete everywhere, plus, where they
   // make sense, moving the task to another milestone, making it a milestone, and giving it a
   // linked Scratchpad block. `where` says which: { milestone: { line, title } } for a task in
-  // a Milestone project's milestone, and { blockable: true } on project and tentacle pages.
+  // a Milestone project's milestone, and { blockable: true } on project and tentacle pages,
+  // with blockExists when a block already has the task's name, so it's linked, not created.
+  // { childable: true } offers Add child task, where the row is on its own document's page.
   function rowMenu(item, where = {}) {
     if (item.mark === null && !item.status) return '';
     return component('control-row-menu', {
@@ -224,6 +226,8 @@
       inMilestone: Boolean(where.milestone),
       milestoneLine: where.milestone ? where.milestone.line : '',
       blockable: Boolean(where.blockable) && !/\[\[/.test(item.editText || ''),
+      blockExists: Boolean(where.blockExists),
+      childable: Boolean(where.childable),
     });
   }
 
@@ -244,9 +248,12 @@
       }
       items += component('status-menu-item', { attr: 'row-promote', value: 'yes', current: false, label: 'Promote to new milestone' });
     }
-    if (ctrl.dataset.blockable === 'true') items += component('status-menu-item', { attr: 'row-block', value: 'yes', current: false, label: 'Create linked Scratchpad block' });
+    if (ctrl.dataset.blockable === 'true') {
+      const label = ctrl.dataset.blockExists === 'true' ? 'Link to Scratchpad block' : 'Create linked Scratchpad block';
+      items += component('status-menu-item', { attr: 'row-block', value: 'yes', current: false, label });
+    }
     if (items) items += component('status-menu-divider');
-    return items + component('row-menu-actions', { cancelled: ctrl.dataset.cancelled === 'true' });
+    return items + component('row-menu-actions', { cancelled: ctrl.dataset.cancelled === 'true', childable: ctrl.dataset.childable === 'true' });
   }
 
   function toast(message) {
@@ -413,6 +420,8 @@
   }
 
   async function rowAction(ctrl, action) {
+    // The blank row to type into belongs to edit.js, which listens for this.
+    if (action === 'child') return document.dispatchEvent(new CustomEvent('pms:add-child', { detail: { ctrl } }));
     if (action === 'delete' && !(await confirmDelete(ctrl.dataset.text))) return;
     sendEdit(ctrl, 'api/row', { status: ctrl.dataset.status || null, text: ctrl.dataset.text, action });
   }

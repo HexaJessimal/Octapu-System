@@ -178,12 +178,14 @@
     return depth + 1;
   }
 
-  function quickAdd(button) {
+  // `startDepth` keeps a subtask's depth for the next row, so Return after one opens another
+  // just below it (rows from a plus button go at the end, after the one just added).
+  function quickAdd(button, startDepth = 0) {
     const { url, field, extra } = ADDERS[button.dataset.add](button);
     const row = blankRow(button);
     // Tasks can be nested, so Tab and Shift+Tab set the new one's depth.
     const nests = ['item', 'task', 'entry-task'].includes(button.dataset.add);
-    let depth = 0;
+    let depth = nests ? Math.min(startDepth, deepestNew(row)) : 0;
     const hint = row.querySelector('.quick-add-hint');
     const showDepth = () => {
       row.style.marginLeft = depth * 22 + 'px';
@@ -208,7 +210,7 @@
         open = false;
         await status.refresh();
         const next = document.querySelector(sameButton(button));
-        if (next) quickAdd(next);
+        if (next) quickAdd(next, depth);
       },
       onCancel: stop,
       submitsOn: () => true,
@@ -234,6 +236,60 @@
     const row = el.closest('li');
     return row ? row.querySelector(':scope > .item-text[data-edit]') : null;
   };
+
+  // A blank row right under a task's row, for Add child task ('child', the new row nested
+  // under it) and the rows after it ('after', at the same level). Return saves it and opens
+  // the next one just below; Esc, or leaving it empty, stops.
+  function insertBelow(ctrl, place) {
+    const li = ctrl.closest('li');
+    if (!li) return;
+    const row = element('quick-add', { className: 'quick-add-below', box: true });
+    const hint = row.querySelector('.quick-add-hint');
+    if (hint) hint.textContent = 'Return adds another below it. Press Esc to abort';
+    if (place === 'after') li.after(row);
+    else {
+      const nested = li.querySelector(':scope > ul, :scope > ol');
+      if (nested) nested.before(row);
+      else li.appendChild(row);
+      row.style.marginLeft = '22px';
+    }
+    let finished = false;
+    let saved = null;
+    const stop = () => {
+      if (finished) return;
+      finished = true;
+      open = false;
+      redraw();
+    };
+    open = true;
+    const input = inlineEditor({
+      host: row.querySelector('.quick-add-field'),
+      field: component('inline-input'),
+      value: '',
+      unchanged: (f) => !f.value.trim(),
+      send: async (f) => {
+        saved = await post('api/row-insert', { line: Number(ctrl.dataset.line), text: ctrl.dataset.text, place, newText: f.value });
+        return saved;
+      },
+      onSaved: async () => {
+        finished = true;
+        open = false;
+        await status.refresh();
+        const next = document.querySelector('.row-menu-control[data-line="' + saved.body.line + '"]');
+        if (next) insertBelow(next, 'after');
+      },
+      onCancel: stop,
+      submitsOn: () => true,
+    });
+    input.addEventListener('blur', () => {
+      if (!input.value.trim()) stop();
+    });
+    row.scrollIntoView({ block: 'nearest' });
+  }
+
+  document.addEventListener('pms:add-child', (e) => {
+    if (!open) insertBelow(e.detail.ctrl, 'child');
+  });
 
   document.addEventListener('dblclick', (e) => {
     if (open) return;
