@@ -3,14 +3,14 @@
 
 const fs = require('fs');
 const path = require('path');
-const { createMatcher, scanLines, formatDate, STORAGE_FORMAT, tentacleChain } = require('../todos');
+const { createMatcher, scanLines, formatDate, STORAGE_FORMAT } = require('../todos');
 const { parseBlocks, milestoneRows, lastReviewDate, addReview } = require('../document-edits');
 const { HELP_FILE, IMAGES_DIR, disk, at, readIfExists, currentRoot } = require('./context');
 const {
   TENTACLE_PREFIX, NETWORKING_PREFIX, isArchived, readProjectDirs, listDirectory, listProjects,
   primaryFile, readProjectFile, projectTitle, readStatuses, readTentacles, readRoundupDays,
   readDateFormat, dayNumber, tentaclePlace, writeFileSafely, recordCreated, projectTentacleName,
-  networkingPage, listCatalogs, editableFile,
+  networkingPage, listCatalogs, editableFile, tentacleTree,
 } = require('./store');
 const {
   taskScope, collectTodos, liveProjectFiles, taskDue, isIncomplete, isOpenTask, runningTimeframes,
@@ -61,17 +61,6 @@ async function collectNav() {
       core: (await incompatibleCoreFiles()).rows.length,
     },
   };
-}
-
-// Every tentacle, each followed by those under it, with its top-level tentacle's ID as `root`
-// and its `level` (0 for a top-level tentacle). Tentacles in a loop are left out.
-function tentacleTree(tentacles) {
-  const placed = tentacles.map((o) => ({ o, chain: tentacleChain(tentacles, o.id) })).filter((t) => t.chain);
-  const below = (parent) =>
-    placed
-      .filter((t) => (t.o.parent || null) === parent)
-      .flatMap((t) => [{ id: t.o.id, name: t.o.name, parent: t.o.parent || null, root: t.chain[0], level: t.chain.length - 1 }, ...below(t.o.id)]);
-  return below(null);
 }
 
 // Whole days since a log file's newest dated heading, or null if it has none.

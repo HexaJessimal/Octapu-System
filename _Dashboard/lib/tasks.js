@@ -161,11 +161,12 @@ function runningTimeframes(content, today) {
 }
 
 // The latest plan's outline, with a link to each project it names where one can be found.
+// `current` is false once the period has rolled over, but the outline is still sent, as the
+// Dashboard keeps showing it under a reminder to make a new plan.
 async function currentPlan(projects, days, interval) {
   const text = await readIfExists(at().FOCUS_FILE);
   const date = text === null ? null : lastReviewDate(text);
   const current = days !== null && days < interval;
-  if (!current) return { date, current, entries: [] };
   const tentacles = await readTentacles();
   const entries = [];
   for (const entry of await readLatestFocus()) {

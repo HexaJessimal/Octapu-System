@@ -25,8 +25,9 @@
 
 <template name="home-section"><div class="home-section">{{{heading}}}{{{body}}}</div></template>
 
+<!-- Above the Current plan once its period is over, with the last plan still shown below. -->
 <template name="home-plan-link">
-  <p class="empty">{{last}}<a href="weekly-plan.html">Make a plan for this period</a></p>
+  <p class="home-plan-due">{{last}}<a href="weekly-plan.html">Make a plan for this period</a></p>
 </template>
 
 <template name="home-plan"><div class="home-plan">{{{tentacles}}}</div></template>
@@ -46,6 +47,9 @@
 <template name="gantt-month"><div class="gantt-month{{#if now}} is-now{{/if}}">{{name}}</div></template>
 
 <template name="gantt-head"><div class="gantt-row gantt-head"><div class="gantt-label"></div>{{{cells}}}</div></template>
+
+<!-- A tentacle's heading, above its projects, when the Timeline is grouped, in its level's colour. -->
+<template name="gantt-group"><div class="gantt-row gantt-group"><div class="gantt-label org-level-{{{level}}}">{{name}}</div></div></template>
 
 <template name="gantt-project">
   <div class="gantt-row gantt-project" data-row="{{{index}}}">
@@ -95,6 +99,7 @@
       <div class="gantt-marks" aria-hidden="true">{{{marks}}}</div>
     </div>
   </div>
+  <div class="gantt-resizer" data-gantt-resize role="separator" aria-orientation="horizontal" aria-controls="gantt-scroll" aria-label="Resize the Timeline" tabindex="0" title="Drag to make the Timeline taller or shorter, double-click to reset"></div>
   {{{legend}}}
 </template>
 
@@ -103,10 +108,13 @@
 <!-- Tick boxes above the Timeline for which projects it shows. -->
 <template name="gantt-toggles">
   <div class="gantt-toolbar">
-    <div class="gantt-toggles" role="group" aria-label="Show on the Timeline">{{{boxes}}}</div>
+    <div class="gantt-toggles" role="group" aria-label="Show on the Timeline">{{{boxes}}}{{{group}}}</div>
     <div class="chips gantt-zoom" role="group" aria-label="Months across the Timeline">{{{zooms}}}</div>
   </div>
 </template>
+
+<!-- Which level of tentacle the Dashboard's Timeline groups its projects by. -->
+<template name="gantt-group-by"><label class="gantt-group-by">Group by <select data-timeline-group>{{{options}}}</select></label></template>
 
 <template name="gantt-zoom"><button type="button" class="chip" data-timeline-zoom="{{{months}}}" aria-pressed="{{{pressed}}}">{{{months}}} months</button></template>
 

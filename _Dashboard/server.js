@@ -35,7 +35,7 @@ const {
   incompatibleEvents, incompatibleProjects, incompatibleCoreFiles, incompatibleTentacles,
   fixCompatibility,
 } = require('./lib/compatibility');
-const { collectTimeline, tentacleTimeline, timelineEvents, timelineReleases } = require('./lib/timeline');
+const { collectTimeline, tentacleTimeline, timelineGroups, timelineEvents, timelineReleases } = require('./lib/timeline');
 const {
   readAgendaTable, isAgendaRow, isAgendaCheck, saveAgendaRow, checkAgendaItem, markReviewed,
   flagForReview, flagSection, markSectionDone, collectWeeklyReview, collectReports,
@@ -433,7 +433,7 @@ async function route(req, res) {
       // A tentacle page's Timeline has only its own projects, and no event or release lines.
       const tentacle = url.searchParams.get('tentacle');
       if (tentacle) return sendJson(res, 200, { rows: await tentacleTimeline(tentacle), events: [], releases: [], dateFormat: await readDateFormat() });
-      return sendJson(res, 200, { rows: await collectTimeline(), events: await timelineEvents(), releases: await timelineReleases(), dateFormat: await readDateFormat() });
+      return sendJson(res, 200, { rows: await collectTimeline(), groups: await timelineGroups(), events: await timelineEvents(), releases: await timelineReleases(), dateFormat: await readDateFormat() });
     }
     if (url.pathname === '/api/history') {
       const file = { review: at().REVIEW_FILE, focus: at().FOCUS_FILE }[url.searchParams.get('page')];

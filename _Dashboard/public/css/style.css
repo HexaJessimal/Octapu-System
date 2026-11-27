@@ -1326,10 +1326,42 @@ summary.nav-link {
 /* ---------- timeline ---------- */
 
 /* Twelve rows of 35px, with room for the sideways scrollbar. */
+/* 12 rows tall unless the handle below has been dragged (--gantt-height, set by timeline.js). */
 .gantt-scroll {
   position: relative;
   overflow: auto;
-  max-height: calc(12 * 35px + 18px);
+  max-height: var(--gantt-height, calc(12 * 35px + 18px));
+}
+/* The handle under the Timeline: a short bar that lights up on hover, and a wider strip to grab. */
+.gantt-resizer {
+  position: relative;
+  height: 12px;
+  margin: 0 0 4px;
+  cursor: row-resize;
+  touch-action: none;
+}
+.gantt-resizer::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  width: 48px;
+  height: 4px;
+  margin-left: -24px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  transition: background 0.15s;
+}
+.gantt-resizer:hover::after,
+.gantt-resizer:focus-visible::after,
+.gantt-resizer.is-dragging::after {
+  background: var(--accent);
+}
+.gantt-resizer:focus-visible {
+  outline: none;
+}
+.report-document .gantt-resizer {
+  display: none;
 }
 .gantt {
   --gantt-label: 230px;
@@ -1392,6 +1424,35 @@ summary.nav-link {
   background-image: linear-gradient(to right, color-mix(in srgb, var(--text) 4%, transparent) 1px, transparent 1px);
   background-size: var(--gantt-month) 100%;
   background-position: var(--gantt-label) 0;
+}
+/* The Timeline's Group by dropdown, after its tick boxes. */
+.gantt-group-by {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.gantt-group-by select {
+  width: auto;
+}
+/* A tentacle's heading when the Timeline is grouped, in its level's colour. */
+.gantt-group {
+  grid-auto-rows: 28px;
+  background-color: color-mix(in srgb, var(--surface-raised) 25%, var(--surface));
+  background-image: linear-gradient(to right, color-mix(in srgb, var(--text) 4%, transparent) 1px, transparent 1px);
+  background-size: var(--gantt-month) 100%;
+  background-position: var(--gantt-label) 0;
+}
+.gantt-group > .gantt-label {
+  background: color-mix(in srgb, var(--surface-raised) 25%, var(--surface));
+  color: var(--level);
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .gantt-label {
   position: sticky;
@@ -2975,6 +3036,15 @@ a.home-stat:hover {
 .home-plan {
   padding: 14px 16px;
 }
+/* The reminder that the plan's period is over, outlined so it stands out above the old plan. */
+.home-plan-due {
+  margin: 14px 16px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--caution);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.9rem;
+}
 /* Tentacle and project headings in their colours, as on the Review page. */
 .home-plan h3 {
   margin: 0 0 4px;
@@ -3222,7 +3292,8 @@ a.home-stat:hover {
    with two gradients, so it takes the theme's colour. */
 .sidebar-controls select,
 .multi-select-button,
-.options-form select {
+.options-form select,
+.gantt-group-by select {
   box-sizing: border-box;
   width: 100%;
   /* A fixed height with the line filling it, because a <select> centres its text but a
@@ -3248,7 +3319,8 @@ a.home-stat:hover {
   cursor: pointer;
 }
 .sidebar-controls select:hover,
-.options-form select:hover {
+.options-form select:hover,
+.gantt-group-by select:hover {
   border-color: var(--accent);
 }
 /* A plain block that clips its text, because browsers don't reliably lay out a <summary>

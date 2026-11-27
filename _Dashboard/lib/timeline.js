@@ -2,7 +2,7 @@
 'use strict';
 
 const path = require('path');
-const { parseHeader, STORAGE_FORMAT, parseTimeframes } = require('../todos');
+const { parseHeader, STORAGE_FORMAT, parseTimeframes, tentacleChain } = require('../todos');
 const { parseEntries, parseEventDate } = require('../document-edits');
 const { parseCatalog } = require('../catalogs');
 const { at, readIfExists } = require('./context');
@@ -10,9 +10,15 @@ const {
   ARCHIVE_PREFIX, NETWORKING, eventValue, eventProgress, isNetworkingField, isArchived,
   listProjects, primaryFile, readProjectFile, readArchive, resolveDependency, readTentacles,
   readArchiveMode, readShowArchived, projectTentacleId, listCatalogs, readCatalogFile,
+  tentacleTree,
 } = require('./store');
 
-// Every project's Active Timeframe entries, each row marked active, inactive or archive.
+// The tentacle ID an _Archive.md entry's title starts with.
+const archiveTentacleId = (title) => title.trim().split(/\s+/)[0];
+
+// Every project's Active Timeframe entries, each row marked active, inactive or archive, and
+// with `chain`, the IDs from its top-level tentacle down to its own (or null if its tentacle
+// isn't in Tentacles.csv), for grouping the Dashboard's Timeline by any level.
 // Archived projects are only included while SHOWARCHIVED is on. They come from _Archive.md
 // in HEADERS mode, where the folders may already have gone, and from the archived folders
 // themselves in FULL mode.
@@ -22,6 +28,7 @@ async function collectTimeline() {
   const fullArchive = (await readArchiveMode()) === 'FULL';
   const showArchived = await readShowArchived();
   const archive = fullArchive ? [] : await readArchive();
+  const tentacles = await readTentacles();
   for (const project of projects) {
     const archived = isArchived(project);
     if (archived && !(fullArchive && showArchived)) continue;
@@ -31,12 +38,14 @@ async function collectTimeline() {
     const parsed = parseTimeframes(header.timeframe.value, STORAGE_FORMAT);
     const dependency = resolveDependency(header.dependency.value, projects, archive);
     const kind = archived ? 'archive' : project.name.startsWith('+') ? 'active' : 'inactive';
-    rows.push(Object.assign({ folder: project.folder, file, content, dependency, kind }, parsed));
+    const chain = tentacleChain(tentacles, await projectTentacleId(project, tentacles));
+    rows.push(Object.assign({ folder: project.folder, file, content, dependency, kind, chain }, parsed));
   }
   if (!fullArchive && showArchived) {
     for (const { title, fields } of archive) {
       const dependency = resolveDependency(fields.dependency.value, projects, archive);
-      rows.push(Object.assign({ folder: ARCHIVE_PREFIX + title, file: path.basename(at().ARCHIVE_FILE), content: '', dependency, kind: 'archive', archive: { title } }, parseTimeframes(fields.timeframe.value, STORAGE_FORMAT)));
+      const chain = tentacleChain(tentacles, archiveTentacleId(title));
+      rows.push(Object.assign({ folder: ARCHIVE_PREFIX + title, file: path.basename(at().ARCHIVE_FILE), content: '', dependency, kind: 'archive', archive: { title }, chain }, parseTimeframes(fields.timeframe.value, STORAGE_FORMAT)));
     }
   }
   return rows;
@@ -49,8 +58,12 @@ async function tentacleTimeline(id) {
   const projects = await listProjects('milestone');
   const owned = new Set();
   for (const project of projects) if ((await projectTentacleId(project, tentacles)) === id) owned.add(project.folder);
-  return (await collectTimeline()).filter((row) => (row.archive ? row.archive.title.trim().split(/\s+/)[0] === id : owned.has(row.folder)));
+  return (await collectTimeline()).filter((row) => (row.archive ? archiveTentacleId(row.archive.title) === id : owned.has(row.folder)));
 }
+
+// Every tentacle, each followed by those under it, with its level: the order the Timeline's
+// groups go in, and their names and colours.
+const timelineGroups = async () => tentacleTree(await readTentacles()).map(({ id, name, level }) => ({ id, name, level }));
 
 // Each event's Event Date and Application Deadline, for the Timeline's lines. Only dates the
 // dashboard wrote are used, so an event shows once Compatibility has converted its dates. A
@@ -99,6 +112,7 @@ async function timelineReleases() {
 module.exports = {
   collectTimeline,
   tentacleTimeline,
+  timelineGroups,
   timelineEvents,
   timelineReleases,
 };

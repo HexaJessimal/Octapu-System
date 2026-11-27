@@ -220,12 +220,37 @@
     }
   }
 
+  // Grouping the projects by the tentacles at one level, on the Dashboard: '' for none, or the
+  // level, 0 being the top-level tentacles. A tentacle page's Timeline has only one tentacle,
+  // so it has no dropdown. Kept in this browser; 'pms.timeline.grouped' was the tick box it
+  // replaced, which grouped by the top level.
+  const GROUP_LEVELS = [['', 'None'], ['0', 'Parent'], ['1', 'Child'], ['2', 'Grandchild']];
+  const GROUP_KEY = 'pms.timeline.groupBy';
+  let groupBy = (() => {
+    if (tentacle) return '';
+    try {
+      const saved = localStorage.getItem(GROUP_KEY);
+      if (saved === null) return localStorage.getItem('pms.timeline.grouped') === 'true' ? '0' : '';
+      return GROUP_LEVELS.some(([value]) => value === saved) ? saved : '';
+    } catch (_) {
+      return '';
+    }
+  })();
+  const groupSelect = () =>
+    tentacle
+      ? ''
+      : component('gantt-group-by', {
+          options: GROUP_LEVELS.map(([value, label]) => component('option', { value, label, selected: value === groupBy })).join(''),
+        });
+
   const toggles = () =>
     component('gantt-toggles', {
-      boxes: KINDS.map(({ kind, label }) => {
-        const on = !hidden.has(kind);
-        return component('gantt-toggle', { kind, label, on, checked: String(on) });
-      }).join(''),
+      boxes:
+        KINDS.map(({ kind, label }) => {
+          const on = !hidden.has(kind);
+          return component('gantt-toggle', { kind, label, on, checked: String(on) });
+        }).join(''),
+      group: groupSelect(),
       zooms: ZOOMS.map((months) => component('gantt-zoom', { months, pressed: String(months === zoom) })).join(''),
     });
 
@@ -287,9 +312,82 @@
       el.hidden = !near;
       if (near) shown++;
     });
+    // A group's heading goes with its projects: hidden when none of them are showing.
+    scroller.querySelectorAll('.gantt-group').forEach((heading) => {
+      let next = heading.nextElementSibling;
+      let any = false;
+      for (; next && next.classList.contains('gantt-project'); next = next.nextElementSibling) any = any || !next.hidden;
+      heading.hidden = !any;
+    });
     document.getElementById('gantt-none').hidden = shown > 0 || !drawnRows.length;
     drawArrows(drawnRows);
   }
+
+  // ---------- the chart's height ----------
+
+  // Dragging the handle under the chart sets how tall it can grow before it scrolls. Kept in
+  // this browser, separately for a tentacle page; double-click the handle to go back to 12 rows.
+  const HEIGHT_KEY = 'pms.timeline.height' + (tentacle ? '.tentacle' : '');
+  const MIN_HEIGHT = 150; // px: the headings and a few rows
+  const HEIGHT_STEP = 35; // px: one row, for the arrow keys
+  let height = (() => {
+    try {
+      const saved = Number(localStorage.getItem(HEIGHT_KEY));
+      return saved >= MIN_HEIGHT ? saved : null;
+    } catch (_) {
+      return null;
+    }
+  })();
+
+  function applyHeight() {
+    const scroller = scrollerEl();
+    if (!scroller) return;
+    if (height === null) scroller.style.removeProperty('--gantt-height');
+    else scroller.style.setProperty('--gantt-height', height + 'px');
+  }
+
+  function setHeight(px) {
+    height = px === null ? null : Math.max(MIN_HEIGHT, Math.round(px));
+    applyHeight();
+    try {
+      if (height === null) localStorage.removeItem(HEIGHT_KEY);
+      else localStorage.setItem(HEIGHT_KEY, String(height));
+    } catch (_) {
+      /* storage unavailable: the height lasts until the page is left */
+    }
+  }
+
+  // The pointer's movement is added to the height the chart had when the drag began.
+  contentEl.addEventListener('pointerdown', (e) => {
+    const handle = e.target.closest('[data-gantt-resize]');
+    if (!handle || e.button !== 0) return;
+    e.preventDefault();
+    const startY = e.clientY;
+    const startHeight = scrollerEl().getBoundingClientRect().height;
+    handle.setPointerCapture(e.pointerId);
+    handle.classList.add('is-dragging');
+    const move = (ev) => setHeight(startHeight + ev.clientY - startY);
+    const stop = () => {
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', stop);
+      handle.removeEventListener('pointercancel', stop);
+      handle.classList.remove('is-dragging');
+    };
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', stop);
+    handle.addEventListener('pointercancel', stop);
+  });
+
+  contentEl.addEventListener('dblclick', (e) => {
+    if (e.target.closest('[data-gantt-resize]')) setHeight(null);
+  });
+
+  // Up and Down on a focused handle make the chart a row shorter or taller.
+  contentEl.addEventListener('keydown', (e) => {
+    if (!e.target.closest('[data-gantt-resize]') || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+    e.preventDefault();
+    setHeight(scrollerEl().getBoundingClientRect().height + (e.key === 'ArrowDown' ? HEIGHT_STEP : -HEIGHT_STEP));
+  });
 
   // Generate report copies the chart as it looks, so it asks for every row (and its arrows)
   // while it makes the copy, then for the usual view again.
@@ -367,6 +465,21 @@
 
   let lastData = null;
 
+  // The project rows, each group's after its heading when grouped, in its tentacle's level
+  // colour. Rows are numbered across the groups, as `data-row` indexes `drawnRows`.
+  function projectRows(groups, start, end, now) {
+    let index = 0;
+    const heading = (g) =>
+      component('gantt-group', { name: g.tentacle ? g.tentacle.name : 'Other', level: g.tentacle ? (g.tentacle.level > 2 ? 'deep' : g.tentacle.level) : 'deep' });
+    return groups
+      .map((g) => (groupBy !== '' ? heading(g) : '') + g.rows.map((row) => projectRow(row, index++, start, end, now)).join(''))
+      .join('');
+  }
+
+  // The tentacle a row is grouped under at `level`: its own tentacle's ancestor at that level,
+  // or its own tentacle if that's higher up, or null (Other) if its tentacle isn't known.
+  const groupOf = (row, level) => (row.chain ? row.chain[Math.min(level, row.chain.length - 1)] : null);
+
   function render(data) {
     lastData = data;
     const shownRows = data.rows.filter((row) => !hidden.has(row.kind));
@@ -379,7 +492,19 @@
       )
       .map((row) => Object.assign(row, { earliest: Math.min(...row.bars.map((b) => b.first)) }))
       .sort((a, b) => a.earliest - b.earliest);
-    const rows = orderByDependency(byDate);
+    // Grouped, the projects under each tentacle at the chosen level come together, in the
+    // menu's tentacle order, with any whose tentacle isn't known last. Each group keeps the
+    // usual order within it.
+    const tree = data.groups || [];
+    const level = Number(groupBy);
+    const known = (id) => tree.some((t) => t.id === id);
+    const groups =
+      groupBy !== ''
+        ? [...tree, null]
+            .map((t) => ({ tentacle: t, rows: orderByDependency(byDate.filter((row) => (t ? groupOf(row, level) === t.id : !known(groupOf(row, level))))) }))
+            .filter((g) => g.rows.length)
+        : [{ tentacle: null, rows: orderByDependency(byDate) }];
+    const rows = groups.flatMap((g) => g.rows);
     const events = data.events || [];
     const releases = hidden.has('releases') ? [] : data.releases || [];
 
@@ -418,13 +543,14 @@
       component('gantt-chart', {
         warnings: warnings(shownRows),
         months: end - start + 1,
-        rows: headerRows(start, end, now) + rows.map((row, i) => projectRow(row, i, start, end, now)).join(''),
+        rows: headerRows(start, end, now) + projectRows(groups, start, end, now),
         marks: eventMarks(events, start) + releaseMarks(releases, start),
         legend: component('legend', { items: legend.join('') }),
       });
 
     drawnRows = rows;
     chart = { start, monthWidth: 0 };
+    applyHeight();
     applyZoom();
 
     // Opens with the month before this one at the left, and stays where it was on a refresh.
@@ -453,6 +579,18 @@
     if (hidden.has(kind)) hidden.delete(kind);
     else hidden.add(kind);
     saveHidden();
+    render(lastData);
+  });
+
+  contentEl.addEventListener('change', (e) => {
+    const select = e.target.closest('[data-timeline-group]');
+    if (!select || !lastData) return;
+    groupBy = select.value;
+    try {
+      localStorage.setItem(GROUP_KEY, groupBy);
+    } catch (_) {
+      /* storage unavailable: the grouping lasts until the page is left */
+    }
     render(lastData);
   });
 

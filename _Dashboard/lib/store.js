@@ -344,6 +344,17 @@ const dayNumber = (date) => {
 // `date` moved by a number of days, as YYYY-MM-DD.
 const shiftDate = (date, days) => new Date((dayNumber(date) + days) * 86400000).toISOString().slice(0, 10);
 
+// Every tentacle, each followed by those under it, with its top-level tentacle's ID as `root`
+// and its `level` (0 for a top-level tentacle). Tentacles in a loop are left out.
+function tentacleTree(tentacles) {
+  const placed = tentacles.map((o) => ({ o, chain: tentacleChain(tentacles, o.id) })).filter((t) => t.chain);
+  const below = (parent) =>
+    placed
+      .filter((t) => (t.o.parent || null) === parent)
+      .flatMap((t) => [{ id: t.o.id, name: t.o.name, parent: t.o.parent || null, root: t.chain[0], level: t.chain.length - 1 }, ...below(t.o.id)]);
+  return below(null);
+}
+
 // A tentacle's markdown lives in its own folder, nested under its parents' folders.
 function tentaclePlace(tentacles, id) {
   const tentacle = tentacles.find((o) => o.id === id);
@@ -613,6 +624,7 @@ module.exports = {
   dayNumber,
   shiftDate,
   tentaclePlace,
+  tentacleTree,
   primaryTentacleFile,
   tentacleFiles,
   enqueueWrite,
