@@ -131,6 +131,8 @@ The sidebar on the left appears on every page:
 
 Both sidebars can be resized by dragging their inner edge (or focusing it and using the arrow keys), and double-clicking the edge resets it. The menu goes from 160 to 400 pixels and the Todos from 260 to 600, and both shrink with a small window. The round button on each edge collapses that sidebar to a thin rail. The menu's rail keeps the logo, shrunk, at the bottom. The Todos rail keeps a checklist icon (`img/list-check.svg`) and the count at the top, then each listed todo's status icon in the list's order (`todo-rail-item`, `status.iconOf`), ringed in its highlight or recurring colour and linking to the task, scrolling if there are more than fit. Widths and collapsed sidebars are remembered in the browser (`pms.layout`). Below 1100 pixels wide the sidebars stack above and below the page, and each button becomes a bar that hides or shows its sidebar. Names in the menu stay on one line, ending in an ellipsis if they don't fit, with the whole name as a tooltip, so a long name never widens a sidebar or scrolls it sideways.
 
+The page between the sidebars is 920 pixels wide on a 1080p screen and grows with the space on larger ones (the space less 440 pixels, up to 2000), so a 1440p or 4K screen isn't left mostly empty. Text and controls stay the same size, and paragraphs and lists of notes stop at 120 characters wide so they stay easy to read.
+
 Pages with view tabs (Overview, Scratchpad, Raw and so on) keep them in a bar at the top of the window as the page scrolls, with the page's other buttons, such as a project's back link, Project type and Archive. The title sits below the bar, so a long one has the whole width.
 
 ### Overview tab

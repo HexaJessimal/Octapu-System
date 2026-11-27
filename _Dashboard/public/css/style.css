@@ -96,8 +96,10 @@ a:hover {
 
 /* ---------- layout ---------- */
 
+/* As wide as the space between the sidebars allows, less a margin each side: 920px on a 1080p
+   screen, wider on larger ones, up to a limit so cards don't stretch too far. */
 .wrap {
-  max-width: 920px;
+  max-width: min(2000px, max(920px, 100% - 440px));
   margin: 0 auto;
   padding: 28px 16px 64px;
 }
@@ -755,6 +757,14 @@ html:has(.view-bar) {
 }
 .doc p {
   margin: 0.7em 0;
+}
+/* Prose keeps a readable line length however wide the page gets. Task lists run the full
+   width, as their menus sit at the right edge. */
+.doc p,
+.doc ul:not(.task-list),
+.doc ol,
+.doc blockquote {
+  max-width: 120ch;
 }
 .md-image {
   display: block;
