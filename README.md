@@ -332,7 +332,7 @@ Until it's converted, a hand-written Event Date is read day-first, as `25.07.26`
 
 ### Options
 
-**General** edits the values in `_Options/Options.csv`, including the `PROJECTS` directory list. `SHOWARCHIVED`, `SYNCCONFLICTS` and `MULTIUSER` are tick boxes. The dropdowns are `ARCHIVEMODE`, `HEADERS` or `FULL` (see Archiving a project); `THEME`, `DARK` (the default), `LITE`, `MONO` or `CYAN` (the files in `_Dashboard/defaults/themes/`), or `CUSTOM` (the Colours tab); and `CORNERS`, `ROUND` (the default) or `SQUARE`, which takes the rounding off every box, button and label but leaves circles round. They're always listed, even if the file doesn't have them yet.
+**General** edits the values in `_Options/Options.csv`, including the `PROJECTS` directory list. `SHOWARCHIVED`, `SYNCCONFLICTS` and `MULTIUSER` are tick boxes. The dropdowns are `ARCHIVEMODE`, `HEADERS` or `FULL` (see Archiving a project); `THEME`, `DARK` (the default), `LITE`, `MONO`, `CYAN` or `NEON` (the files in `_Dashboard/defaults/themes/`; NEON is #ff00c7 neon pink on black, with mint, yellow, electric blue, red-orange and indigo for the status, priority and tentacle colours, checked for at least 4.5:1 contrast and clearly different hues), or `CUSTOM` (the Colours tab); and `CORNERS`, `ROUND` (the default) or `SQUARE`, which takes the rounding off every box, button and label but leaves circles round. They're always listed, even if the file doesn't have them yet.
 
 #### Working as a team
 
@@ -444,6 +444,7 @@ Projects with `**Project Type:** Ongoing` use the same folder names, status pref
     - **Promote to new project** creates a Milestone project in the same directory, titled after the milestone, with the same tentacle and `**Leader**`, today's Date Created and a Project Dependency on this project. The milestone's lines go under `### Milestone 1`. The milestone is then removed from this file and the new project opens. It needs this project's main file and Tentacle, and a project with that tentacle and title mustn't exist.
     - **Mark all as done** moves every open, uncancelled row in the milestone to the first `DONE` status, adding `CLOSED` stamps as a status change does.
     - **Delete** removes it after asking. Its heading and everything under it go, up to the next milestone. Nothing else in the file changes.
+  - a faint line between each task and the one before it, at every depth, like the line between rows in the Todos sidebar (`.doc li.task + li.task::before`, drawn in the gap so the tick boxes and menus inside the row don't move).
   - an arrow to collapse each milestone, remembered in your browser, and a dotted handle to reorder them. Green milestones start collapsed each time the page loads. Drag the handle, or focus it and press the up and down arrow keys. Reordering moves the milestone in the file.
 - **Scratchpad** shows everything in the file except the header fields and the Milestones section, as one block per `#` or `##` heading. The plus button adds a block at the end of the file. A block can't be called `Notes` or `Milestones`.
 - **Raw** shows the whole markdown file, nicely rendered, on project, tentacle, Contacts and Events pages. Double-click it to edit the file's markdown in one text box. Ctrl+Enter saves and Escape cancels. If the file has changed since the page loaded, nothing is saved. A project or tentacle folder with more than one markdown file gets a tab for each file above the content, on every tab of the page, with the main file first. The plus button at the end of that row adds a new file, with the fields and headings a project file needs, and opens it.
@@ -636,7 +637,7 @@ _Dashboard/
   test/                unit tests (node --test)
   dev/                 checks to run against a copy of the data: API snapshot and page sweep
   defaults/Colours.csv the colours a new install starts with
-  defaults/themes/     the DARK, LITE, MONO and CYAN themes
+  defaults/themes/     the DARK, LITE, MONO, CYAN and NEON themes
   public/
     setup.html         first-time setup form
     login.html         multi-user login

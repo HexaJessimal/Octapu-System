@@ -330,7 +330,7 @@ const SWITCH_VALUES = ['TRUE', 'FALSE'];
 const CHOICE_OPTIONS = {
   ARCHIVEMODE: { values: ['HEADERS', 'FULL'], fallback: 'HEADERS' },
   // CUSTOM is _Options/Colours.csv. The others are the theme files in _Dashboard/defaults/themes.
-  THEME: { values: ['DARK', 'LITE', 'MONO', 'CYAN', 'CUSTOM'], fallback: 'DARK' },
+  THEME: { values: ['DARK', 'LITE', 'MONO', 'CYAN', 'NEON', 'CUSTOM'], fallback: 'DARK' },
   CORNERS: { values: ['ROUND', 'SQUARE'], fallback: 'ROUND' },
 };
 

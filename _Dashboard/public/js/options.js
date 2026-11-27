@@ -64,7 +64,7 @@
   // What each dropdown option does, and what each of its values means.
   const CHOICE_NOTES = {
     ARCHIVEMODE: 'What the Archive button on a project does. HEADERS sets Date Closed and copies its header into _Archive.md, leaving the folder for you to move off (to a NAS, say). FULL sets Date Closed and renames the folder with today\'s date.',
-    THEME: 'The colours of every page. DARK is the usual purple theme on a dark page, LITE is the same on a pale page, MONO is black on white with a few highlight colours, and CYAN is cyan on black. CUSTOM uses your own colours from the Colours tab (_Options/Colours.csv).',
+    THEME: 'The colours of every page. DARK is the usual purple theme on a dark page, LITE is the same on a pale page, MONO is black on white with a few highlight colours, CYAN is cyan on black, and NEON is neon pink on black, a retro terminal with its own bright colours for each status and priority. CUSTOM uses your own colours from the Colours tab (_Options/Colours.csv).',
     CORNERS: 'ROUND gives boxes, buttons and labels rounded corners. SQUARE makes them all square, leaving only true circles round.',
   };
 

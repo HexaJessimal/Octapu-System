@@ -834,6 +834,21 @@ html:has(.view-bar) {
   padding-left: 1.7em;
   padding-right: 28px;
 }
+/* A faint line between each task and the one before it, at every depth, as between the Todos
+   sidebar's rows, so long lists are easier to follow. It's drawn in the gap above the row,
+   so the tick box and menus placed inside the row don't move. */
+.doc li.task + li.task {
+  margin-top: 0.4em;
+}
+.doc li.task + li.task::before {
+  content: '';
+  position: absolute;
+  top: -0.25em;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
 /* The grey menu at the end of a task row (Cancel, Delete and, on milestones, more). */
 .doc li.task > .row-menu-control {
   position: absolute;
@@ -3549,7 +3564,7 @@ a.home-stat:hover {
   background: color-mix(in srgb, var(--text) 3%, transparent);
 }
 .todo + .todo {
-  border-top: 1px solid color-mix(in srgb, var(--text) 3%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
 }
 .todo-head {
   display: flex;

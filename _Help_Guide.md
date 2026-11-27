@@ -392,7 +392,7 @@ Open **Options** at the bottom of the left menu. The **General** tab holds:
 - `SYNCCONFLICTS`: tick it to be warned about Syncthing conflicts, as described in [Work together as a team](#work-together-as-a-team).
 - `MULTIUSER`: tick it to log in and keep a Changelog of who changed what, as described in [Work together as a team](#work-together-as-a-team).
 - `ARCHIVEMODE`: what the **Archive** button on a project does, as described in [Archive a finished project](#archive-a-finished-project).
-- `THEME`: the colours of every page. **DARK**, the default, is the usual purple theme on a dark page. **LITE** is the same on a pale page, **MONO** is black on white with a few colours kept for what needs attention, and **CYAN** is cyan on black. **CUSTOM** uses your own colours from the **Colours** tab, described in [Customise your dashboard colours](#customise-your-dashboard-colours).
+- `THEME`: the colours of every page. **DARK**, the default, is the usual purple theme on a dark page. **LITE** is the same on a pale page, **MONO** is black on white with a few colours kept for what needs attention, **CYAN** is cyan on black, and **NEON** is neon pink on black, like a retro computer terminal, with its own bright colour for each status and priority. A thin line divides each task from the next in every task list, whatever the theme. **CUSTOM** uses your own colours from the **Colours** tab, described in [Customise your dashboard colours](#customise-your-dashboard-colours).
 - `CORNERS`: **ROUND** gives boxes, buttons and labels rounded corners, and **SQUARE** makes them square. Round icons stay round.
 
 [[IMAGE#Screenshots/45-Options.png]]

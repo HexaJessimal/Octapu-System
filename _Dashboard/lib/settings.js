@@ -58,7 +58,7 @@ async function readColourTable() {
 
 // The colour themes that ship with the dashboard, by their THEME value.
 const THEMES_DIR = path.join(DASHBOARD_DIR, 'defaults', 'themes');
-const THEME_FILES = { DARK: 'Dark.csv', LITE: 'Lite.csv', MONO: 'Mono.csv', CYAN: 'Cyan.csv' };
+const THEME_FILES = { DARK: 'Dark.csv', LITE: 'Lite.csv', MONO: 'Mono.csv', CYAN: 'Cyan.csv', NEON: 'Neon.csv' };
 
 // api/colours.css: the THEME's colours, or _Options/Colours.csv for CUSTOM (or if the theme's
 // file can't be read), and square corners when CORNERS is SQUARE. Every page loads it after
