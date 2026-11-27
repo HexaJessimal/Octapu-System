@@ -50,7 +50,7 @@ const {
   submitWeeklyFocus,
 } = require('./lib/nav');
 
-const VERSION = '0.8';
+const VERSION = '0.8.6';
 const HOST = process.env.PMS_HOST || '127.0.0.1';
 const PORT = Number(process.env.PMS_PORT) || 4173;
 

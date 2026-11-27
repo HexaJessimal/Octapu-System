@@ -1,6 +1,6 @@
 # Octapu System Dashboard
 
-Version 0.8
+Version 0.8.6
 
 A small, self-contained dashboard for the markdown-driven project management system in this folder. Markdown files are the source of truth, so you can keep editing them in any text editor. The dashboard only changes them when you make an edit in it.
 
@@ -334,7 +334,7 @@ Until it's converted, a hand-written Event Date is read day-first, as `25.07.26`
 
 ### Options
 
-**General** edits the values in `_Options/Options.csv`, including the `PROJECTS` directory list. `SHOWARCHIVED`, `SYNCCONFLICTS` and `MULTIUSER` are tick boxes. The dropdowns are `ARCHIVEMODE`, `HEADERS` or `FULL` (see Archiving a project); `THEME`, `DARK` (the default), `LITE`, `MONO`, `CYAN` or `NEON` (the files in `_Dashboard/defaults/themes/`; NEON is #ff00c7 neon pink on black, with mint, yellow, electric blue, red-orange and indigo for the status, priority and tentacle colours, checked for at least 4.5:1 contrast and clearly different hues), or `CUSTOM` (the Colours tab); and `CORNERS`, `ROUND` (the default) or `SQUARE`, which takes the rounding off every box, button and label but leaves circles round. They're always listed, even if the file doesn't have them yet.
+**General** edits the values in `_Options/Options.csv`, including the `PROJECTS` directory list. `SHOWARCHIVED`, `SYNCCONFLICTS` and `MULTIUSER` are tick boxes. The dropdowns are `ARCHIVEMODE`, `HEADERS` or `FULL` (see Archiving a project); `THEME`, `DARK` (the default), `LITE`, `MONO`, `CYAN` or `NEON` (the files in `_Dashboard/defaults/themes/`; CYAN is almost all cyan on black, with soft mint, sand, periwinkle, dusty pink and lavender for the status, priority and tentacle colours, just far enough from the cyan to tell apart; NEON is #ff00c7 neon pink on black, with mint, yellow, electric blue, red-orange and indigo for the status, priority and tentacle colours, checked for at least 4.5:1 contrast and clearly different hues), or `CUSTOM` (the Colours tab); and `CORNERS`, `ROUND` (the default) or `SQUARE`, which takes the rounding off every box, button and label but leaves circles round. They're always listed, even if the file doesn't have them yet.
 
 #### Working as a team
 

@@ -5,14 +5,14 @@ surface,#03090a,"Cards, panels and dropdowns, code blocks, and the dimmed backgr
 surface-raised,#0d4f57,"Outlines of summary boxes, Dashboard tiles, form fields and dropdowns, Timeline bars with no milestones, hover backgrounds, raised controls, plus buttons (other than on project pages), the second colour of the logo, and top-level tentacles (lightened towards the text colour)"
 border,#0f2a2e,Borders and archived labels
 text,#7cf3ff,Main text and faint divider lines. Highlight colours are lightened towards it on hover
-text-soft,#3fa6b2,"Secondary and quiet text, UNASSIGNED status, and tentacles below the third level"
+text-soft,#88aaad,"Secondary and quiet text, UNASSIGNED status, and tentacles below the third level"
 shadow-colour,#000000,Drop shadows and sunken areas
 on-highlight,#001417,"Text and ticks drawn on a filled highlight colour, such as milestone tiles and the Review count"
-complete,#00ffa3,"Complete milestones, active projects, DONE status, priority A, and Review or Plan being due"
-caution,#ffd60a,"Milestones in progress, WAITING status, priority B, the last item in a milestone on the Plan page, Review or Plan due soon, and warnings"
-pending,#2fb8c9,"Milestones not started, inactive projects, ASSIGNED status, and unexpected files on Compatibility"
-alert,#ff3366,"Milestones with no tasks, priority C, sidebar items whose project is not active, errors and delete buttons"
-tentacle,#4dd0ff,"Sidebar items named in the latest focus, tentacles to review and their review flag, booked events, and the second level of tentacles"
+complete,#7dffc0,"Complete milestones, active projects, DONE status, priority A, and Review or Plan being due"
+caution,#e6dc96,"Milestones in progress, WAITING status, priority B, the last item in a milestone on the Plan page, Review or Plan due soon, and warnings"
+pending,#7fa6ff,"Milestones not started, inactive projects, ASSIGNED status, and unexpected files on Compatibility"
+alert,#dea8c4,"Milestones with no tasks, priority C, sidebar items whose project is not active, errors and delete buttons"
+tentacle,#b4a4ff,"Sidebar items named in the latest focus, tentacles to review and their review flag, booked events, and the second level of tentacles"
 project,#00e5ff,"Sidebar items whose project is in the latest focus, Suggested projects on the Plan page, projects to review and their review flag, application deadlines, and the plus buttons and fact boxes on project pages"
 print-paper,#ffffff,The page colour of a printed report
 print-ink,#111111,Main text on a printed report
