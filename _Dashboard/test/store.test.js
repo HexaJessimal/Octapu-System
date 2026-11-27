@@ -7,7 +7,8 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { writeFileSafely, cleanDependencies } = require('../lib/store');
-const { currentName } = require('../lib/renames');
+const { waitingRenames } = require('../lib/renames');
+const { dataPaths } = require('../lib/context');
 
 test('writeFileSafely tries the rename again while the file is busy', async (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'octapu-test-'));
@@ -40,12 +41,17 @@ test('writeFileSafely gives up on other errors and removes its temp file', async
   assert.deepEqual(fs.readdirSync(dir), ['note.txt']);
 });
 
-test('an old name is used only while it is the only one there', () => {
-  const has = (...names) => (full) => names.includes(path.basename(full));
-  assert.equal(currentName('/x', 'options', has('_Labels')), '_Labels');
-  assert.equal(currentName('/x', 'options', has('_Labels', '_Options')), '_Options');
-  assert.equal(currentName('/x', 'contacts', has()), 'Contacts.md');
-  assert.equal(currentName('/x', 'contacts', has('Leads.md')), 'Leads.md');
+test('old names are never read, only listed while waiting to be renamed', () => {
+  const root = path.resolve('/x');
+  const paths = dataPaths(root);
+  assert.equal(path.basename(paths.OPTIONS_DIR), '_Options');
+  assert.equal(path.basename(paths.TENTACLE_DIR), '_Tentacles');
+  const has = (...names) => (full) => names.includes(path.relative(root, full).split(path.sep).join('/'));
+  const keys = (exists) => waitingRenames(root, paths, exists).map((rule) => rule.key);
+  assert.deepEqual(keys(has('_Labels')), ['options']);
+  assert.deepEqual(keys(has('_Labels', '_Options')), [], 'both there is an error for Core files, not a rename');
+  assert.deepEqual(keys(has('_Networking/Leads.md', '_Options/Owners.csv')), ['contacts', 'tentacles-file']);
+  assert.deepEqual(keys(has()), []);
 });
 
 test('cleanDependencies checks each choice and tidies its milestones', () => {

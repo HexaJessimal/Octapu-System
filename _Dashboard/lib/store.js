@@ -10,10 +10,10 @@ const {
 } = require('../todos');
 const { isReservedTitle, ARCHIVE_FIELDS, parseNamedEntries, parseEventDate, isTaskList, milestoneTitles } = require('../document-edits');
 const { isDateColumn, parseCatalogFileName, parseCatalog, nextCatalogNumber } = require('../catalogs');
-const { RENAMED, currentName } = require('./renames');
+const { RENAMED } = require('./renames');
 const { diffLines, logName, appendToLog, isConflictCopy } = require('../changes');
 const {
-  DEVICE, requestContext, DASHBOARD_DIR, ROOT_DIR, dataPaths, readText, readDir, existsNow, disk,
+  DEVICE, requestContext, DASHBOARD_DIR, ROOT_DIR, dataPaths, readText, readDir, disk,
   currentRoot, at, isInside, readIfExists,
 } = require('./context');
 
@@ -32,10 +32,7 @@ const NETWORKING = {
     title: 'Contacts',
     tab: 'Contacts',
     noun: 'contact',
-    // Leads.md until the page was renamed, which is read until Core files renames it.
-    get file() {
-      return currentName(at().NETWORKING_DIR, 'contacts', existsNow);
-    },
+    file: 'Contacts.md',
     level: 3,
     section: /^contacts$/i,
     fields: [

@@ -125,7 +125,7 @@
     // Any other **Key**: value fields in the file also appear here.
     meta.order.forEach((key) => {
       const k = key.toLowerCase();
-      if (!['leader', 'owner', 'date created', 'created', 'date reviewed', 'date closed', 'active timeframe', 'project dependency', 'project type', 'flagged for review'].includes(k)) facts.push([key, meta.fields[k]]);
+      if (!['leader', 'date created', 'created', 'date reviewed', 'date closed', 'active timeframe', 'project dependency', 'project type', 'flagged for review'].includes(k)) facts.push([key, meta.fields[k]]);
     });
 
     if (project.ongoing) {

@@ -80,6 +80,8 @@
     const covered = (bar) => (bar.milestones ? milestones.filter((m) => bar.milestones.some((name) => key(name) === key(m.title))) : milestones);
     // An archived project is finished, so it takes the complete colour.
     const backgroundOf = (bar) => (archived ? STATE_COLOURS.done : barBackground(covered(bar)));
+    // A bar drawn wholly in the complete colour, so every arrow leaving it shows as met.
+    const isComplete = (bar) => archived || (covered(bar).length > 0 && covered(bar).every((m) => m.state === 'done'));
     const summaryOf = (bar) => (archived ? 'archived' : (bar.milestones ? bar.milestones.join(', ') + ': ' : '') + progressText(covered(bar)));
     // An arrow for a dependency on the whole project leaves its last bar. drawArrows chooses
     // the others from each bar's dates and milestones.
@@ -107,6 +109,7 @@
             milestones: bar.milestones ? bar.milestones.join(';') : '',
             folder: row.folder,
             background: backgroundOf(bar),
+            complete: isComplete(bar),
             from: column(bar.first),
             to: column(bar.last) + 1,
             lane: bar.lane + 1,
@@ -167,10 +170,11 @@
 
     const box = gantt.getBoundingClientRect();
     const middle = (rect) => rect.top + rect.height / 2 - box.top;
+    // An arrow is met when what it waits for is finished, or when the bar it leaves is complete.
     const join = (fromBar, toBar, met) => {
       const from = fromBar.getBoundingClientRect();
       const to = toBar.getBoundingClientRect();
-      return component('gantt-arrow-path', { met, route: arrowPath(from.right - box.left, middle(from), to.left - box.left, middle(to)) });
+      return component('gantt-arrow-path', { met: met || 'complete' in fromBar.dataset, route: arrowPath(from.right - box.left, middle(from), to.left - box.left, middle(to)) });
     };
     const rowOf = new Map(rows.map((row) => [row.folder, row]));
     const paths = rows.flatMap((row) =>

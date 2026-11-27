@@ -40,8 +40,8 @@
   // ---------- inline ----------
 
   // The markdown files [[references]] can link to, by their name in lowercase, and the page
-  // each opens. Contacts was called Leads, so [[Leads#Name]] links still work.
-  const LINKABLE_FILES = { contacts: 'contacts', leads: 'contacts', events: 'events' };
+  // each opens.
+  const LINKABLE_FILES = { contacts: 'contacts', events: 'events' };
   let currentNetworkingPage = null; // which file a [[#heading]] with no file name is in
 
   const unescape = (s) => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&');

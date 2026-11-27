@@ -64,7 +64,7 @@
     const tasks = documentView.taskRows(org);
     const done = tasks.filter((t) => t.mark === 'x').length;
     const created = meta.fields['date created'] || meta.fields.created;
-    const known = ['leader', 'owner', 'date created', 'created', 'date reviewed', 'date closed', 'flagged for review'];
+    const known = ['leader', 'date created', 'created', 'date reviewed', 'date closed', 'flagged for review'];
     return component('summary-card', {
       corner: documentView.folderButton(org),
       title: org.title ? titleSpan(org, true) : window.PMS.escapeHtml(org.name),

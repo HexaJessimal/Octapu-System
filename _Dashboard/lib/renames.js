@@ -1,11 +1,10 @@
-// Files and folders the dashboard relies on that have been renamed, in one table. Until
-// Compatibility's Core files page renames one, its old name is still used while it's the only
-// one there, so nothing goes missing in the meantime.
+// Files and folders the dashboard relies on that have been renamed, in one table. Only the new
+// names are read: Compatibility's Core files page lists any old name still there and renames it.
 'use strict';
 
 const path = require('path');
 
-// `where` is the folder holding it: the entity's own folder, or its _Networking folder.
+// `where` is the folder holding it: the entity's own folder, or its _Networking or _Options folder.
 // `title` is the old and new word for a file's `# ` title, swapped when it's renamed.
 const RENAMED = [
   {
@@ -36,6 +35,15 @@ const RENAMED = [
     why: 'the Leads page is now called Contacts',
     title: ['Leads', 'Contacts'],
   },
+  {
+    key: 'tentacles-file',
+    folder: false,
+    where: 'options',
+    from: 'Owners.csv',
+    to: 'Tentacles.csv',
+    href: null,
+    why: 'the organisations inside an entity are now called tentacles',
+  },
 ];
 
 // Colours.csv names that described a hue rather than a use, so stopped making sense once the
@@ -51,11 +59,18 @@ const RENAMED_COLOURS = [
 
 const renamed = (key) => RENAMED.find((rule) => rule.key === key);
 
-// The name in use in `dir`: the new one, or the old one while only that exists. `exists`
-// checks a path, so a request can remember what it has already checked.
-function currentName(dir, key, exists) {
-  const rule = renamed(key);
-  return !exists(path.join(dir, rule.to)) && exists(path.join(dir, rule.from)) ? rule.from : rule.to;
+// The folder holding a rule's file or folder, from an entity's folder and its dataPaths.
+function renameDir(rule, root, paths) {
+  return rule.where === 'networking' ? paths.NETWORKING_DIR : rule.where === 'options' ? paths.OPTIONS_DIR : root;
 }
 
-module.exports = { RENAMED, RENAMED_COLOURS, renamed, currentName };
+// The renames still to do in an entity: the old name is there and the new one isn't. Start-up
+// and first-time setup leave those alone, so the new name isn't made beside the old one.
+function waitingRenames(root, paths, exists) {
+  return RENAMED.filter((rule) => {
+    const dir = renameDir(rule, root, paths);
+    return exists(path.join(dir, rule.from)) && !exists(path.join(dir, rule.to));
+  });
+}
+
+module.exports = { RENAMED, RENAMED_COLOURS, renamed, renameDir, waitingRenames };

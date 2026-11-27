@@ -6,7 +6,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { PRIORITIES, parseComponents, RECUR_VALUE, PROJECT_TYPES } = require('./todos');
-const { currentName } = require('./lib/renames');
+const { renameDir, waitingRenames } = require('./lib/renames');
 const {
   requestContext, USER_COOKIE, DASHBOARD_DIR, PUBLIC_DIR, ROOT_DIR, HELP_FILE, IMAGES_DIR,
   ENTITY_COOKIE, dataPaths, disk, at, readEntities, entityRootOf, readCookie, selectedEntity,
@@ -16,7 +16,7 @@ const {
   field, isArchived, readProjectDirs, listProjects, projectName, dependencyKey, readStatuses,
   readTentacles, readLeaders, SWITCH_OPTIONS, CHOICE_OPTIONS, readOptionsWithSwitches,
   readArchiveMode, readSwitch, readShowArchived, readDateFormat, enqueueWrite, collectCatalogs,
-  readCatalog,
+  readCatalog, NETWORKING,
 } = require('./lib/store');
 const { collectTodos, changeStatus, checkBox } = require('./lib/tasks');
 const { readNetworking, saveEntryField, saveEntryTask, saveNewEntry, deleteEntry, saveEventField } = require('./lib/networking');
@@ -537,11 +537,6 @@ async function route(req, res) {
       const logo = await findLogo();
       return logo ? serveImage(res, '/images/' + encodeURIComponent(logo)) : send(res, 404, 'Not found');
     }
-    // Tentacle pages were entity pages, so old links and bookmarks still arrive here.
-    if (url.pathname === '/entity.html') {
-      res.writeHead(302, { Location: 'tentacle.html' + url.search, 'Cache-Control': 'no-store' });
-      return res.end();
-    }
     return serveStatic(req, res, url.pathname);
   } catch (err) {
     console.error(err);
@@ -558,27 +553,25 @@ function requiredDirs(root) {
 function starterFiles(root) {
   const p = dataPaths(root);
   return [
-    [path.join(p.NETWORKING_DIR, currentName(p.NETWORKING_DIR, 'contacts', fs.existsSync)), '# Contacts\n\n## Contacts\n'],
+    [path.join(p.NETWORKING_DIR, NETWORKING.contacts.file), '# Contacts\n\n## Contacts\n'],
     [path.join(p.NETWORKING_DIR, 'Events.md'), '# Events\n\n## Upcoming\n'],
     [p.REPORTS_FILE, ''], // blank until the first review adds a report
   ];
 }
 
-// Tentacles.csv was called Owners.csv. It's renamed once, and never over a Tentacles.csv.
-async function renameOldTentaclesFile(root) {
-  const { TENTACLES_FILE, OPTIONS_DIR } = dataPaths(root);
-  const old = path.join(OPTIONS_DIR, 'Owners.csv');
-  if ((await readIfExists(TENTACLES_FILE)) !== null || (await readIfExists(old)) === null) return;
-  await disk.rename(old, TENTACLES_FILE);
-  console.log(`Renamed ${path.relative(ROOT_DIR, old)} to Tentacles.csv`);
+// The new names whose old name is still there, waiting for Compatibility's Core files page.
+// Nothing is made at or inside one, so the rename can still go ahead.
+function waitingPaths(root) {
+  const p = dataPaths(root);
+  const waiting = waitingRenames(root, p, fs.existsSync).map((rule) => path.join(renameDir(rule, root, p), rule.to));
+  return (full) => waiting.some((to) => full === to || full.startsWith(to + path.sep));
 }
 
-// entities.csv used to be in _Dashboard. It's moved up to the main folder once, before the
-// entities are read, and never over one that's already there.
-async function moveOldEntitiesFile() {
+// entities.csv used to be in _Dashboard. It isn't read from there any more, so start-up says
+// so while one is still there and the main folder has none.
+async function warnOldEntitiesFile() {
   if ((await readIfExists(ENTITIES_FILE)) !== null || (await readIfExists(OLD_ENTITIES_FILE)) === null) return;
-  await disk.rename(OLD_ENTITIES_FILE, ENTITIES_FILE);
-  console.log('Moved _Dashboard/entities.csv to the main folder');
+  console.warn('_Dashboard/entities.csv is no longer read. Move it to the main folder, beside _Dashboard, and restart.');
 }
 
 // The Help Guide, its screenshots and the logo ship in _Dashboard/defaults.
@@ -604,15 +597,15 @@ async function copyFolderIfMissing(from, to) {
 // An entity's folders and starter files, for an entity added to entities.csv since start-up
 // as well as the ones there already.
 async function prepareEntity(root) {
-  for (const dir of requiredDirs(root)) await disk.mkdir(dir, { recursive: true });
-  await renameOldTentaclesFile(root);
+  const waiting = waitingPaths(root);
+  for (const dir of requiredDirs(root)) if (!waiting(dir)) await disk.mkdir(dir, { recursive: true });
   for (const [file, content] of starterFiles(root)) {
-    await disk.writeFile(file, content, { encoding: 'utf8', flag: 'wx' }).catch(unlessExists);
+    if (!waiting(file)) await disk.writeFile(file, content, { encoding: 'utf8', flag: 'wx' }).catch(unlessExists);
   }
 }
 
 async function createMissingFolders() {
-  await moveOldEntitiesFile();
+  await warnOldEntitiesFile();
   for (const entity of await readEntities()) await prepareEntity(entityRootOf(entity));
   await disk.mkdir(IMAGES_DIR, { recursive: true });
   await copyIfMissing(path.join(DEFAULTS_DIR, '_Help_Guide.md'), HELP_FILE);

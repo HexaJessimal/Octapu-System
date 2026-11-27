@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const {
   parseHeader, createMatcher, taskBlockLines, findTodos, STORAGE_FORMAT, projectTitleError,
-  parseTimeframes, tentacleChain, stripComments, LEADER_FIELD, OLD_LEADER_FIELD, parseColours,
+  parseTimeframes, LEADER_FIELD, OLD_LEADER_FIELD, parseColours,
   renameColourRows,
 } = require('../todos');
 const {
@@ -13,7 +13,7 @@ const {
   milestoneTitles, ARCHIVE_FIELDS, parseNamedEntries, renameOldLeader, parseEntries, eventDateValue,
   readOldEventDate, setInlineField,
 } = require('../document-edits');
-const { RENAMED, RENAMED_COLOURS, renamed } = require('./renames');
+const { RENAMED, RENAMED_COLOURS, renamed, renameDir: renameDirIn } = require('./renames');
 const { logName, isLogOf } = require('../changes');
 const { readText, disk, currentRoot, at, readIfExists } = require('./context');
 const {
@@ -172,8 +172,9 @@ const OLD_LEADER_PROBLEM = { text: `${OLD_LEADER_FIELD} should be ${LEADER_FIELD
 async function oldLeaderEntries() {
   const text = await readIfExists(at().ARCHIVE_FILE);
   if (text === null) return [];
-  const lines = stripComments(text);
-  return parseNamedEntries(text, ARCHIVE_FIELDS).filter((e) => e.fields.leader.line && !new RegExp(`\\*\\*\\s*${LEADER_FIELD}`, 'i').test(lines[e.fields.leader.line - 1]));
+  const old = Object.assign({}, ARCHIVE_FIELDS, { leader: OLD_LEADER_FIELD });
+  const leaders = new Set(parseNamedEntries(text, ARCHIVE_FIELDS).filter((e) => e.fields.leader.line).map((e) => e.line));
+  return parseNamedEntries(text, old).filter((e) => e.fields.leader.line && !leaders.has(e.line));
 }
 
 // Renames one archive entry's Owner field to Leader. `line` and `title` find the entry.
@@ -231,9 +232,9 @@ async function renameWithLogs(dir, file, target) {
 
 // Each old name in lib/renames.js is listed on Compatibility's Core files page, and Fix issues
 // renames it. A file's change logs are renamed with it, and the old name in its `# ` title is
-// changed to the new one.
-const renameDir = (rule) => (rule.where === 'networking' ? at().NETWORKING_DIR : currentRoot());
-const renameLocation = (rule) => (rule.where === 'networking' ? '_Networking' : '');
+// changed to the new one. Old names aren't read, so until then that file or folder is missing.
+const renameDir = (rule) => renameDirIn(rule, currentRoot(), at());
+const renameLocation = (rule) => (rule.where === 'root' ? '' : path.basename(renameDir(rule)));
 
 // Colours.csv rows still named after a hue. They're ignored, so those colours come from the
 // stylesheet until the rows are renamed.
@@ -258,7 +259,7 @@ async function incompatibleCoreFiles() {
     const both = fs.existsSync(path.join(dir, rule.to));
     const problem = both
       ? { text: `Both ${rule.from} and ${rule.to} exist. Move anything you still need from ${rule.from} into ${rule.to}, then delete ${rule.from}`, kind: 'error' }
-      : { text: `${rule.from} should be called ${rule.to}, as ${rule.why}`, kind: 'fixable' };
+      : { text: `${rule.from} should be called ${rule.to}, as ${rule.why}. It isn't read under its old name`, kind: 'fixable' };
     rows.push({ key: rule.key, name: rule.from, file: rule.from, directory: renameLocation(rule), href: rule.href, problems: [problem] });
   }
   return { checked: RENAMED.length + 1, rows };
@@ -286,32 +287,13 @@ async function fixCoreFile(key, file) {
   }
   const content = await readIfExists(path.join(dir, rule.from));
   await renameWithLogs(dir, rule.from, rule.to);
+  if (!rule.title) return { code: 200, body: { ok: true } };
   const [before, after] = rule.title;
   // The old name is swapped wherever it appears in the file's `# ` title, so "# Leads list"
   // becomes "# Contacts list".
   const retitled = content.replace(new RegExp(`^(\\uFEFF?#[ \\t].*?)\\b${before}\\b`, 'm'), `$1${after}`);
   if (retitled !== content) await writeFileSafely(path.join(dir, rule.to), retitled);
   return { code: 200, body: { ok: true } };
-}
-
-// Folders inside the tentacles' folder that don't match a tentacle's place in Tentacles.csv.
-async function unknownTentacleFolders(tentacles) {
-  const known = new Set(tentacles.map((o) => tentacleChain(tentacles, o.id)).filter(Boolean).map((chain) => chain.join('/')));
-  const unknown = [];
-  const walk = async (dir, parents) => {
-    for (const entry of await fs.promises.readdir(dir, { withFileTypes: true })) {
-      if (!entry.isDirectory() || entry.name.startsWith('.')) continue;
-      const chain = [...parents, entry.name];
-      if (known.has(chain.join('/'))) await walk(path.join(dir, entry.name), chain);
-      else unknown.push(chain.join('/'));
-    }
-  };
-  try {
-    await walk(at().TENTACLE_DIR, []);
-  } catch (err) {
-    if (err.code !== 'ENOENT') throw err;
-  }
-  return unknown;
 }
 
 // What's wrong with one of a tentacle's files, by the same rule as projectFileProblems.
@@ -356,9 +338,9 @@ async function incompatibleTentacles() {
   }
   const loose = (await tentacleFiles(at().TENTACLE_DIR)).filter((file) => file !== path.basename(at().REPORTS_FILE));
   for (const file of loose) rows.push({ name: `${path.basename(at().TENTACLE_DIR)}/${file}`, problems: [unknownMarkdown()] });
-  const folders = await unknownTentacleFolders(tentacles);
-  for (const folder of folders) rows.push({ name: folder, problems: [{ text: "This folder isn't in Tentacles.csv", kind: 'unexpected' }] });
-  return { checked: checked + loose.length + folders.length, rows };
+  // Other folders inside the tentacles' folders are left alone: the dashboard sits on top of
+  // working folders, which can hold anything.
+  return { checked: checked + loose.length, rows };
 }
 
 // Fix issues for one of a project's files. `main` is the file chosen to become the main one

@@ -9,7 +9,8 @@ const {
   editLeaderCsv, editEntityCsv, isUsableDateFormat, updateOptionsCsv, cleanName, themeStylesheet,
 } = require('../todos');
 const { isReservedTitle } = require('../document-edits');
-const { DASHBOARD_DIR, ROOT_DIR, ENTITIES_FILE, readText, disk, currentRoot, at, entityDirError, parseEntityRows, readIfExists } = require('./context');
+const { DASHBOARD_DIR, ROOT_DIR, ENTITIES_FILE, readText, disk, currentRoot, at, entityDirError, parseEntityRows, readIfExists, existsNow } = require('./context');
+const { waitingRenames } = require('./renames');
 const {
   DEFAULT_ROUNDUP_DAYS, DEFAULT_COLOURS_FILE, SETUP_DATE_FORMATS, setupFiles, FALLBACK_PROJECT_DIRS,
   FALLBACK_TASK_LISTS, projectDirError, splitList, readTentacles, readLeaders, SWITCH_OPTIONS,
@@ -103,15 +104,18 @@ async function saveOptions({ values }) {
 }
 
 // What the first-time setup form still needs. It's needed if any expected CSV is missing, or
-// no tentacle is at the top level of Tentacles.csv.
+// no tentacle is at the top level of Tentacles.csv. While an old name is waiting for
+// Compatibility's Core files page (such as _Labels), setup would make the new one beside it,
+// so it isn't asked for until that's renamed.
 async function setupState() {
   const expected = setupFiles();
   const files = await Promise.all(expected.map(readIfExists));
   const missing = expected.filter((_, i) => files[i] === null);
   const [tentacles, leaders] = await Promise.all([readTentacles(), readLeaders()]);
   const tentacle = !tentacles.some((o) => !o.parent);
+  const waiting = waitingRenames(currentRoot(), at(), existsNow).length > 0;
   return {
-    needed: missing.length > 0 || tentacle,
+    needed: !waiting && (missing.length > 0 || tentacle),
     missing: missing.map((file) => `${path.basename(at().OPTIONS_DIR)}/${path.basename(file)}`),
     fields: { tentacle, leader: leaders.length === 0, dateFormat: missing.includes(at().OPTIONS_FILE) },
     dateFormats: SETUP_DATE_FORMATS,

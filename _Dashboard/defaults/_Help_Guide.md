@@ -474,7 +474,7 @@ Fix issues only ever adds what's missing and leaves everything else alone. Where
 - **Main file:** a project with no markdown file named after its title. Choose the file that should be the main one, and Fix issues renames it after the project.
 - **Leader:** a project whose Leader is missing, empty or not in your leaders. Choose who leads it, or leave it for now.
 
-Projects and archive entries made before tentacles call their leader **Owner**. They're listed as **Owner should be Leader**, and Fix issues renames the field, keeping who it names.
+Projects and archive entries made before tentacles call their leader **Owner**. The dashboard no longer reads **Owner** as the leader, so they're listed as **Owner should be Leader**, and Fix issues renames the field, keeping who it names.
 
 On the **Events** page, Fix issues changes dates you typed yourself, such as `25.07.26` or `11-13.09.26`, into calendar dates. It also adds any missing Application Deadline, Event Date and tick box fields. A date with something else after it, such as a time, is listed for you to change on the Events page.
 
@@ -482,7 +482,7 @@ On the **Events** page, Fix issues changes dates you typed yourself, such as `25
 
 [[IMAGE#Screenshots/67-CompatibilityEvents.png]]
 
-The **Core files** page lists files and folders the dashboard relies on that have been given a new name. The folder of tentacles in each entity was called `_Entities`, and is now `_Tentacles`, and the folder behind the Options page was called `_Labels`, and is now `_Options`. Until they're renamed, the dashboard keeps using the old names, and Fix issues renames them. Close anything that has the folder open first. The Leads page is now called **Contacts**, so an entity whose contacts are still in `_Networking/Leads.md` is listed there. Until it's fixed, the Contacts page still reads `Leads.md`, so nothing goes missing. Fix issues renames it `Contacts.md`, with its change logs, and changes Leads to Contacts in its `#` title. If both files exist, move anything you still need into `Contacts.md` and delete `Leads.md` yourself. Old `[[Leads#Name]]` links keep working.
+The **Core files** page lists files and folders the dashboard relies on that have been given a new name. The folder of tentacles in each entity was called `_Entities`, and is now `_Tentacles`, and the folder behind the Options page was called `_Labels`, and is now `_Options`. The list of tentacles was called `Owners.csv`, and is now `Tentacles.csv`. The Leads page is now called **Contacts**, so contacts still in `_Networking/Leads.md` are listed too. The dashboard doesn't read the old names, so until they're renamed your settings, tentacles or contacts won't show. Fix issues renames them. Close anything that has the folder open first. `Leads.md` keeps its change logs, and Leads becomes Contacts in its `#` title. If both names exist, move anything you still need into the new one and delete the old one yourself. Old `[[Leads#Name]]` links no longer open Contacts.
 
 [[IMAGE#Screenshots/87-CoreFiles.png]]
 
@@ -528,7 +528,7 @@ Each file then gets its own tab, on every tab of the page, with the main file fi
 
 [[IMAGE#Screenshots/54-NewMarkdownView.png]]
 
-A file you add to a project doesn't need any of the dashboard's fields or headings, and Compatibility leaves it alone. In a tentacle's folder it's listed as **Unknown markdown**, but that's only a reminder that it doesn't use them. It still works.
+A file you add to a project doesn't need any of the dashboard's fields or headings, and Compatibility leaves it alone. In a tentacle's folder it's listed as **Unknown markdown**, but that's only a reminder that it doesn't use them. It still works. Other folders inside project and tentacle folders are never listed, so you can keep your working files there.
 
 ## Read your report and save it
 
@@ -666,7 +666,7 @@ When one project can't start until another is finished, select the plus button b
 
 [[IMAGE#Screenshots/75-ChooseDependency.png]]
 
-Each dependency then shows as a link on the Overview, with its milestones after it. On the Timeline the project sits under the first one it depends on, with an arrow from each. A dependency on certain milestones has its arrow start from a timeframe that's for one of those milestones, or, if there isn't one, from a timeframe for the whole project. With neither, it has no arrow. Once everything a dependency waits for is complete, its arrow turns the complete colour (green), as it does for an archived project. Use the pencil to change the list, or remove every dependency to clear it.
+Each dependency then shows as a link on the Overview, with its milestones after it. On the Timeline the project sits under the first one it depends on, with an arrow from each. A dependency on certain milestones has its arrow start from a timeframe that's for one of those milestones, or, if there isn't one, from a timeframe for the whole project. With neither, it has no arrow. Once everything a dependency waits for is complete, its arrow turns the complete colour (green), as it does for an archived project. So does any arrow leaving a timeframe that's entirely green, including the arrows between one project's own timeframes. Use the pencil to change the list, or remove every dependency to clear it.
 
 ## Use the task and milestone menus
 

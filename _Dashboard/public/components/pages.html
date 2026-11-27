@@ -65,7 +65,7 @@
 <template name="gantt-now"><div class="gantt-now" style="--column:{{{column}}};--lanes:{{{lanes}}}"></div></template>
 
 <template name="gantt-bar">
-  <a class="gantt-bar" href="{{href}}" title="{{detail}}" aria-label="{{detail}}" data-bar-of="{{folder}}" data-order="{{{order}}}"{{#if isLast}} data-end-of="{{folder}}"{{/if}} data-start="{{start}}" data-end="{{end}}" data-milestones="{{milestones}}" style="--bar:{{{background}}};--from:{{{from}}};--to:{{{to}}};--lane:{{{lane}}}"><span>{{label}}</span></a>
+  <a class="gantt-bar" href="{{href}}" title="{{detail}}" aria-label="{{detail}}" data-bar-of="{{folder}}" data-order="{{{order}}}"{{#if isLast}} data-end-of="{{folder}}"{{/if}} data-start="{{start}}" data-end="{{end}}" data-milestones="{{milestones}}"{{#if complete}} data-complete{{/if}} style="--bar:{{{background}}};--from:{{{from}}};--to:{{{to}}};--lane:{{{lane}}}"><span>{{label}}</span></a>
 </template>
 
 <!-- A met dependency's arrow is in the complete colour, with its own arrowhead to match. -->

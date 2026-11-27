@@ -649,11 +649,11 @@ function findField(lines, label) {
   return { line: idx + 1, at: m[1].length, value: m[2].trimEnd() };
 }
 
-// A project's leader. Before tentacles the field was called Owner, which is still read until
-// Compatibility renames it.
+// A project's leader. Before tentacles the field was called Owner, which isn't read any more:
+// Compatibility lists it and renames it.
 const LEADER_FIELD = 'Leader';
 const OLD_LEADER_FIELD = 'Owner';
-const findLeader = (lines) => findField(lines, LEADER_FIELD) || findField(lines, OLD_LEADER_FIELD);
+const findLeader = (lines) => findField(lines, LEADER_FIELD);
 
 // Adds one or more new lines after line `lineNo`, or at the very top if lineNo is null.
 function insertLine(markdown, lineNo, text) {
@@ -1194,6 +1194,7 @@ function parseComponents(html) {
 module.exports = {
   LEADER_FIELD,
   OLD_LEADER_FIELD,
+  headerLines,
   STATUS_TYPES,
   editStatusCsv,
   editLeaderCsv,

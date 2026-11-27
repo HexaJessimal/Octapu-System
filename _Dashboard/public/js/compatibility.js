@@ -6,9 +6,7 @@
   const contentEl = document.getElementById('content');
   const titleEl = document.getElementById('page-title');
   const TITLES = { projects: 'Project compatibility', tentacles: 'Tentacle compatibility', events: 'Event and contact compatibility', core: 'Core file compatibility' };
-  // Entities were renamed tentacles, so an old ?type=entities link still works.
-  const asked = new URLSearchParams(location.search).get('type');
-  const requested = asked === 'entities' ? 'tentacles' : asked;
+  const requested = new URLSearchParams(location.search).get('type');
   const type = Object.hasOwn(TITLES, requested) ? requested : 'projects';
   const title = TITLES[type];
 

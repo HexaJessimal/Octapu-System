@@ -7,7 +7,6 @@ const os = require('os');
 const path = require('path');
 const { AsyncLocalStorage } = require('async_hooks');
 const { parseCsv } = require('../todos');
-const { currentName } = require('./renames');
 const { cleanDevice } = require('../changes');
 
 // Change logs name the machine that made the change. It's this computer's name, never
@@ -28,20 +27,18 @@ const IMAGES_DIR = path.join(ROOT_DIR, '_Images');
 
 // The entities (Name,Directory), each keeping its data in its own folder of the main folder.
 // The list is the user's data, so it sits in the main folder beside them. It used to be kept
-// in _Dashboard, and start-up moves it from there (server.js moveOldEntitiesFile).
+// in _Dashboard, and start-up warns if one is still there (server.js warnOldEntitiesFile).
 const ENTITIES_FILE = path.join(ROOT_DIR, 'entities.csv');
 const OLD_ENTITIES_FILE = path.join(DASHBOARD_DIR, 'entities.csv');
 const ENTITY_COOKIE = 'pms_entity';
 // Without entities.csv, the main folder itself holds the data, as before entities existed.
 const FALLBACK_ENTITY = { name: 'Octapu System', dir: '' };
 
-// An entity's data folders and files, each named with a leading underscore. The tentacles'
-// and settings folders were renamed (lib/renames.js), and an old name is used while it's the
-// only one there.
+// An entity's data folders and files, each named with a leading underscore.
 function dataPaths(root) {
-  const tentacleDir = path.join(root, currentName(root, 'tentacles', existsNow));
+  const tentacleDir = path.join(root, '_Tentacles');
   const timeDir = path.join(root, '_Time_Management');
-  const optionsDir = path.join(root, currentName(root, 'options', existsNow));
+  const optionsDir = path.join(root, '_Options');
   return {
     TENTACLE_DIR: tentacleDir,
     TIME_MANAGEMENT_DIR: timeDir,

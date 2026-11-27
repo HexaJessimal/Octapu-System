@@ -3,7 +3,7 @@
 'use strict';
 
 const { CHECKBOX_ROW, MILESTONES_HEADING, MILESTONE_HEADING, SECTION_REVIEWED, SECTION_FLAG, ARCHIVE_MARKER, archiveMarker } = require('./public/js/rules');
-const { PLANNING_LINE, setPlanningDate, addPeriod, stripComments, titleIndex, findField, setHeaderField, editLine, insertLine, createMatcher, scanLines, parseHeader, moveToStatus, LEADER_FIELD, OLD_LEADER_FIELD } = require('./todos');
+const { PLANNING_LINE, setPlanningDate, addPeriod, stripComments, titleIndex, findField, setHeaderField, editLine, insertLine, createMatcher, scanLines, parseHeader, moveToStatus, LEADER_FIELD, OLD_LEADER_FIELD, headerLines } = require('./todos');
 
 const HEADER_FIELD = /^\s*\*\*[^*]+\*\*\s*:/;
 // Project files also write these with the colon inside the bold. Other files keep such lines
@@ -534,10 +534,12 @@ function projectProblems(markdown, folderTentacle, tentacles, leaders, taskLists
   else if (!header.title.tentacle) problems.push(problem("Page title doesn't start with a tentacle from Tentacles.csv"));
   // Leader problems let Fix issues set a leader picked on the Compatibility page.
   const leaderProblem = (text) => (leaders.length ? { text, kind: 'fixable', fix: { leader: true }, choose: 'leader' } : problem(text));
-  if (!header.leader) problems.push(Object.assign(missingField(LEADER_FIELD), leaders.length ? { choose: 'leader' } : {}));
+  // An old Owner field is renamed rather than a new Leader added. Its value is checked once
+  // it's a Leader.
+  if (!header.leader && findField(headerLines(visible), OLD_LEADER_FIELD)) problems.push(oldLeaderField());
+  else if (!header.leader) problems.push(Object.assign(missingField(LEADER_FIELD), leaders.length ? { choose: 'leader' } : {}));
   else if (!header.leader.value) problems.push(leaderProblem("Leader hasn't been chosen"));
   else if (!leaders.some((l) => l.id === header.leader.value)) problems.push(leaderProblem(`Leader "${header.leader.value}" isn't in Leaders.csv`));
-  if (header.leader && !findField(visible, LEADER_FIELD)) problems.push(oldLeaderField());
   if (!header.createdLine) problems.push(missingField('Date Created'));
   if (!header.dates.reviewed.line) problems.push(missingField('Date Reviewed'));
   if (!header.dates.closed.line) problems.push(missingField('Date Closed'));
@@ -639,8 +641,7 @@ function parseNamedEntries(markdown, labels) {
     const fields = {};
     const fieldLines = new Set();
     for (const [key, label] of Object.entries(labels)) {
-      // An entry written before tentacles may still call its leader Owner.
-      const field = findField(body, label) || (label === LEADER_FIELD ? findField(body, OLD_LEADER_FIELD) : null);
+      const field = findField(body, label);
       fields[key] = field ? { line: head.line + field.line, at: field.at, value: field.value.trim() } : { line: null, at: 0, value: '' };
       if (field) fieldLines.add(field.line);
     }
