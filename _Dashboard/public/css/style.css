@@ -984,18 +984,70 @@ li:hover > .row-menu-control .row-menu-button,
 .nav-collapsed .nav-sidebar {
   padding: 0;
 }
-.nav-collapsed .nav-sidebar > * {
+/* The menu's rail keeps only the logo, shrunk to fit, at the bottom. */
+.nav-collapsed .nav-sidebar > :not(.nav-logo),
+.nav-collapsed .nav-brand {
   display: none;
 }
-/* The Todos rail keeps only its count, below the button. */
-.todos-collapsed .sidebar > :not(.sidebar-head),
+.nav-collapsed .nav-logo {
+  padding: 10px 0 12px;
+}
+.nav-collapsed .nav-logo img {
+  max-width: 28px;
+  max-height: 28px;
+}
+/* The Todos rail keeps a todo icon and the count below the button, then each todo's status
+   icon in the list's order. The icon and the rail only show while it's collapsed. */
+.todos-collapsed .sidebar > :not(.sidebar-head, .todo-rail),
 .todos-collapsed .sidebar-head h2 {
   display: none;
 }
 .todos-collapsed .sidebar-head {
+  flex-direction: column;
   justify-content: center;
-  padding: 100px 2px 0;
+  gap: 6px;
+  padding: 100px 2px 10px;
 }
+.todo-rail-icon,
+.todo-rail {
+  display: none;
+}
+.todos-collapsed .todo-rail-icon {
+  display: block;
+  width: 18px;
+  height: 18px;
+  background: var(--text-soft);
+  -webkit-mask: url('../img/list-check.svg') center / contain no-repeat;
+  mask: url('../img/list-check.svg') center / contain no-repeat;
+}
+.todos-collapsed .todo-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-height: 0;
+  margin: 0;
+  padding: 6px 0 16px;
+  overflow-y: auto;
+  list-style: none;
+  scrollbar-width: none;
+}
+.todo-rail-item {
+  display: flex;
+  padding: 2px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px var(--ring, transparent);
+}
+.todo-rail-item .check-box {
+  font-size: 1rem;
+}
+/* The rail's rings take the colours the rows' borders do. */
+.todo-rail-item.tint-project { --ring: var(--project); }
+.todo-rail-item.tint-milestone { --ring: var(--tentacle); }
+.todo-rail-item.tint-inactive { --ring: var(--alert); }
+.todo-rail-item.recur-due { --ring: var(--caution); }
+.todo-rail-item.recur-overdue { --ring: var(--pending); }
+.todo-rail-item.recur-late { --ring: var(--alert); }
 
 /* The collapse button, a circle on the sidebar's inner edge near the top. Its name is only
    shown on narrow screens. */
@@ -1400,6 +1452,19 @@ summary.nav-link {
   border: 3.5px solid transparent;
   border-left: 5px solid var(--text);
   border-right: 0;
+}
+/* A dependency that's met: everything it waits for is complete. */
+.gantt-arrows > path.is-met {
+  stroke: var(--complete);
+}
+.gantt-arrows marker.is-met path {
+  fill: var(--complete);
+}
+.legend-arrow.is-met {
+  border-top-color: var(--complete);
+}
+.legend-arrow.is-met::after {
+  border-left-color: var(--complete);
 }
 .gantt-row {
   display: grid;
@@ -2612,6 +2677,67 @@ li.drop-after {
 }
 .modal select {
   background: var(--surface);
+}
+/* The Project Dependency picker: a row per dependency, its project and remove button on one
+   line, and its milestones' tick boxes wrapping below. */
+.dependency-picker {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.dependency-picker legend {
+  padding: 0 0 4px;
+  font-size: 0.8rem;
+  color: var(--text-soft);
+}
+.dependency-row {
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.dependency-row-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dependency-row-head select {
+  flex: 1;
+  min-width: 0;
+}
+.dependency-row-head .row-remove {
+  flex: none;
+}
+.dependency-hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-soft);
+}
+.dependency-boxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+.modal .dependency-boxes label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+.modal .dependency-boxes input {
+  width: auto;
+  padding: 0;
+}
+.dependency-add {
+  justify-self: start;
+}
+.dependency-note {
+  color: var(--text-soft);
+  font-size: 0.85em;
 }
 .modal textarea {
   min-height: 6em;

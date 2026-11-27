@@ -6,9 +6,9 @@ const fs = require('fs');
 const path = require('path');
 const {
   parseStatuses, withDefaultStatuses, parseTentacles, parseLeaders, parseOptions, parseHeader,
-  withAdvance, tentacleChain, AGENDA_GROUPS,
+  withAdvance, tentacleChain, AGENDA_GROUPS, dependencyEntries,
 } = require('../todos');
-const { isReservedTitle, ARCHIVE_FIELDS, parseNamedEntries, parseEventDate, isTaskList } = require('../document-edits');
+const { isReservedTitle, ARCHIVE_FIELDS, parseNamedEntries, parseEventDate, isTaskList, milestoneTitles } = require('../document-edits');
 const { isDateColumn, parseCatalogFileName, parseCatalog, nextCatalogNumber } = require('../catalogs');
 const { RENAMED, currentName } = require('./renames');
 const { diffLines, logName, appendToLog, isConflictCopy } = require('../changes');
@@ -233,37 +233,65 @@ function resolveDependency(value, projects, archive = []) {
   return entry ? ARCHIVE_PREFIX + entry.title : null;
 }
 
-// Each project's dependency, as a Map of folder -> the folder it depends on.
-async function dependencyParents(projects) {
+// Every entry of a Project Dependency value, { name, milestones, target }, with `target` as
+// resolveDependency gives it (null for a name that matches nothing).
+const resolveDependencies = (value, projects, archive = []) =>
+  dependencyEntries(value).map(({ name, milestones }) => ({ name, milestones, target: resolveDependency(name, projects, archive) }));
+
+// Each project's dependencies, as a Map of folder -> the folders it depends on, and each
+// project's milestone titles, for the dependency picker.
+async function dependencyGraph(projects) {
   const parents = new Map();
+  const milestones = new Map();
   for (const project of projects) {
     const content = await readProjectFile(project, primaryFile(project));
-    const parent = resolveDependency(parseHeader(content, []).dependency.value, projects);
-    if (parent) parents.set(project.folder, parent);
+    const targets = resolveDependencies(parseHeader(content, []).dependency.value, projects).map((d) => d.target).filter(Boolean);
+    if (targets.length) parents.set(project.folder, targets);
+    milestones.set(project.folder, milestoneTitles(content));
   }
-  return parents;
+  return { parents, milestones };
 }
 
-// The projects `folder` may depend on: not archived, not itself, and not any project
-// that already depends on it, which would make a loop. Then the entries in `archive`, apart
-// from `folder` itself when it's one of them.
+// The projects `folder` may depend on, each with its milestone titles: not archived, not
+// itself, and not any project that already depends on it by any route, which would make a
+// loop. Then the entries in `archive`, apart from `folder` itself when it's one of them.
 async function dependencyChoices(folder, projects, archive = []) {
-  const parents = await dependencyParents(projects);
+  const { parents, milestones } = await dependencyGraph(projects);
   const dependsOnFolder = (candidate) => {
     const seen = new Set();
-    for (let at = candidate; at && !seen.has(at); at = parents.get(at)) {
+    const walk = (at) => {
       if (at === folder) return true;
+      if (seen.has(at)) return false;
       seen.add(at);
-    }
-    return false;
+      return (parents.get(at) || []).some(walk);
+    };
+    return walk(candidate);
   };
-  const names = projects.filter((p) => !isArchived(p) && !dependsOnFolder(p.folder)).map((p) => projectName(p.name));
-  const taken = new Set(names.map(dependencyKey));
+  const live = projects.filter((p) => !isArchived(p) && !dependsOnFolder(p.folder));
+  const taken = new Set(live.map((p) => dependencyKey(projectName(p.name))));
   const archived = archive.map((e) => e.title).filter((title) => ARCHIVE_PREFIX + title !== folder && !taken.has(dependencyKey(title)));
-  return names
-    .sort((a, b) => a.localeCompare(b))
-    .map((name) => ({ id: name, name }))
-    .concat(archived.sort((a, b) => a.localeCompare(b)).map((title) => ({ id: title, name: `${title} (archived)` })));
+  return live
+    .map((p) => ({ id: projectName(p.name), name: projectName(p.name), milestones: milestones.get(p.folder) || [] }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .concat(archived.sort((a, b) => a.localeCompare(b)).map((title) => ({ id: title, name: `${title} (archived)`, milestones: [] })));
+}
+
+// A submitted list of dependencies, [{ name, milestones }], checked against `choices` (from
+// dependencyChoices): each must be a choice, once. Milestones the project hasn't got are
+// dropped, and all of them, or none, means the whole project. Returns { error } or { list }.
+function cleanDependencies(list, choices) {
+  const key = (name) => String(name).trim().replace(/\s+/g, ' ').toLowerCase();
+  const seen = new Set();
+  const cleaned = [];
+  for (const { name, milestones } of list) {
+    const choice = choices.find((c) => c.id === name);
+    if (!choice) return { error: `"${name}" can't be chosen as a dependency.` };
+    if (seen.has(choice.id)) return { error: `"${name}" is listed twice.` };
+    seen.add(choice.id);
+    const chosen = choice.milestones.filter((title) => (milestones || []).some((m) => key(m) === key(title)));
+    cleaned.push({ name: choice.id, milestones: chosen.length && chosen.length < choice.milestones.length ? chosen : null });
+  }
+  return { list: cleaned };
 }
 
 // A project's main file is named after the title in its folder name. Case, spaces and
@@ -605,7 +633,9 @@ module.exports = {
   dependableArchive,
   dependencyKey,
   resolveDependency,
+  resolveDependencies,
   dependencyChoices,
+  cleanDependencies,
   namedFile,
   mainFirst,
   readStatuses,

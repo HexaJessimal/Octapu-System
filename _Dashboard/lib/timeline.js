@@ -8,10 +8,16 @@ const { parseCatalog } = require('../catalogs');
 const { at, readIfExists } = require('./context');
 const {
   ARCHIVE_PREFIX, NETWORKING, eventValue, eventProgress, isNetworkingField, isArchived,
-  listProjects, primaryFile, readProjectFile, readArchive, resolveDependency, readTentacles,
+  listProjects, primaryFile, readProjectFile, readArchive, resolveDependencies, readTentacles,
   readArchiveMode, readShowArchived, projectTentacleId, listCatalogs, readCatalogFile,
   tentacleTree,
 } = require('./store');
+
+// A row's dependencies that name something, as { target, milestones }.
+const rowDependencies = (value, projects, archive) =>
+  resolveDependencies(value, projects, archive)
+    .filter((d) => d.target)
+    .map(({ target, milestones }) => ({ target, milestones }));
 
 // The tentacle ID an _Archive.md entry's title starts with.
 const archiveTentacleId = (title) => title.trim().split(/\s+/)[0];
@@ -36,16 +42,16 @@ async function collectTimeline() {
     const content = await readProjectFile(project, file);
     const header = parseHeader(content, []);
     const parsed = parseTimeframes(header.timeframe.value, STORAGE_FORMAT);
-    const dependency = resolveDependency(header.dependency.value, projects, archive);
+    const dependencies = rowDependencies(header.dependency.value, projects, archive);
     const kind = archived ? 'archive' : project.name.startsWith('+') ? 'active' : 'inactive';
     const chain = tentacleChain(tentacles, await projectTentacleId(project, tentacles));
-    rows.push(Object.assign({ folder: project.folder, file, content, dependency, kind, chain }, parsed));
+    rows.push(Object.assign({ folder: project.folder, file, content, dependencies, kind, chain }, parsed));
   }
   if (!fullArchive && showArchived) {
     for (const { title, fields } of archive) {
-      const dependency = resolveDependency(fields.dependency.value, projects, archive);
+      const dependencies = rowDependencies(fields.dependency.value, projects, archive);
       const chain = tentacleChain(tentacles, archiveTentacleId(title));
-      rows.push(Object.assign({ folder: ARCHIVE_PREFIX + title, file: path.basename(at().ARCHIVE_FILE), content: '', dependency, kind: 'archive', archive: { title }, chain }, parseTimeframes(fields.timeframe.value, STORAGE_FORMAT)));
+      rows.push(Object.assign({ folder: ARCHIVE_PREFIX + title, file: path.basename(at().ARCHIVE_FILE), content: '', dependencies, kind: 'archive', archive: { title }, chain }, parseTimeframes(fields.timeframe.value, STORAGE_FORMAT)));
     }
   }
   return rows;

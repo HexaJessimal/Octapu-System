@@ -6,7 +6,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { writeFileSafely } = require('../lib/store');
+const { writeFileSafely, cleanDependencies } = require('../lib/store');
 const { currentName } = require('../lib/renames');
 
 test('writeFileSafely tries the rename again while the file is busy', async (t) => {
@@ -46,4 +46,18 @@ test('an old name is used only while it is the only one there', () => {
   assert.equal(currentName('/x', 'options', has('_Labels', '_Options')), '_Options');
   assert.equal(currentName('/x', 'contacts', has()), 'Contacts.md');
   assert.equal(currentName('/x', 'contacts', has('Leads.md')), 'Leads.md');
+});
+
+test('cleanDependencies checks each choice and tidies its milestones', () => {
+  const choices = [
+    { id: 'MUSART First album', name: 'MUSART First album', milestones: ['Write', 'Record', 'Mix'] },
+    { id: 'LABEL Old Logo', name: 'LABEL Old Logo (archived)', milestones: [] },
+  ];
+  assert.deepEqual(cleanDependencies([{ name: 'MUSART First album', milestones: ['mix', 'Nope'] }, { name: 'LABEL Old Logo', milestones: null }], choices), {
+    list: [{ name: 'MUSART First album', milestones: ['Mix'] }, { name: 'LABEL Old Logo', milestones: null }],
+  });
+  // Every milestone ticked is the whole project.
+  assert.deepEqual(cleanDependencies([{ name: 'MUSART First album', milestones: ['Write', 'Record', 'Mix'] }], choices), { list: [{ name: 'MUSART First album', milestones: null }] });
+  assert.ok(cleanDependencies([{ name: 'Elsewhere', milestones: null }], choices).error);
+  assert.ok(cleanDependencies([{ name: 'LABEL Old Logo', milestones: null }, { name: 'LABEL Old Logo', milestones: null }], choices).error);
 });

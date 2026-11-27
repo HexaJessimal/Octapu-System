@@ -255,6 +255,19 @@
     });
   }
 
+  // The same todo in the collapsed rail, where only its icon shows.
+  function railItem(item) {
+    const { label, href } = status.itemLink(item);
+    const recur = recurState(item);
+    return component('todo-rail-item', {
+      icon: status.iconOf(item),
+      href,
+      title: label + (item.text ? ': ' + item.text : ''),
+      recur,
+      tint: recur ? null : item.highlight,
+    });
+  }
+
   // Redraws the filter's choices, whose counts depend on each other, and then the list.
   function renderList() {
     FILTERS.forEach(([key]) => renderFilter(key));
@@ -264,6 +277,7 @@
     const open = list.filter((i) => !isDone(i.type)).sort((a, b) => rank(a) - rank(b));
     const done = list.filter((i) => isDone(i.type));
     root.querySelector('#todo-count').textContent = list.length;
+    root.querySelector('#todo-rail').innerHTML = open.concat(done).map(railItem).join('');
     root.querySelector('#todo-list').innerHTML = list.length
       ? open.map(renderItem).join('') + (done.length ? component('todo-divider') + done.map(renderItem).join('') : '')
       : component('empty-item', { message: 'Nothing here.' });

@@ -81,10 +81,12 @@
     // An archived project is finished, so it takes the complete colour.
     const backgroundOf = (bar) => (archived ? STATE_COLOURS.done : barBackground(covered(bar)));
     const summaryOf = (bar) => (archived ? 'archived' : (bar.milestones ? bar.milestones.join(', ') + ': ' : '') + progressText(covered(bar)));
-    // Dependency arrows leave the project's last bar and arrive at its first.
+    // An arrow for a dependency on the whole project leaves its last bar. drawArrows chooses
+    // the others from each bar's dates and milestones.
     const lastBar = bars.reduce((a, b) => (b.last > a.last ? b : a));
-    const firstBar = bars.reduce((a, b) => (b.first < a.first ? b : a));
-    const dependsOn = row.dependency ? ' · depends on ' + dependencyTitle(row.dependency) : '';
+    const dependsOn = row.dependencies.length
+      ? ' · depends on ' + row.dependencies.map((d) => dependencyTitle(d.target) + (d.milestones ? ' (' + d.milestones.join('; ') + ')' : '')).join(', ')
+      : '';
     return component('gantt-project', {
       index,
       lanes,
@@ -100,7 +102,9 @@
             href,
             detail: info.title + ': ' + window.PMS.displayDates(bar.raw) + ' (' + summaryOf(bar) + ')' + dependsOn,
             isLast: bar === lastBar,
-            isFirst: bar === firstBar,
+            start: bar.start,
+            end: bar.end,
+            milestones: bar.milestones ? bar.milestones.join(';') : '',
             folder: row.folder,
             background: backgroundOf(bar),
             from: column(bar.first),
@@ -134,21 +138,48 @@
     const previous = gantt.querySelector('.gantt-arrows');
     if (previous) previous.remove();
 
-    const starts = new Map();
     const ends = new Map();
+    const barsOf = new Map(); // each project's bars, in date order
     Array.from(gantt.querySelectorAll('.gantt-project:not([hidden]) .gantt-bar')).forEach((bar) => {
-      if (bar.dataset.startOf) starts.set(bar.dataset.startOf, bar);
       if (bar.dataset.endOf) ends.set(bar.dataset.endOf, bar);
+      if (!barsOf.has(bar.dataset.barOf)) barsOf.set(bar.dataset.barOf, []);
+      barsOf.get(bar.dataset.barOf).push(bar);
     });
+    barsOf.forEach((list) => list.sort((a, b) => a.dataset.order - b.dataset.order));
+    // Where a dependency's arrow leaves. On the whole project, its last bar. On some of its
+    // milestones, the bar ending last of those that name one of them, or failing that of those
+    // covering the whole project (no milestones named), or none at all.
+    const departureBar = (dependency) => {
+      if (!dependency.milestones) return ends.get(dependency.target) || null;
+      const bars = barsOf.get(dependency.target) || [];
+      const names = bars.filter((bar) => bar.dataset.milestones.split(';').some((m) => dependency.milestones.some((name) => milestoneKey(name) === milestoneKey(m))));
+      const candidates = names.length ? names : bars.filter((bar) => !bar.dataset.milestones);
+      return candidates.reduce((last, bar) => (!last || bar.dataset.end > last.dataset.end ? bar : last), null);
+    };
+    // A dependent project's arrow arrives at its first timeframe starting on or after the day
+    // its arrow leaves from ends. Only if it has none does it go to one starting earlier, the
+    // latest of those. Dates are YYYY-MM-DD, so they compare as text.
+    const arrivalBar = (row, from) => {
+      const own = barsOf.get(row.folder) || [];
+      const after = own.find((bar) => bar.dataset.start >= from.dataset.end);
+      return after || own.filter((bar) => bar.dataset.start < from.dataset.end).pop() || null;
+    };
 
     const box = gantt.getBoundingClientRect();
     const middle = (rect) => rect.top + rect.height / 2 - box.top;
-    const join = (fromBar, toBar) => {
+    const join = (fromBar, toBar, met) => {
       const from = fromBar.getBoundingClientRect();
       const to = toBar.getBoundingClientRect();
-      return component('gantt-arrow-path', { route: arrowPath(from.right - box.left, middle(from), to.left - box.left, middle(to)) });
+      return component('gantt-arrow-path', { met, route: arrowPath(from.right - box.left, middle(from), to.left - box.left, middle(to)) });
     };
-    const paths = rows.filter((row) => row.dependency && ends.has(row.dependency) && starts.has(row.folder)).map((row) => join(ends.get(row.dependency), starts.get(row.folder)));
+    const rowOf = new Map(rows.map((row) => [row.folder, row]));
+    const paths = rows.flatMap((row) =>
+      row.dependencies.flatMap((dependency) => {
+        const from = departureBar(dependency);
+        const to = from && arrivalBar(row, from);
+        return to ? [join(from, to, dependencyMet(rowOf.get(dependency.target), dependency.milestones))] : [];
+      })
+    );
     // A project with more than one timeframe has each joined to the next, whatever it depends on.
     Array.from(gantt.querySelectorAll('.gantt-project:not([hidden])')).forEach((project) => {
       const own = Array.from(project.querySelectorAll('.gantt-bar[data-order]')).sort((a, b) => a.dataset.order - b.dataset.order);
@@ -161,18 +192,39 @@
 
   let drawnRows = [];
 
-  // Puts each project directly below the one it depends on, keeping date order otherwise.
+  // Milestone names match whatever their case and spacing, as in timeframes.
+  const milestoneKey = (name) => String(name).trim().replace(/\s+/g, ' ').toLowerCase();
+
+  // Whether what a dependency waits for is finished: an archived project, or every milestone
+  // it names complete, or every milestone of the project (it must have some) when it names none.
+  function dependencyMet(target, names) {
+    if (!target) return false;
+    if (target.kind === 'archive') return true;
+    const milestones = md.parseMilestones(target.content).milestones;
+    if (!names) return milestones.length > 0 && milestones.every((m) => m.state === 'done');
+    return names.every((name) => milestones.some((m) => milestoneKey(m.title) === milestoneKey(name) && m.state === 'done'));
+  }
+
+  // A timeframe's first and last days as YYYY-MM-DD, for choosing where an arrow arrives.
+  function barDays(raw) {
+    const days = String(raw).match(/\d{4}-\d{2}-\d{2}/g) || [];
+    return { start: days[0] || '', end: days[days.length - 1] || '' };
+  }
+
+  // Puts each project directly below the first of its dependencies that's on the chart,
+  // keeping date order otherwise.
   function orderByDependency(byDate) {
     const onChart = new Set(byDate.map((row) => row.folder));
+    const parentOf = (row) => (row.dependencies.find((d) => onChart.has(d.target)) || {}).target;
     const placed = new Set();
     const ordered = [];
     const place = (row) => {
       if (placed.has(row.folder)) return;
       placed.add(row.folder);
       ordered.push(row);
-      byDate.filter((child) => child.dependency === row.folder).forEach(place);
+      byDate.filter((child) => parentOf(child) === row.folder).forEach(place);
     };
-    byDate.filter((row) => !onChart.has(row.dependency)).forEach(place);
+    byDate.filter((row) => !parentOf(row)).forEach(place);
     byDate.forEach(place); // only reaches anything if a hand-edited file made a loop
     return ordered;
   }
@@ -487,7 +539,7 @@
       .filter((row) => row.ranges.length)
       .map((row) =>
         Object.assign({}, row, {
-          bars: row.ranges.map((r) => ({ raw: r.dates || r.raw, milestones: r.milestones, first: r.first, last: r.last })),
+          bars: row.ranges.map((r) => Object.assign({ raw: r.dates || r.raw, milestones: r.milestones, first: r.first, last: r.last }, barDays(r.dates || r.raw))),
         })
       )
       .map((row) => Object.assign(row, { earliest: Math.min(...row.bars.map((b) => b.first)) }))
@@ -528,7 +580,7 @@
       legendItems(),
       component('legend-no-milestones'),
       rows.some((row) => row.kind === 'archive') ? component('legend-archived') : '',
-      rows.some((row) => row.dependency) ? component('legend-depends') : '',
+      rows.some((row) => row.dependencies.length) ? component('legend-depends') : '',
       ...(tentacle
         ? []
         : [

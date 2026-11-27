@@ -65,15 +65,17 @@
 <template name="gantt-now"><div class="gantt-now" style="--column:{{{column}}};--lanes:{{{lanes}}}"></div></template>
 
 <template name="gantt-bar">
-  <a class="gantt-bar" href="{{href}}" title="{{detail}}" aria-label="{{detail}}" data-bar-of="{{folder}}" data-order="{{{order}}}"{{#if isLast}} data-end-of="{{folder}}"{{/if}}{{#if isFirst}} data-start-of="{{folder}}"{{/if}} style="--bar:{{{background}}};--from:{{{from}}};--to:{{{to}}};--lane:{{{lane}}}"><span>{{label}}</span></a>
+  <a class="gantt-bar" href="{{href}}" title="{{detail}}" aria-label="{{detail}}" data-bar-of="{{folder}}" data-order="{{{order}}}"{{#if isLast}} data-end-of="{{folder}}"{{/if}} data-start="{{start}}" data-end="{{end}}" data-milestones="{{milestones}}" style="--bar:{{{background}}};--from:{{{from}}};--to:{{{to}}};--lane:{{{lane}}}"><span>{{label}}</span></a>
 </template>
 
-<template name="gantt-arrow-path"><path d="{{{route}}}" marker-end="url(#gantt-arrowhead)"></path></template>
+<!-- A met dependency's arrow is in the complete colour, with its own arrowhead to match. -->
+<template name="gantt-arrow-path"><path{{#if met}} class="is-met"{{/if}} d="{{{route}}}" marker-end="url(#{{#if met}}gantt-arrowhead-met{{else}}gantt-arrowhead{{/if}})"></path></template>
 
 <template name="gantt-arrows">
   <svg class="gantt-arrows" width="{{{width}}}" height="{{{height}}}" aria-hidden="true">
     <defs>
       <marker id="gantt-arrowhead" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0 0L6 3L0 6z"></path></marker>
+      <marker id="gantt-arrowhead-met" class="is-met" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0 0L6 3L0 6z"></path></marker>
     </defs>
     {{{paths}}}
   </svg>
@@ -158,7 +160,7 @@
 
 <template name="archive-field"><div class="entry-field"><dt>{{label}}</dt><dd{{{attrs}}}>{{{value}}}</dd></div></template>
 
-<template name="legend-depends"><span><b class="legend-arrow" aria-hidden="true"></b>Depends on</span></template>
+<template name="legend-depends"><span><b class="legend-arrow" aria-hidden="true"></b>Depends on</span><span><b class="legend-arrow is-met" aria-hidden="true"></b>Dependency met</span></template>
 
 <!-- A flagged milestone, block, event, contact or idea, with where it is and a button to mark it reviewed. -->
 <template name="review-section-entry">

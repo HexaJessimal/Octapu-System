@@ -1,7 +1,7 @@
 // The interactive status controls: a status name with a caret, and the checkbox.
 (function (global) {
   'use strict';
-  const { parseFolder, STATUS_LABELS, statusLabel, presentTypes, badgeClass, displayDate, displayDates, component, element, UNREACHABLE, postJson, showFormError, tentacleHref, openDialog } = global.PMS;
+  const { parseFolder, STATUS_LABELS, statusLabel, presentTypes, badgeClass, displayDate, displayDates, component, element, UNREACHABLE, postJson, showFormError, tentacleHref, openDialog, formDialog, dependencyPicker, readDependencyPicker } = global.PMS;
 
   // What an untagged checkbox's mark looks like.
   const MARK_TYPES = { ' ': 'UNASSIGNED', x: 'DONE', '/': 'ASSIGNED', '-': 'WAITING' };
@@ -87,8 +87,10 @@
   // A recurring task's box moves its schedule on rather than ticking it. A box with no status
   // ticks and unticks. In a task list ticking it gives it the DONE status; elsewhere (`outside`)
   // it stays a plain tick box, with no status menu.
+  // The icon a todo's tick box shows: its status type's, or its mark's when it has no status.
+  const iconOf = (item) => (item.type || MARK_TYPES[item.mark] || '').toLowerCase();
+
   function checkbox(item) {
-    const iconType = item.type || MARK_TYPES[item.mark];
     const target = checkboxTarget(item.status);
     const ticked = item.mark === 'x';
     const clickable = item.recur || !item.status || (!ticked && target);
@@ -97,7 +99,7 @@
     if (item.recur) title = 'Move the schedule on ' + describePeriod(recurValue(item));
     return component('control-checkbox', {
       attrs: dataAttrs(item),
-      icon: iconType ? iconType.toLowerCase() : '',
+      icon: iconOf(item),
       title,
       disabled: !clickable,
       caret: !item.status && !item.outside,
@@ -148,13 +150,13 @@
     return component('control-timeframe-entry', { attrs: documentAttrs(project, 'timeframe-' + index, entry), index, label: displayDates(global.PMS.splitTimeframe(entry).dates) });
   }
 
-  // Project Dependency: a plus when empty, a pencil once set, opening a list of projects.
+  // Project Dependency: a plus when empty, a pencil once set, opening the dependency picker.
   function dependencyControl(project) {
     const value = project.dependency.value;
     return component('control-dependency', {
       attrs: documentAttrs(project, 'dependency', value),
       set: value,
-      action: value ? 'Change the project dependency' : 'Add a project dependency',
+      action: value ? 'Change the project dependencies' : 'Add a project dependency',
     });
   }
 
@@ -519,9 +521,22 @@
 
   const timeframeDates = (form) => ({ start: chosenDate(form, 'start', false), end: chosenDate(form, 'end', true) });
 
-  function dependencyMenu(current) {
-    if (!dependencyOptions.length && !current) return component('status-menu-none');
-    return labelMenu((current ? [{ id: '', name: 'None' }] : []).concat(dependencyOptions), 'dependency', current);
+  // The whole Project Dependency list in one dialog, saved together. Its control's value is
+  // the field as written.
+  function dependencyDialog(ctrl) {
+    const scope = ctrl.closest('.sidebar, #content');
+    const form = formDialog({
+      heading: 'Project dependencies',
+      fields: component('dependency-picker'),
+      submit: 'Save',
+      failure: 'Could not save the dependencies.',
+      send: (f) => post('api/dependency', ctrl, { dependencies: readDependencyPicker(f) }),
+      done: async (_, dialog) => {
+        dialog.close();
+        await reloadAndRefocus(ctrl, scope);
+      },
+    });
+    dependencyPicker(form, dependencyOptions, global.PMS.rules.dependencyEntries(ctrl.dataset.status || ''));
   }
 
   const menuPanel = (items, className = 'status-menu') => element('status-menu-panel', { className, items });
@@ -535,7 +550,6 @@
   function buildMenu(caret, ctrl) {
     if (caret.matches('.milestone-menu-button')) return menuPanel(component('milestone-menu-actions'));
     if (caret.matches('.row-menu-button')) return menuPanel(rowMenuItems(ctrl));
-    if (caret.matches('.dependency-edit')) return menuPanel(dependencyMenu(ctrl.dataset.status));
     if (caret.matches('.date-edit')) {
       const label = ctrl.dataset.label;
       // Left empty, the field is cleared.
@@ -624,7 +638,6 @@
         if (to) sendEdit(ctrl, 'api/row-move', { status: ctrl.dataset.status || null, text: ctrl.dataset.text, toLine: to.line, toTitle: to.title });
       } else if (choice.dataset.rowPromote) sendEdit(ctrl, 'api/row-promote', { status: ctrl.dataset.status || null, text: ctrl.dataset.text });
       else if (choice.dataset.rowBlock) sendEdit(ctrl, 'api/row-block', { status: ctrl.dataset.status || null, text: ctrl.dataset.text });
-      else if (choice.dataset.dependency !== undefined) sendEdit(ctrl, 'api/dependency', { name: choice.dataset.dependency });
       else change(ctrl, choice.dataset.to);
       return;
     }
@@ -638,6 +651,12 @@
     if (removeButton) {
       closeMenu(false);
       removeTimeframe(removeButton.closest('.status-control'));
+      return;
+    }
+    const dependencyButton = target.closest('.dependency-edit');
+    if (dependencyButton) {
+      closeMenu(false);
+      dependencyDialog(dependencyButton.closest('.status-control'));
       return;
     }
     const caret = target.closest('.status-caret, .priority-button, .header-button, .timeframe-add, .row-menu-button') || target.closest('.project-status-button');
@@ -688,5 +707,5 @@
     true
   );
 
-  global.PMS.status = { itemLink, setStatuses, setHeaderOptions, onChange, refresh, toast, confirmDelete, control, checkbox, rowMenu, setMilestones, onMilestoneAction, reviewedValue, dateInput, tentacleControl, leaderControl, projectStatusControl, projectTypeControl, timeframeControl, timeframeEntryControl, dateControl, dependencyControl };
+  global.PMS.status = { iconOf, itemLink, setStatuses, setHeaderOptions, onChange, refresh, toast, confirmDelete, control, checkbox, rowMenu, setMilestones, onMilestoneAction, reviewedValue, dateInput, tentacleControl, leaderControl, projectStatusControl, projectTypeControl, timeframeControl, timeframeEntryControl, dateControl, dependencyControl };
 })(window);

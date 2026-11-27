@@ -253,8 +253,13 @@ const isTypeChange = (body) => inFile(body) && typeof body.type === 'string';
 const isFolderRequest = ({ folder }) => typeof folder === 'string';
 // An entry in _Incubator.md or _Archive.md, found by its heading's line and title.
 const isNamedEntryRow = ({ line, title }) => Number.isInteger(line) && line >= 1 && typeof title === 'string';
-const isArchiveEntry = (body) => ['tentacle', 'title', 'created', 'closed', 'start', 'end', 'dependency', 'leader'].every((k) => typeof body[k] === 'string');
-const isNewIdea = (body) => ['title', 'tentacle', 'dependency', 'notes'].every((k) => typeof body[k] === 'string');
+// Project Dependency lists: each entry a name, and the milestones it's limited to or null.
+const isDependencyList = (list) =>
+  Array.isArray(list) &&
+  list.every((d) => d && typeof d.name === 'string' && (d.milestones === null || (Array.isArray(d.milestones) && d.milestones.every((m) => typeof m === 'string'))));
+const isDependencyEdit = (body) => inFile(body) && isDependencyList(body.dependencies);
+const isArchiveEntry = (body) => ['tentacle', 'title', 'created', 'closed', 'start', 'end', 'leader'].every((k) => typeof body[k] === 'string') && isDependencyList(body.dependencies);
+const isNewIdea = (body) => ['title', 'tentacle', 'notes'].every((k) => typeof body[k] === 'string') && isDependencyList(body.dependencies);
 const isPromotion = (body) => isNamedEntryRow(body) && ['start', 'end', 'leader'].every((k) => typeof body[k] === 'string') && (body.directory === undefined || typeof body.directory === 'string');
 const isEventField = (body) =>
   Number.isInteger(body.line) && typeof body.title === 'string' && typeof body.label === 'string' && ['start', 'end', 'value'].every((k) => body[k] === undefined || typeof body[k] === 'string');
@@ -365,7 +370,7 @@ async function route(req, res) {
     if (url.pathname === '/api/help-read' && req.method === 'POST') return handleEdit(req, res, isHelpRead, setHelpRead);
     if (url.pathname === '/api/weekly-focus' && req.method === 'POST') return handleEdit(req, res, isFocusSubmit, submitWeeklyFocus);
     if (url.pathname === '/api/weekly-review' && req.method === 'POST') return handleEdit(req, res, isReviewSubmit, submitWeeklyReview);
-    if (url.pathname === '/api/dependency' && req.method === 'POST') return handleEdit(req, res, isNamedInFile, saveDependency);
+    if (url.pathname === '/api/dependency' && req.method === 'POST') return handleEdit(req, res, isDependencyEdit, saveDependency);
     if (url.pathname === '/api/row' && req.method === 'POST') return handleEdit(req, res, isRowAction, changeRow);
     if (url.pathname === '/api/milestone-move' && req.method === 'POST') return handleEdit(req, res, isMilestoneMove, saveMilestoneOrder);
     if (url.pathname === '/api/text' && req.method === 'POST') return handleEdit(req, res, isTextEdit, saveText);

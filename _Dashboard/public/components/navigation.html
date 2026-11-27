@@ -75,13 +75,22 @@
 
 <template name="todo-date"><span><b>{{kind}}</b> {{value}}</span></template>
 
+<!-- A todo in the collapsed Todos rail: its status icon, ringed in its highlight colour, linking to it. -->
+<template name="todo-rail-item">
+  <li class="todo-rail-item{{#if tint}} tint-{{{tint}}}{{/if}}{{#if recur}} recur-{{{recur}}}{{/if}}">
+    <a class="check-box{{#if icon}} has-icon icon-{{{icon}}}{{/if}}" href="{{{href}}}" title="{{title}}" aria-label="{{title}}"></a>
+  </li>
+</template>
+
 <template name="todo-divider"><li class="todo-divider" role="separator"></li></template>
 
 <template name="sidebar-shell">
   <div class="sidebar-head">
+    <span class="todo-rail-icon" aria-hidden="true"></span>
     <h2>Todos</h2>
     <span class="count" id="todo-count">0</span>
   </div>
+  <ul class="todo-rail" id="todo-rail" aria-label="Todos"></ul>
   <div class="sidebar-controls">
     {{{filters}}}
     <label class="todo-filter"><span class="todo-filter-label">Sort</span><select id="todo-sort">{{{sort}}}</select></label>

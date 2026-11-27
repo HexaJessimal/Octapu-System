@@ -295,6 +295,59 @@
   const dependencyHref = (token) =>
     token.startsWith(ARCHIVE_TOKEN) ? 'archive.html#' + encodeURIComponent(token.slice(ARCHIVE_TOKEN.length)) : 'project.html?folder=' + encodeURIComponent(token);
 
+  // A Project Dependency list as read, [{ name, milestones, target }]: each a link where it
+  // names something, with its milestones after it in brackets.
+  const dependencyLinks = (list) =>
+    list
+      .map((d) =>
+        component('dependency-item', {
+          name: d.target ? component('link', { href: dependencyHref(d.target), label: d.name }) : escapeHtml(d.name),
+          milestones: d.milestones ? d.milestones.join('; ') : '',
+        })
+      )
+      .join(', ');
+
+  // The dependency picker in a form: a row per dependency, each a project and tick boxes of its
+  // milestones, where none ticked means the whole project. `choices` are { id, name,
+  // milestones }, and `current` the list as written, [{ name, milestones }]. A current name
+  // that's no longer a choice is still listed, so it isn't dropped without being seen.
+  const milestoneKey = (name) => String(name).trim().replace(/\s+/g, ' ').toLowerCase();
+  function dependencyPicker(form, choices, current) {
+    const holder = form.querySelector('[data-dependency-picker]');
+    const rows = holder.querySelector('.dependency-rows');
+    const list = choices.concat(current.filter((d) => !choices.some((c) => c.id === d.name)).map((d) => ({ id: d.name, name: d.name + ' (not found)', milestones: [] })));
+    const drawMilestones = (row, ticked) => {
+      const choice = list.find((c) => c.id === row.querySelector('select').value);
+      const titles = choice ? choice.milestones : [];
+      const boxes = titles.map((title) => component('dependency-milestone', { title, checked: (ticked || []).some((m) => milestoneKey(m) === milestoneKey(title)) }));
+      row.querySelector('.dependency-milestones').innerHTML = boxes.length ? component('dependency-milestones', { boxes: boxes.join('') }) : '';
+    };
+    const addRow = ({ name, milestones }) => {
+      const options = [component('option', { value: '', label: 'Choose a project…', selected: !name })]
+        .concat(list.map((c) => component('option', { value: c.id, label: c.name, selected: c.id === name })))
+        .join('');
+      const row = rows.appendChild(element('dependency-row', { options }));
+      drawMilestones(row, milestones);
+    };
+    (current.length ? current : [{ name: '', milestones: null }]).forEach(addRow);
+    holder.addEventListener('change', (e) => {
+      const select = e.target.closest('.dependency-row select');
+      if (select) drawMilestones(select.closest('.dependency-row'), null);
+    });
+    holder.addEventListener('click', (e) => {
+      if (e.target.closest('[data-dependency-add]')) addRow({ name: '', milestones: null });
+      const remove = e.target.closest('[data-dependency-remove]');
+      if (remove) remove.closest('.dependency-row').remove();
+    });
+  }
+
+  // The picker's list, [{ name, milestones }], leaving out rows with no project chosen.
+  const readDependencyPicker = (form) =>
+    Array.from(form.querySelectorAll('.dependency-row'))
+      .map((row) => ({ name: row.querySelector('select').value, milestones: Array.from(row.querySelectorAll('.dependency-milestones input:checked')).map((box) => box.value) }))
+      .filter((d) => d.name)
+      .map((d) => ({ name: d.name, milestones: d.milestones.length ? d.milestones : null }));
+
   // ---------- milestones and project rows ----------
 
   // What each milestone colour means.
@@ -398,6 +451,9 @@
     legendItems,
     dependencyTitle,
     dependencyHref,
+    dependencyLinks,
+    dependencyPicker,
+    readDependencyPicker,
     statusLabel,
     projectRow,
     escapeHtml,

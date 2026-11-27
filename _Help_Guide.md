@@ -43,7 +43,7 @@ Select **Get started**. The dashboard creates the settings files it needs in the
 - **Current plan and Priorities this month**, then **Due in the next 7 days and Overdue tasks**, sit below it. The plan names each tentacle and project in their own colours. When it's time for a new plan, an outlined note at the top links to the Plan page, with your last plan still shown below it.
 - **The left menu** takes you everywhere else. Review and Plan get a coloured outline when they're due.
 - **The Todos list** on the right stays on every page.
-- **Both sidebars** can be made wider or narrower by dragging their inner edge, and double-clicking the edge puts it back. The round arrow button on each edge folds that sidebar away to a thin strip, and selecting it again brings it back. Each browser remembers how you left them. A name too long for the menu ends in **…**; point at it to see it in full.
+- **Both sidebars** can be made wider or narrower by dragging their inner edge, and double-clicking the edge puts it back. The round arrow button on each edge folds that sidebar away to a thin strip, and selecting it again brings it back. A folded menu keeps the logo at the bottom. A folded Todos list keeps its count and a small icon for each todo, in the same order and highlight colours; select one to go to it. Each browser remembers how you left them. A name too long for the menu ends in **…**; point at it to see it in full.
 
 Most of this is empty until you've added some work.
 
@@ -280,7 +280,7 @@ Your plan is saved in `_Time_Management/Plan.md`, and can be read back on the **
 
 ## Keep ideas in the Incubator
 
-The **Incubator**, near the top of the left menu, holds ideas that aren't projects yet. Select the plus button beside **New idea** and enter a title, the tentacle it's for, a project it depends on if any, and some notes. Ideas are kept in `_Incubator.md` in your entity's folder.
+The **Incubator**, near the top of the left menu, holds ideas that aren't projects yet. Select the plus button beside **New idea** and enter a title, the tentacle it's for, any projects it depends on (and which of their milestones), and some notes. Ideas are kept in `_Incubator.md` in your entity's folder.
 
 [[IMAGE#Screenshots/63-Incubator.png]]
 
@@ -297,7 +297,7 @@ Double-click an idea's name, its project dependency or its notes to change them.
 
 ## View the timeline
 
-The Timeline is on the Dashboard's Overview tab. Projects are graded through the colours of their milestones, and a project with no milestones is shown as `N/A` in the key. The tick boxes above it show or hide **Active** and **Inactive** projects, **Archive** ones while `SHOWARCHIVED` is ticked, and the **Deadlines**, **Bookings** and **Releases** lines. **Group by** puts the projects under a heading for each tentacle at the level you choose: **Parent** for your top-level tentacles, **Child** for the ones under them, or **Grandchild** for the ones under those. A project belongs to the group of its tentacle's parent, child or grandchild at that level, or to its own tentacle if that's higher up. Groups follow the order of your tentacles in the menu, with any project whose tentacle isn't known under **Other**. **None** shows the projects without groups. Archived projects are green, the complete colour. **3 months**, **6 months** and **12 months** zoom the chart in and out. Drag the small bar under the chart to make it taller or shorter, and double-click the bar to put it back. As you scroll sideways, rows with nothing within two months of the dates on screen are hidden, so the chart stays a sensible height however many years it covers. An event's application deadline is a cyan line until you've applied or it's booked. Its date is purple once it's booked, and grey until then. An event of several days has a line at each end, with a paler band between. Point at a line to see which event it is. Every record in a catalog with a **Release date** is a white line on that day. Point at it to see its cover, title and date. Where one item depends on another, it sits underneath with an arrow joining them. A project with more than one timeframe has an arrow from each of its bars to the next. Select any bar to open it.
+The Timeline is on the Dashboard's Overview tab. Projects are graded through the colours of their milestones, and a project with no milestones is shown as `N/A` in the key. The tick boxes above it show or hide **Active** and **Inactive** projects, **Archive** ones while `SHOWARCHIVED` is ticked, and the **Deadlines**, **Bookings** and **Releases** lines. **Group by** puts the projects under a heading for each tentacle at the level you choose: **Parent** for your top-level tentacles, **Child** for the ones under them, or **Grandchild** for the ones under those. A project belongs to the group of its tentacle's parent, child or grandchild at that level, or to its own tentacle if that's higher up. Groups follow the order of your tentacles in the menu, with any project whose tentacle isn't known under **Other**. **None** shows the projects without groups. Archived projects are green, the complete colour. **3 months**, **6 months** and **12 months** zoom the chart in and out. Drag the small bar under the chart to make it taller or shorter, and double-click the bar to put it back. As you scroll sideways, rows with nothing within two months of the dates on screen are hidden, so the chart stays a sensible height however many years it covers. An event's application deadline is a cyan line until you've applied or it's booked. Its date is purple once it's booked, and grey until then. An event of several days has a line at each end, with a paler band between. Point at a line to see which event it is. Every record in a catalog with a **Release date** is a white line on that day. Point at it to see its cover, title and date. Where one item depends on another, it sits underneath with an arrow joining them. The arrow runs from the end of the first item to the first timeframe of the dependent one that starts on or after that end date, or, if it has none, to the latest one that starts before it. A dependency on certain milestones starts from the timeframe for those milestones, and an arrow is green, the complete colour, once what it waits for is complete. See [Make one project depend on another](#make-one-project-depend-on-another). A project with more than one timeframe has an arrow from each of its bars to the next. Select any bar to open it.
 
 [[IMAGE#Screenshots/38-TimelineView.png]]
 
@@ -378,7 +378,7 @@ A few details:
 - A name also finds a heading that adds something in brackets, so `Scott` finds `Scott (SWOLE)`.
 - A link that doesn't match anything is left as plain text.
 
-**Project Dependency** is written a little differently. It's the name of a project without its status sign or underscores, such as `LABEL Design A New Logo`.
+**Project Dependency** is written a little differently. It's the name of a project without its status sign or underscores, such as `LABEL Design A New Logo`. Several are separated by commas, and any milestones a dependency is limited to go after its name in brackets, separated by semicolons, like a timeframe's: `MUSART First album (Mix; Release), LABEL Merch Store`.
 
 ## View the options page
 
@@ -662,11 +662,11 @@ Ongoing projects have no milestones, timeframe or dependency, so they don't appe
 
 ## Make one project depend on another
 
-When one project can't start until another is finished, select the plus button beside **Project Dependency** on its Overview and choose the project it waits for. The list leaves out the project itself and any project that already depends on it. With `ARCHIVEMODE` set to **HEADERS**, archived projects are listed too, marked (archived).
+When one project can't start until another is finished, select the plus button beside **Project Dependency** on its Overview and choose the project it waits for. To wait for just part of it, tick the milestones it waits for; leave them all unticked to wait for the whole project. **Add a dependency** adds another project, and the minus button beside one removes it. The list leaves out the project itself and any project that already depends on it. With `ARCHIVEMODE` set to **HEADERS**, archived projects are listed too, marked (archived).
 
 [[IMAGE#Screenshots/75-ChooseDependency.png]]
 
-The dependency then shows as a link on the Overview. On the Timeline the project sits under the one it depends on, with an arrow joining them. Use the pencil to change it, or choose **None** to remove it.
+Each dependency then shows as a link on the Overview, with its milestones after it. On the Timeline the project sits under the first one it depends on, with an arrow from each. A dependency on certain milestones has its arrow start from a timeframe that's for one of those milestones, or, if there isn't one, from a timeframe for the whole project. With neither, it has no arrow. Once everything a dependency waits for is complete, its arrow turns the complete colour (green), as it does for an archived project. Use the pencil to change the list, or remove every dependency to clear it.
 
 ## Use the task and milestone menus
 

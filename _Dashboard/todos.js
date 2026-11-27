@@ -3,7 +3,7 @@
 
 // The rules the pages share: priority tokens, checkbox rows, timeframes, cancelled rows.
 const { RENAMED_COLOURS } = require('./lib/renames');
-const { PRIORITY_TOKEN, RECUR_VALUE, CHECKBOX_ROW, isCancelled, indentOf, timeframeEntries, splitTimeframe, timeframeText } = require('./public/js/rules');
+const { PRIORITY_TOKEN, RECUR_VALUE, CHECKBOX_ROW, isCancelled, indentOf, timeframeEntries, splitTimeframe, timeframeText, dependencyEntries, dependencyText } = require('./public/js/rules');
 
 // The status types are fixed. Status names always come from _Options/Status.csv.
 const TYPE_MARKS = { UNASSIGNED: ' ', ASSIGNED: '/', WAITING: '-', DONE: 'x', ARCHIVED: 'x' };
@@ -1213,6 +1213,8 @@ module.exports = {
   timeframeEntries,
   splitTimeframe,
   timeframeText,
+  dependencyEntries,
+  dependencyText,
   findField,
   setHeaderField,
   editLine,
