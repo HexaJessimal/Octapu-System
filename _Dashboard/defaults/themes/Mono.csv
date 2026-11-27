@@ -1,0 +1,21 @@
+Name,Colour,Used for
+accent,#000000,"Links, focus outlines, selected buttons, and the third level of tentacles"
+bg,#ffffff,Page background. A light one switches form controls and scrollbars to light too
+surface,#ffffff,"Cards, panels and dropdowns, code blocks, and the dimmed background behind pop-ups"
+surface-raised,#cfcfcf,"Outlines of summary boxes, Dashboard tiles, form fields and dropdowns, Timeline bars with no milestones, hover backgrounds, raised controls, plus buttons (other than on project pages), the second colour of the logo, and top-level tentacles (lightened towards the text colour)"
+border,#e2e2e2,Borders and archived labels
+text,#000000,Main text and faint divider lines. Highlight colours are lightened towards it on hover
+text-soft,#5c5c5c,"Secondary and quiet text, UNASSIGNED status, and tentacles below the third level"
+shadow-colour,#9a9a9a,Drop shadows and sunken areas
+on-highlight,#ffffff,"Text and ticks drawn on a filled highlight colour, such as milestone tiles and the Review count"
+complete,#1a7f37,"Complete milestones, active projects, DONE status, priority A, and Review or Plan being due"
+caution,#3a3a3a,"Milestones in progress, WAITING status, priority B, the last item in a milestone on the Plan page, Review or Plan due soon, and warnings"
+pending,#6e6e6e,"Milestones not started, inactive projects, ASSIGNED status, and unexpected files on Compatibility"
+alert,#cf222e,"Milestones with no tasks, priority C, sidebar items whose project is not active, errors and delete buttons"
+tentacle,#3a3a3a,"Sidebar items named in the latest focus, tentacles to review and their review flag, booked events, and the second level of tentacles"
+project,#000000,"Sidebar items whose project is in the latest focus, Suggested projects on the Plan page, projects to review and their review flag, application deadlines, and the plus buttons and fact boxes on project pages"
+print-paper,#ffffff,The page colour of a printed report
+print-ink,#111111,Main text on a printed report
+print-ink-soft,#4a4a4a,Secondary text on a printed report
+print-line,#d4d4d4,Lines and borders on a printed report
+print-raised,#cfcfcf,Outlines of boxes and tiles on a printed report

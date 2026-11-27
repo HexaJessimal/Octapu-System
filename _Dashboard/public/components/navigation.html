@@ -17,7 +17,7 @@
 <!-- The handle on a sidebar's inner edge, dragged to change its width. -->
 <template name="sidebar-resizer"><div class="sidebar-resizer sidebar-resizer-{{{side}}}" data-resize="{{{side}}}" role="separator" aria-orientation="vertical" aria-label="{{label}}" tabindex="0" title="Drag to resize, double-click to reset"></div></template>
 
-<!-- Which entity, from _Dashboard/entities.csv, the dashboard is working on. -->
+<!-- Which entity, from entities.csv, the dashboard is working on. -->
 <template name="entity-select">
   <label class="entity-select"><span class="visually-hidden">Entity</span><select data-entity-select>{{{options}}}</select></label>
 </template>
@@ -75,13 +75,22 @@
 
 <template name="todo-date"><span><b>{{kind}}</b> {{value}}</span></template>
 
+<!-- A todo in the collapsed Todos rail: its status icon, ringed in its highlight colour, linking to it. -->
+<template name="todo-rail-item">
+  <li class="todo-rail-item{{#if tint}} tint-{{{tint}}}{{/if}}{{#if recur}} recur-{{{recur}}}{{/if}}">
+    <a class="check-box{{#if icon}} has-icon icon-{{{icon}}}{{/if}}" href="{{{href}}}" title="{{title}}" aria-label="{{title}}"></a>
+  </li>
+</template>
+
 <template name="todo-divider"><li class="todo-divider" role="separator"></li></template>
 
 <template name="sidebar-shell">
   <div class="sidebar-head">
+    <span class="todo-rail-icon" aria-hidden="true"></span>
     <h2>Todos</h2>
     <span class="count" id="todo-count">0</span>
   </div>
+  <ul class="todo-rail" id="todo-rail" aria-label="Todos"></ul>
   <div class="sidebar-controls">
     {{{filters}}}
     <label class="todo-filter"><span class="todo-filter-label">Sort</span><select id="todo-sort">{{{sort}}}</select></label>

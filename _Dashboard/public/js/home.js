@@ -60,8 +60,14 @@
     return component('home-plan-project', { name, items: entry.items.map((text) => component('home-plan-item', { text: markdown.inline(text) })).join('') });
   }
 
+  // An out-of-date plan is still shown, under a reminder to make the next one.
   function planBody(plan) {
-    if (!plan.current) return component('home-plan-link', { last: plan.date ? 'The last plan was made on ' + displayDate(plan.date) + '. ' : '' });
+    const reminder = plan.current ? '' : component('home-plan-link', { last: plan.date ? 'The last plan was made on ' + displayDate(plan.date) + '. ' : '' });
+    if (!plan.date) return reminder;
+    return reminder + planOutline(plan);
+  }
+
+  function planOutline(plan) {
     if (!plan.entries.length) return component('empty-text', { message: 'The latest plan has nothing in it.' });
     const tentacles = new Map();
     plan.entries.forEach((entry) => {
@@ -90,8 +96,8 @@
     contentEl.innerHTML = component('home-board', {
       // Written row by row so that the boxes side by side line up.
       sections:
+        // The plan and the priorities are usually the longer two, so they share a row.
         section('Current plan', null, component('card-section', { body: planBody(data.plan) })) +
-        taskSection('Due in the next 7 days', data.upcoming, data.today, 'Nothing due in the next 7 days.') +
         section(
           'Priorities this month',
           data.inTimeframe.length,
@@ -99,6 +105,7 @@
             body: component('project-list', { items: inTimeframe.length ? inTimeframe.map(timeframeRow).join('') : component('empty-item', { message: 'No projects are in a timeframe today.' }) }),
           })
         ) +
+        taskSection('Due in the next 7 days', data.upcoming, data.today, 'Nothing due in the next 7 days.') +
         taskSection('Overdue tasks', data.overdue, data.today, 'Nothing overdue.'),
     });
   }

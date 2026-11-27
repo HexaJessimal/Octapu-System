@@ -4,7 +4,7 @@
 // file, and Changelog appears in multi-user mode, as on the Archive Index.
 (function () {
   'use strict';
-  const { status, editing, documentView, changes, setViewInAddress, escapeHtml, normalText, hashReference, dependencyHref, markdown: md, component, getJson, postJson, setDateFormat, loadError, UNREACHABLE, formDialog } = window.PMS;
+  const { status, editing, documentView, changes, setViewInAddress, normalText, hashReference, markdown: md, component, getJson, postJson, setDateFormat, loadError, UNREACHABLE, formDialog } = window.PMS;
 
   const contentEl = document.getElementById('content');
   const toggles = Array.from(document.querySelectorAll('[data-view]'));
@@ -28,7 +28,7 @@
   // The name edits the whole heading, tentacle ID and all, and the notes edit everything
   // below it, as written in the file. A dependency the idea hasn't got can only be added in Raw.
   function card(idea, index) {
-    const dependency = !idea.dependency ? 'None' : idea.target ? component('link', { href: dependencyHref(idea.target), label: idea.dependency }) : escapeHtml(idea.dependency);
+    const dependency = idea.dependencies.length ? window.PMS.dependencyLinks(idea.dependencies) : 'None';
     return component('idea-card', Object.assign(documentView.sectionReview(page, idea.line, idea.title, idea.reviewed, idea.flagged), {
       flagged: idea.flagged,
       index,
@@ -68,20 +68,20 @@
   }
 
   function askForIdea() {
-    const dependencies = [{ id: '', name: 'None' }].concat(page.dependencyChoices.map((name) => ({ id: name, name })));
-    formDialog({
+    const form = formDialog({
       heading: 'New idea',
       fields:
         component('text-field', { label: 'Title', name: 'title' }) +
         component('select-field', { label: 'Tentacle', name: 'tentacle', required: true, options: choose(page.tentacles) }) +
-        component('select-field', { label: 'Project Dependency', name: 'dependency', required: false, options: dependencies.map((d) => option(d.id, d.name)).join('') }) +
+        component('dependency-picker') +
         component('notes-field', { label: 'Notes', name: 'notes' }),
       submit: 'Add',
       failure: 'Could not add the idea.',
-      send: ({ elements }) =>
-        postJson('api/incubator', { title: elements.title.value, tentacle: elements.tentacle.value, dependency: elements.dependency.value, notes: elements.notes.value }),
+      send: (f) =>
+        postJson('api/incubator', { title: f.elements.title.value, tentacle: f.elements.tentacle.value, dependencies: window.PMS.readDependencyPicker(f), notes: f.elements.notes.value }),
       done: (_, dialog) => reload(dialog),
     });
+    window.PMS.dependencyPicker(form, page.dependencyChoices, []);
   }
 
   // The directory is only asked for when there's more than one to choose from.

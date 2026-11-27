@@ -5,7 +5,7 @@
 // and Changelog appears in multi-user mode, as on the other document pages.
 (function () {
   'use strict';
-  const { status, editing, documentView, changes, setViewInAddress, escapeHtml, displayDate, displayDates, setDateFormat, normalText, hashReference, dependencyHref, markdown: md, component, getJson, postJson, loadError, UNREACHABLE, formDialog } = window.PMS;
+  const { status, editing, documentView, changes, setViewInAddress, escapeHtml, displayDate, displayDates, setDateFormat, normalText, hashReference, markdown: md, component, getJson, postJson, loadError, UNREACHABLE, formDialog } = window.PMS;
 
   const contentEl = document.getElementById('content');
   const toggles = Array.from(document.querySelectorAll('[data-view]'));
@@ -28,7 +28,7 @@
   const field = (label, value, raw) => component('archive-field', { label, value: value || 'Not set', attrs: raw && raw.line ? editing.attrs('value', raw.line, raw.value) : '' });
 
   function card(entry, index) {
-    const dependency = entry.target ? component('link', { href: dependencyHref(entry.target), label: entry.dependency }) : escapeHtml(entry.dependency);
+    const dependency = window.PMS.dependencyLinks(entry.dependencies);
     const leader = page.leaders.find((l) => l.id === entry.leader);
     return component('archive-card', {
       index,
@@ -69,7 +69,7 @@
   // Everything but the tentacle and title can be left empty.
   function askForEntry() {
     const choose = (items, blank) => option('', blank) + items.map((i) => option(i.id, i.name)).join('');
-    formDialog({
+    const form = formDialog({
       heading: 'New archive entry',
       fields:
         component('select-field', { label: 'Tentacle', name: 'tentacle', required: true, options: choose(page.tentacles, 'Choose…') }) +
@@ -78,7 +78,7 @@
         status.dateInput('closed', 'Date Closed', false) +
         status.dateInput('start', 'Timeframe start', false) +
         status.dateInput('end', 'Timeframe end', false) +
-        component('select-field', { label: 'Project Dependency', name: 'dependency', required: false, options: choose(page.dependencyChoices, 'None') }) +
+        component('dependency-picker') +
         component('select-field', { label: 'Leader', name: 'leader', required: false, options: choose(page.leaders, 'None') }),
       submit: 'Add',
       failure: 'Could not add the entry.',
@@ -90,7 +90,7 @@
           closed: elements.closed.value,
           start: elements.start.value,
           end: elements.end.value,
-          dependency: elements.dependency.value,
+          dependencies: window.PMS.readDependencyPicker(form),
           leader: elements.leader.value,
         }),
       done: async (_, dialog) => {
@@ -98,6 +98,7 @@
         await load();
       },
     });
+    window.PMS.dependencyPicker(form, page.dependencyChoices, []);
   }
 
   async function removeEntry(entry) {

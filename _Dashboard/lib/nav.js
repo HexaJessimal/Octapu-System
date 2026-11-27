@@ -2,14 +2,15 @@
 'use strict';
 
 const fs = require('fs');
-const { createMatcher, scanLines, formatDate, STORAGE_FORMAT, tentacleChain } = require('../todos');
+const path = require('path');
+const { createMatcher, scanLines, formatDate, STORAGE_FORMAT } = require('../todos');
 const { parseBlocks, milestoneRows, lastReviewDate, addReview } = require('../document-edits');
-const { HELP_FILE, IMAGES_DIR, disk, at, readIfExists } = require('./context');
+const { HELP_FILE, IMAGES_DIR, disk, at, readIfExists, currentRoot } = require('./context');
 const {
   TENTACLE_PREFIX, NETWORKING_PREFIX, isArchived, readProjectDirs, listDirectory, listProjects,
   primaryFile, readProjectFile, projectTitle, readStatuses, readTentacles, readRoundupDays,
   readDateFormat, dayNumber, tentaclePlace, writeFileSafely, recordCreated, projectTentacleName,
-  networkingPage, listCatalogs,
+  networkingPage, listCatalogs, editableFile, tentacleTree,
 } = require('./store');
 const {
   taskScope, collectTodos, liveProjectFiles, taskDue, isIncomplete, isOpenTask, runningTimeframes,
@@ -21,7 +22,7 @@ const { collectToReview, waitingTasks, collectFlaggedSections, readLastReview, d
 // The name of the logo in _Images/, whatever capitals it's written with, or null.
 async function findLogo() {
   try {
-    return (await fs.promises.readdir(IMAGES_DIR)).find((name) => /^logo\.(png|jpe?g|gif|webp)$/i.test(name)) || null;
+    return (await fs.promises.readdir(IMAGES_DIR)).find((name) => /^logo\.(png|jpe?g|gif|webp|svg)$/i.test(name)) || null;
   } catch (err) {
     if (err.code === 'ENOENT') return null;
     throw err;
@@ -60,17 +61,6 @@ async function collectNav() {
       core: (await incompatibleCoreFiles()).rows.length,
     },
   };
-}
-
-// Every tentacle, each followed by those under it, with its top-level tentacle's ID as `root`
-// and its `level` (0 for a top-level tentacle). Tentacles in a loop are left out.
-function tentacleTree(tentacles) {
-  const placed = tentacles.map((o) => ({ o, chain: tentacleChain(tentacles, o.id) })).filter((t) => t.chain);
-  const below = (parent) =>
-    placed
-      .filter((t) => (t.o.parent || null) === parent)
-      .flatMap((t) => [{ id: t.o.id, name: t.o.name, parent: t.o.parent || null, root: t.chain[0], level: t.chain.length - 1 }, ...below(t.o.id)]);
-  return below(null);
 }
 
 // Whole days since a log file's newest dated heading, or null if it has none.
@@ -206,6 +196,11 @@ async function collectWeeklyPlan() {
       .filter((row) => entryAt(row.line))
       .map((row) => Object.assign(planRow(row, folder, file), { source: name, milestone: entryAt(row.line).title }));
     if (rows.length) projects.push({ folder, file, name, rows, suggested: false });
+  }
+  // Each box says which file its items are from, relative to the entity's folder.
+  for (const p of projects) {
+    const full = await editableFile(p.folder, p.file);
+    p.path = full ? path.relative(currentRoot(), full).split(path.sep).join('/') : null;
   }
   return { statuses, projects, dateFormat: await readDateFormat() };
 }

@@ -5,12 +5,12 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const { PRIORITIES, coloursStylesheet, parseComponents, RECUR_VALUE, PROJECT_TYPES } = require('./todos');
+const { PRIORITIES, parseComponents, RECUR_VALUE, PROJECT_TYPES } = require('./todos');
 const { currentName } = require('./lib/renames');
 const {
   requestContext, USER_COOKIE, DASHBOARD_DIR, PUBLIC_DIR, ROOT_DIR, HELP_FILE, IMAGES_DIR,
   ENTITY_COOKIE, dataPaths, disk, at, readEntities, entityRootOf, readCookie, selectedEntity,
-  isInside, readIfExists,
+  isInside, readIfExists, ENTITIES_FILE, OLD_ENTITIES_FILE,
 } = require('./lib/context');
 const {
   field, isArchived, readProjectDirs, listProjects, projectName, dependencyKey, readStatuses,
@@ -26,7 +26,7 @@ const {
   readIncubatorPage, saveIdea, archiveIdea, promoteIdea, saveNewFile, savePlanningDate,
   changeProjectType, changePriority, advanceRecurringTask, changeTentacle, changeLeader,
   saveTimeframe, changeTimeframe, saveText, saveRawFile, saveBlockBody, saveNewMilestone,
-  deleteMilestone, saveNewItem, indentTask, reorderTask, saveNewBlock, saveNewTask, saveDependency,
+  deleteMilestone, saveNewItem, indentTask, insertTask, reorderTask, saveNewBlock, saveNewTask, saveDependency,
   saveMilestoneOrder, changeRow, moveTask, promoteTask, linkTaskToBlock, finishWholeMilestone,
   promoteMilestone, saveDate, createProject, createCatalog, saveCatalogRow, readChangelog,
   readConflicts, settleConflict,
@@ -35,14 +35,14 @@ const {
   incompatibleEvents, incompatibleProjects, incompatibleCoreFiles, incompatibleTentacles,
   fixCompatibility,
 } = require('./lib/compatibility');
-const { collectTimeline, tentacleTimeline, timelineEvents, timelineReleases } = require('./lib/timeline');
+const { collectTimeline, tentacleTimeline, timelineGroups, timelineEvents, timelineReleases } = require('./lib/timeline');
 const {
   readAgendaTable, isAgendaRow, isAgendaCheck, saveAgendaRow, checkAgendaItem, markReviewed,
   flagForReview, flagSection, markSectionDone, collectWeeklyReview, collectReports,
   submitWeeklyReview, readTaskArchive,
 } = require('./lib/review');
 const {
-  readEntityTable, saveEntityRow, readStatusTable, readLeaderTable, readColourTable, saveStatusRow,
+  readEntityTable, saveEntityRow, readStatusTable, readLeaderTable, readColourTable, coloursCss, saveStatusRow,
   saveLeaderRow, saveColourRow, saveOptions, setupState, saveSetup,
 } = require('./lib/settings');
 const {
@@ -50,11 +50,11 @@ const {
   submitWeeklyFocus,
 } = require('./lib/nav');
 
-const VERSION = '0.8';
+const VERSION = '0.8.6';
 const HOST = process.env.PMS_HOST || '127.0.0.1';
 const PORT = Number(process.env.PMS_PORT) || 4173;
 
-const IMAGE_TYPES = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp']);
+const IMAGE_TYPES = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg']);
 
 const MAX_BODY_BYTES = 256 * 1024;
 const LOOPBACK_NAMES = new Set(['127.0.0.1', 'localhost', '[::1]', '::1']);
@@ -232,6 +232,7 @@ const isDepth = (depth) => depth === undefined || (Number.isInteger(depth) && de
 const isNewItem = (body) => hasLine(body) && typeof body.title === 'string' && typeof body.text === 'string' && isDepth(body.depth);
 const isEntryTask = (body) => hasLine(body) && typeof body.title === 'string' && typeof body.text === 'string' && isDepth(body.depth);
 const isNewTask = (body) => inFile(body) && typeof body.text === 'string' && typeof body.list === 'string' && isDepth(body.depth);
+const isRowInsert = (body) => hasLine(body) && typeof body.text === 'string' && typeof body.newText === 'string' && ['child', 'after'].includes(body.place);
 const isRowIndent = (body) => hasLine(body) && typeof body.text === 'string' && ['in', 'out'].includes(body.direction);
 const isRowReorder = (body) => hasLine(body) && typeof body.text === 'string' && Number.isInteger(body.toLine) && body.toLine >= 1 && typeof body.toText === 'string' && typeof body.after === 'boolean';
 const isSetup = (body) => ['tentacleName', 'tentacleId', 'leaderName', 'dateFormat'].every((key) => body[key] === undefined || typeof body[key] === 'string');
@@ -252,8 +253,13 @@ const isTypeChange = (body) => inFile(body) && typeof body.type === 'string';
 const isFolderRequest = ({ folder }) => typeof folder === 'string';
 // An entry in _Incubator.md or _Archive.md, found by its heading's line and title.
 const isNamedEntryRow = ({ line, title }) => Number.isInteger(line) && line >= 1 && typeof title === 'string';
-const isArchiveEntry = (body) => ['tentacle', 'title', 'created', 'closed', 'start', 'end', 'dependency', 'leader'].every((k) => typeof body[k] === 'string');
-const isNewIdea = (body) => ['title', 'tentacle', 'dependency', 'notes'].every((k) => typeof body[k] === 'string');
+// Project Dependency lists: each entry a name, and the milestones it's limited to or null.
+const isDependencyList = (list) =>
+  Array.isArray(list) &&
+  list.every((d) => d && typeof d.name === 'string' && (d.milestones === null || (Array.isArray(d.milestones) && d.milestones.every((m) => typeof m === 'string'))));
+const isDependencyEdit = (body) => inFile(body) && isDependencyList(body.dependencies);
+const isArchiveEntry = (body) => ['tentacle', 'title', 'created', 'closed', 'start', 'end', 'leader'].every((k) => typeof body[k] === 'string') && isDependencyList(body.dependencies);
+const isNewIdea = (body) => ['title', 'tentacle', 'notes'].every((k) => typeof body[k] === 'string') && isDependencyList(body.dependencies);
 const isPromotion = (body) => isNamedEntryRow(body) && ['start', 'end', 'leader'].every((k) => typeof body[k] === 'string') && (body.directory === undefined || typeof body.directory === 'string');
 const isEventField = (body) =>
   Number.isInteger(body.line) && typeof body.title === 'string' && typeof body.label === 'string' && ['start', 'end', 'value'].every((k) => body[k] === undefined || typeof body[k] === 'string');
@@ -364,7 +370,7 @@ async function route(req, res) {
     if (url.pathname === '/api/help-read' && req.method === 'POST') return handleEdit(req, res, isHelpRead, setHelpRead);
     if (url.pathname === '/api/weekly-focus' && req.method === 'POST') return handleEdit(req, res, isFocusSubmit, submitWeeklyFocus);
     if (url.pathname === '/api/weekly-review' && req.method === 'POST') return handleEdit(req, res, isReviewSubmit, submitWeeklyReview);
-    if (url.pathname === '/api/dependency' && req.method === 'POST') return handleEdit(req, res, isNamedInFile, saveDependency);
+    if (url.pathname === '/api/dependency' && req.method === 'POST') return handleEdit(req, res, isDependencyEdit, saveDependency);
     if (url.pathname === '/api/row' && req.method === 'POST') return handleEdit(req, res, isRowAction, changeRow);
     if (url.pathname === '/api/milestone-move' && req.method === 'POST') return handleEdit(req, res, isMilestoneMove, saveMilestoneOrder);
     if (url.pathname === '/api/text' && req.method === 'POST') return handleEdit(req, res, isTextEdit, saveText);
@@ -388,6 +394,7 @@ async function route(req, res) {
     if (url.pathname === '/api/colour-table' && req.method === 'POST') return handleEdit(req, res, isColourRow, saveColourRow);
     if (url.pathname === '/api/task' && req.method === 'POST') return handleEdit(req, res, isNewTask, saveNewTask);
     if (url.pathname === '/api/row-indent' && req.method === 'POST') return handleEdit(req, res, isRowIndent, indentTask);
+    if (url.pathname === '/api/row-insert' && req.method === 'POST') return handleEdit(req, res, isRowInsert, insertTask);
     if (url.pathname === '/api/row-reorder' && req.method === 'POST') return handleEdit(req, res, isRowReorder, reorderTask);
     if (url.pathname === '/api/tentacles' && req.method === 'POST') return handleEdit(req, res, isNewTentacle, createTentacle);
     if (url.pathname === '/api/file-body' && req.method === 'POST') return handleEdit(req, res, isRawEdit, saveRawFile);
@@ -431,7 +438,7 @@ async function route(req, res) {
       // A tentacle page's Timeline has only its own projects, and no event or release lines.
       const tentacle = url.searchParams.get('tentacle');
       if (tentacle) return sendJson(res, 200, { rows: await tentacleTimeline(tentacle), events: [], releases: [], dateFormat: await readDateFormat() });
-      return sendJson(res, 200, { rows: await collectTimeline(), events: await timelineEvents(), releases: await timelineReleases(), dateFormat: await readDateFormat() });
+      return sendJson(res, 200, { rows: await collectTimeline(), groups: await timelineGroups(), events: await timelineEvents(), releases: await timelineReleases(), dateFormat: await readDateFormat() });
     }
     if (url.pathname === '/api/history') {
       const file = { review: at().REVIEW_FILE, focus: at().FOCUS_FILE }[url.searchParams.get('page')];
@@ -482,7 +489,7 @@ async function route(req, res) {
     if (url.pathname === '/api/task-archive') return sendJson(res, 200, await readTaskArchive());
     if (url.pathname === '/api/agenda-table') return sendJson(res, 200, await readAgendaTable());
     if (url.pathname === '/api/colour-table') return sendJson(res, 200, await readColourTable());
-    if (url.pathname === '/api/colours.css') return send(res, 200, coloursStylesheet((await readColourTable()).rows), MIME['.css']);
+    if (url.pathname === '/api/colours.css') return send(res, 200, await coloursCss(), MIME['.css']);
     if (url.pathname === '/api/home') return sendJson(res, 200, await collectHome());
     if (url.pathname === '/api/help') {
       const content = await readIfExists(HELP_FILE);
@@ -525,6 +532,11 @@ async function route(req, res) {
       return sendJson(res, 200, project);
     }
     if (url.pathname.startsWith('/images/')) return serveImage(res, url.pathname);
+    // The browser asks every page's site for this, so the menu's logo is the tab icon too.
+    if (url.pathname === '/favicon.ico') {
+      const logo = await findLogo();
+      return logo ? serveImage(res, '/images/' + encodeURIComponent(logo)) : send(res, 404, 'Not found');
+    }
     // Tentacle pages were entity pages, so old links and bookmarks still arrive here.
     if (url.pathname === '/entity.html') {
       res.writeHead(302, { Location: 'tentacle.html' + url.search, 'Cache-Control': 'no-store' });
@@ -561,6 +573,14 @@ async function renameOldTentaclesFile(root) {
   console.log(`Renamed ${path.relative(ROOT_DIR, old)} to Tentacles.csv`);
 }
 
+// entities.csv used to be in _Dashboard. It's moved up to the main folder once, before the
+// entities are read, and never over one that's already there.
+async function moveOldEntitiesFile() {
+  if ((await readIfExists(ENTITIES_FILE)) !== null || (await readIfExists(OLD_ENTITIES_FILE)) === null) return;
+  await disk.rename(OLD_ENTITIES_FILE, ENTITIES_FILE);
+  console.log('Moved _Dashboard/entities.csv to the main folder');
+}
+
 // The Help Guide, its screenshots and the logo ship in _Dashboard/defaults.
 const DEFAULTS_DIR = path.join(DASHBOARD_DIR, 'defaults');
 
@@ -592,6 +612,7 @@ async function prepareEntity(root) {
 }
 
 async function createMissingFolders() {
+  await moveOldEntitiesFile();
   for (const entity of await readEntities()) await prepareEntity(entityRootOf(entity));
   await disk.mkdir(IMAGES_DIR, { recursive: true });
   await copyIfMissing(path.join(DEFAULTS_DIR, '_Help_Guide.md'), HELP_FILE);

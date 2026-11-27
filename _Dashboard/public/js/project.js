@@ -2,7 +2,7 @@
 // in multi-user mode, Changelog.
 (function () {
   'use strict';
-  const { parseFolder, STATE_LABELS, progressLegend, escapeHtml, markdown: md, status, editing, milestoneControls, documentView, changes, component, readJson, setViewInAddress, normalText, hashReference, UNREACHABLE } = window.PMS;
+  const { parseFolder, STATE_LABELS, progressLegend, markdown: md, status, editing, milestoneControls, documentView, changes, component, readJson, setViewInAddress, normalText, hashReference, UNREACHABLE } = window.PMS;
   const { addButton, progressMeter, fact, titleSpan } = documentView;
 
   const DEFAULT_VIEW = 'overview';
@@ -79,8 +79,7 @@
     const value = v ? md.inline(v) : '';
     if (kind === 'closed') return value + status.dateControl(project, 'closed', 'Date Closed');
     if (kind === 'dependency') {
-      const href = project.dependencyFolder && window.PMS.dependencyHref(project.dependencyFolder);
-      return (href ? component('link', { href, label: v }) : escapeHtml(v || '')) + status.dependencyControl(project);
+      return window.PMS.dependencyLinks(project.dependencies || []) + status.dependencyControl(project);
     }
     return value;
   }

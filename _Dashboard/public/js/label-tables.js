@@ -53,6 +53,11 @@
       noun: 'colour',
       file: '_Options/Colours.csv',
       fixedRows: true, // the stylesheet uses each row by name
+      // This file is only used while THEME is CUSTOM, so the tab says when another theme is on.
+      note: (data) =>
+        data.theme && data.theme !== 'CUSTOM'
+          ? 'THEME on the General tab is ' + data.theme + ", so these colours aren't in use. They apply when THEME is CUSTOM."
+          : 'These colours are used while THEME on the General tab is CUSTOM.',
       keyOf: (row) => row.name,
       columns: () => [
         { key: 'name', label: 'Name', fixed: true },
@@ -108,7 +113,7 @@
       url: 'api/entity-table',
       title: 'Entities',
       noun: 'entity',
-      file: '_Dashboard/entities.csv',
+      file: 'entities.csv',
       missing: 'Until then, the main folder is the only entity.',
       note: 'Each entity is a folder directly inside the main folder, with its own projects, tentacles, options and everything else. Adding one whose folder doesn\'t exist yet makes the folder and opens the setup form for it. Removing one only takes it off this list: its folder and everything in it stay where they are.',
       keyOf: (row) => row.dir,
@@ -201,7 +206,7 @@
       const missing = table.file + (table.fixedRows ? " doesn't exist, so the built-in colours are in use." : " doesn't exist yet. Add a row with the plus button to create it. " + table.missing);
       panel.innerHTML = component('label-panel', {
         title: table.title,
-        note: table.note || '',
+        note: (typeof table.note === 'function' ? table.note(data) : table.note) || '',
         canAdd: !table.fixedRows,
         noun: table.noun,
         body:

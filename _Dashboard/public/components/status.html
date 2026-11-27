@@ -43,7 +43,7 @@
 
 <template name="control-dependency">
   <span class="status-control timeframe-control dependency-control" {{{attrs}}}>
-    <button type="button" class="timeframe-add dependency-edit{{#if set}} is-set{{/if}}" aria-haspopup="menu" aria-expanded="false" title="{{action}}" aria-label="{{action}}"></button>
+    <button type="button" class="timeframe-add dependency-edit{{#if set}} is-set{{/if}}" aria-haspopup="dialog" title="{{action}}" aria-label="{{action}}"></button>
   </span>
 </template>
 
@@ -81,13 +81,14 @@
 
 <!-- The grey menu at the end of a task row. -->
 <template name="control-row-menu">
-  <span class="status-control row-menu-control" {{{attrs}}}{{#if inMilestone}} data-in-milestone="true" data-milestone-line="{{{milestoneLine}}}"{{/if}}{{#if blockable}} data-blockable="true"{{/if}}>
+  <span class="status-control row-menu-control" {{{attrs}}}{{#if inMilestone}} data-in-milestone="true" data-milestone-line="{{{milestoneLine}}}"{{/if}}{{#if blockable}} data-blockable="true"{{/if}}{{#if blockExists}} data-block-exists="true"{{/if}}{{#if childable}} data-childable="true"{{/if}}>
     <button type="button" class="row-menu-button" aria-haspopup="menu" aria-expanded="false" title="More for this task" aria-label="More for this task"></button>
   </span>
 </template>
 
-<!-- Dates first, then Cancel and Delete. -->
+<!-- Add child task (on the task's own page), the dates, then Cancel and Delete. -->
 <template name="row-menu-actions">
+  {{#if childable}}<button type="button" role="menuitem" data-row="child">Add child task</button>{{/if}}
   <button type="button" role="menuitem" data-plan="SCHEDULED">Schedule</button>
   <button type="button" role="menuitem" data-plan="DEADLINE">Deadline</button>
   <div class="status-menu-sep" role="separator"></div>
@@ -111,8 +112,6 @@
 <template name="status-menu-type"><div class="status-menu-type">{{type}}</div></template>
 
 <template name="status-menu-item"><button type="button" role="menuitem" data-{{{attr}}}="{{value}}"{{#if current}} disabled aria-current="true"{{/if}}>{{label}}</button></template>
-
-<template name="status-menu-none"><p class="status-menu-type">No other projects to choose.</p></template>
 
 <template name="status-menu-form">
   <form class="status-menu timeframe-form" role="dialog" aria-label="{{heading}}">
@@ -141,6 +140,30 @@
     </span>
   </label>
 </template>
+
+<!-- The Project Dependency picker, used on project pages, the Archive Index and the Incubator:
+     a row per dependency, each a project and, once one is chosen, its milestones. -->
+<template name="dependency-picker">
+  <fieldset class="dependency-picker" data-dependency-picker>
+    <legend>Project Dependency</legend>
+    <div class="dependency-rows"></div>
+    <button type="button" class="plain-button dependency-add" data-dependency-add>Add a dependency</button>
+  </fieldset>
+</template>
+<template name="dependency-row">
+  <div class="dependency-row">
+    <div class="dependency-row-head">
+      <select aria-label="Project">{{{options}}}</select>
+      <button type="button" class="row-remove" data-dependency-remove title="Remove this dependency" aria-label="Remove this dependency"></button>
+    </div>
+    <div class="dependency-milestones"></div>
+  </div>
+</template>
+<template name="dependency-milestones"><p class="dependency-hint">Tick milestones to depend on just those, or none for the whole project.</p><div class="dependency-boxes">{{{boxes}}}</div></template>
+<template name="dependency-milestone"><label><input type="checkbox" value="{{title}}"{{#if checked}} checked{{/if}}> {{title}}</label></template>
+
+<!-- One dependency as read: a link where it names something, then any milestones. -->
+<template name="dependency-item">{{{name}}}{{#if milestones}} <span class="dependency-note">({{milestones}})</span>{{/if}}</template>
 
 <!-- Which milestones a timeframe covers. Ticking them all, or none, means every milestone. -->
 <template name="timeframe-milestones"><fieldset class="timeframe-milestones"><legend>Milestones</legend>{{{boxes}}}</fieldset></template>

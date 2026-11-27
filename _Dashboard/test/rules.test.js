@@ -52,3 +52,16 @@ test('parseMilestones counts done, cancelled, archived and moved tasks', () => {
   );
   assert.equal(two.state, 'none');
 });
+
+test('a Project Dependency lists projects, each with any milestones in brackets', () => {
+  const value = 'MUSART First album (Mix; Release), LABEL Merch Store';
+  const list = rules.dependencyEntries(value);
+  assert.deepEqual(list, [
+    { name: 'MUSART First album', milestones: ['Mix', 'Release'] },
+    { name: 'LABEL Merch Store', milestones: null },
+  ]);
+  assert.equal(rules.dependencyText(list), value);
+  // An older single name is one whole project, and an empty value is none.
+  assert.deepEqual(rules.dependencyEntries('LABEL Merch Store'), [{ name: 'LABEL Merch Store', milestones: null }]);
+  assert.deepEqual(rules.dependencyEntries(''), []);
+});

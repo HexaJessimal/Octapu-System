@@ -7,14 +7,14 @@ const path = require('path');
 const { spawn } = require('child_process');
 const {
   timeframeEntries, timeframeText, parseHeader, createMatcher, scanLines, setPriority, RECUR_VALUE,
-  addPeriod, setPlanningDate, setTentacle, setLeader, setDateField, setDependency, dateError,
+  addPeriod, setPlanningDate, setTentacle, setLeader, setDateField, setDependency, dependencyText, dateError,
   formatDate, toStoredDate, STORAGE_FORMAT, projectTitleError, newProjectFiles, leaderTag,
   newTentacleFile, appendTentacleCsv, PROJECT_TYPES, timeframeError, addTimeframe, editTimeframe,
   tentacleChain, cleanName, stripComments, setHeaderField,
 } = require('../todos');
 const {
   isReservedTitle, parseBlocks, setBlockBody, addBlock, addMilestone, addMilestoneItem,
-  removeMilestone, moveRow, promoteRow, linkRowToBlock, finishMilestone, milestoneBody,
+  removeMilestone, moveRow, promoteRow, linkRowToBlock, insertRow, finishMilestone, milestoneBody,
   moveMilestone, setProjectType, setRowDate, advanceRecurring, indentRow, reorderRow,
   milestoneTitles, ARCHIVE_FIELDS, INCUBATOR_FIELDS, parseNamedEntries, addNamedEntry, addEntryMark,
   removeNamedEntry, addTask, isTaskList, cancelRow, deleteRow, editText,
@@ -27,7 +27,7 @@ const {
   ARCHIVE_FOLDER, INCUBATOR_FOLDER, TENTACLE_PREFIX, field, isArchived, STATUS_PREFIX,
   readTaskLists, readProjectDirs, listDirectory, listProjects, primaryFile, readProjectFile,
   splitTaskLists, projectTitle, projectName, readArchive, dependableArchive, dependencyKey,
-  resolveDependency, dependencyChoices, mainFirst, readStatuses, readTentacles, readLeaders,
+  resolveDependencies, dependencyChoices, cleanDependencies, mainFirst, readStatuses, readTentacles, readLeaders,
   readArchiveMode, readSwitch, readRoundupDays, readDateFormat, tentaclePlace, primaryTentacleFile,
   tentacleFiles, writeFileSafely, recordCreated, changelogCutoff, editableFile, updateProjectFile,
   isFolder, folderTentacle, lineError, addNamed, listCatalogs, readCatalogFile, findCatalog,
@@ -54,7 +54,7 @@ async function readProject(folder, requestedFile) {
   const archive = await dependableArchive();
   return Object.assign(details, {
     blocks,
-    dependencyFolder: resolveDependency(dependency.value, planned, archive),
+    dependencies: resolveDependencies(dependency.value, planned, archive),
     dependencyOptions: await dependencyChoices(folder, planned, archive),
   });
 }
@@ -246,8 +246,7 @@ async function readArchivePage() {
       created: fields.created.value,
       closed: fields.closed.value,
       timeframes: timeframeEntries(fields.timeframe.value),
-      dependency: fields.dependency.value,
-      target: resolveDependency(fields.dependency.value, projects, entries),
+      dependencies: resolveDependencies(fields.dependency.value, projects, entries),
       leader: fields.leader.value,
       notes,
     })),
@@ -265,7 +264,7 @@ const archiveLines = ({ created, closed, timeframe, dependency, leader }) => [
 
 // Adds an archive entry by hand, for a project that was never in the dashboard or whose
 // record was lost. Dates arrive in the DATEFORMAT, and everything but the name can be empty.
-async function saveArchiveEntry({ tentacle, title, created, closed, start, end, dependency, leader }) {
+async function saveArchiveEntry({ tentacle, title, created, closed, start, end, dependencies, leader }) {
   const name = title.trim().replace(/\s+/g, ' ');
   const error = projectTitleError(name);
   if (error) return { code: 400, body: { error } };
@@ -274,7 +273,8 @@ async function saveArchiveEntry({ tentacle, title, created, closed, start, end, 
   if (leader && !leaders.some((l) => l.id === leader)) return { code: 400, body: { error: 'Choose a leader.' } };
   const full = `${tentacle} ${name}`;
   if (entries.some((e) => dependencyKey(e.title) === dependencyKey(full))) return { code: 409, body: { error: 'The archive already has an entry with that name.' } };
-  if (dependency && !(await dependencyChoices(null, projects, entries)).some((c) => c.id === dependency)) return { code: 400, body: { error: "That can't be chosen as a dependency." } };
+  const chosen = cleanDependencies(dependencies, await dependencyChoices(null, projects, entries));
+  if (chosen.error) return { code: 400, body: { error: chosen.error } };
 
   const format = await readDateFormat();
   const dateProblem = [created, closed].map((d) => d.trim()).filter(Boolean).map((d) => dateError(d, format)).find(Boolean);
@@ -288,7 +288,7 @@ async function saveArchiveEntry({ tentacle, title, created, closed, start, end, 
     created: stored(created),
     closed: stored(closed),
     timeframe: start.trim() ? `${stored(start)} to ${stored(end)}` : '',
-    dependency,
+    dependency: dependencyText(chosen.list),
     leader,
   }));
   return { code: 200, body: { ok: true } };
@@ -380,10 +380,8 @@ function ideaTentacle(title, tentacles) {
 // Ideas still waiting: those without an Archived or Promoted date.
 const waitingIdeas = (text) => (text === null ? [] : parseNamedEntries(text, INCUBATOR_FIELDS)).filter((e) => !e.fields.archived.value && !e.fields.promoted.value);
 
-// The projects an idea can depend on: every project that isn't archived.
-async function ideaDependencyChoices() {
-  return (await dependencyChoices(null, await listProjects('milestone'), await dependableArchive())).map((c) => c.id);
-}
+// The projects an idea can depend on: every project that isn't archived, with its milestones.
+const ideaDependencyChoices = async () => dependencyChoices(null, await listProjects('milestone'), await dependableArchive());
 
 // What the Incubator page shows, and the choices for its forms.
 async function readIncubatorPage() {
@@ -413,10 +411,9 @@ async function readIncubatorPage() {
         tentacleId: split ? split.tentacle.id : '',
         tentacleName: split ? split.tentacle.name : '',
         name: split ? split.name : title,
-        dependency: fields.dependency.value,
+        dependencies: resolveDependencies(fields.dependency.value, projects, archive),
         reviewed: fields.reviewed.value || null,
         flagged: /^yes$/i.test(fields.flagged.value),
-        target: resolveDependency(fields.dependency.value, projects, archive),
         // The dependency's line and value as written, for editing. An idea without one has no line.
         raw: { line: fields.dependency.line, value: fields.dependency.value },
         body: block ? block.body : null,
@@ -438,15 +435,16 @@ async function updateIncubator(transform) {
 
 // Adds an idea at the end of _Incubator.md, which is created if it's missing. Its notes are
 // kept as they're typed, but can't hold headings, which would start a new idea.
-async function saveIdea({ title, tentacle, dependency, notes }) {
+async function saveIdea({ title, tentacle, dependencies, notes }) {
   const name = title.trim().replace(/\s+/g, ' ');
   const error = projectTitleError(name);
   if (error) return { code: 400, body: { error } };
   if (!(await readTentacles()).some((o) => o.id === tentacle)) return { code: 400, body: { error: 'Choose a tentacle.' } };
-  if (dependency && !(await ideaDependencyChoices()).includes(dependency)) return { code: 400, body: { error: "That project can't be chosen as a dependency." } };
+  const chosen = cleanDependencies(dependencies, await ideaDependencyChoices());
+  if (chosen.error) return { code: 400, body: { error: chosen.error } };
   const text = notes.replace(/\r\n?/g, '\n').trim();
   if (/^#{1,6}\s/m.test(text)) return { code: 400, body: { error: 'Notes can\'t contain headings. Take out the # at the start of the line.' } };
-  await appendNamedEntry(at().INCUBATOR_FILE, 'Incubator', `${tentacle} ${name}`, [`**${INCUBATOR_FIELDS.dependency}**: ${dependency}`, ...(text ? ['', ...text.split('\n')] : [])]);
+  await appendNamedEntry(at().INCUBATOR_FILE, 'Incubator', `${tentacle} ${name}`, [`**${INCUBATOR_FIELDS.dependency}**: ${dependencyText(chosen.list)}`, ...(text ? ['', ...text.split('\n')] : [])]);
   return { code: 200, body: { ok: true } };
 }
 
@@ -671,18 +669,34 @@ async function shiftRow(edit, body) {
 const indentTask = (body) => shiftRow((content, statuses) => indentRow(content, body.line, body.text, body.direction, statuses), body);
 const reorderTask = (body) => shiftRow((content, statuses) => reorderRow(content, body.line, body.text, body.toLine, body.toText, body.after, statuses), body);
 const saveNewBlock = async (body) => ((await isReservedBlock(body.folder, body.title)) ? RESERVED_ERROR : addNamed(body, body.title, addBlock));
+// A new task just below another (Add child task, and Enter after adding a subtask). The new
+// row's line is sent back so the page can open the next one under it.
+async function insertTask(body) {
+  const text = body.newText.trim();
+  const error = lineError(text);
+  if (error) return { code: 400, body: { error } };
+  const statuses = await readStatuses();
+  let line = null;
+  const result = await updateProjectFile(body.folder, body.file, (content) => {
+    const out = insertRow(content, body.line, body.text, text, body.place, statuses);
+    if (!out) return null;
+    line = out.line;
+    return out.markdown;
+  });
+  return result.code === 200 ? { code: 200, body: { ok: true, line } } : result;
+}
+
 async function saveNewTask(body) {
   const list = (await readTaskLists()).find((name) => isTaskList([name], body.list));
   if (!list) return { code: 400, body: { error: 'Invalid request' } };
   return addNamed(body, body.text, (content, text) => addTask(content, text, list, body.depth || 0));
 }
 
-async function saveDependency({ folder, file, name }) {
-  const choices = await dependencyChoices(folder, await listProjects('milestone'), await dependableArchive());
-  if (name && !choices.some((c) => c.id === name)) {
-    return { code: 400, body: { error: "That project can't be chosen as a dependency." } };
-  }
-  return updateProjectFile(folder, file, (content) => setDependency(content, name));
+// The whole Project Dependency list, from the project page's picker. Empty clears it.
+async function saveDependency({ folder, file, dependencies }) {
+  const chosen = cleanDependencies(dependencies, await dependencyChoices(folder, await listProjects('milestone'), await dependableArchive()));
+  if (chosen.error) return { code: 400, body: { error: chosen.error } };
+  return updateProjectFile(folder, file, (content) => setDependency(content, dependencyText(chosen.list)));
 }
 
 function saveMilestoneOrder({ folder, file, titles, from, to }) {
@@ -718,7 +732,9 @@ async function linkTarget(folder) {
 }
 
 // Create linked Scratchpad block: a "## <task text>" block, with the task's text made into a
-// link to it. Not for text that's already a link, or that couldn't be one.
+// link to it, or only the link when a block with that title (in any case) is there already,
+// which the menu offers as Link to Scratchpad block. Not for text that's already a link, or
+// that couldn't be one.
 async function linkTaskToBlock({ folder, file, line, status, text }) {
   const title = text.trim();
   if (/[#[\]|]/.test(title)) return { code: 400, body: { error: "A task whose text has # [ ] or | in it can't link to a block." } };
@@ -726,10 +742,9 @@ async function linkTaskToBlock({ folder, file, line, status, text }) {
   if (!target) return { code: 400, body: { error: 'Linked blocks are only for project and tentacle pages.' } };
   const full = await editableFile(folder, file);
   if (!full) return NOT_FOUND;
-  const existing = parseBlocks(await fs.promises.readFile(full, 'utf8')).some((b) => b.title !== null && b.title.trim().toLowerCase() === title.toLowerCase());
-  if (existing) return { code: 409, body: { error: `There's already a block called "${title}".` } };
+  const block = parseBlocks(await fs.promises.readFile(full, 'utf8')).find((b) => b.title !== null && b.title.trim().toLowerCase() === title.toLowerCase());
   const statuses = await readStatuses();
-  return updateProjectFile(folder, file, (content) => linkRowToBlock(content, line, status, text, target, statuses));
+  return updateProjectFile(folder, file, (content) => linkRowToBlock(content, line, status, text, target, statuses, block ? block.title.trim() : null));
 }
 
 // Mark all as done: every open task in the milestone moves to the first DONE status.
@@ -942,6 +957,7 @@ module.exports = {
   deleteMilestone,
   saveNewItem,
   indentTask,
+  insertTask,
   reorderTask,
   saveNewBlock,
   saveNewTask,

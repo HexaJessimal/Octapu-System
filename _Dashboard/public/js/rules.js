@@ -66,6 +66,21 @@
   // A timeframe as written: its dates, then any milestone names in brackets.
   const timeframeText = (dates, milestones) => dates + (milestones && milestones.length ? ` (${milestones.join('; ')})` : '');
 
+  // ---------- project dependencies ----------
+
+  // A Project Dependency value as a list: "MUSART First album (Mix; Release), LABEL Merch Store"
+  // depends on two projects, on just those two milestones of the first. Written like an Active
+  // Timeframe, so a single name with no brackets, as older files have, is one whole project.
+  function dependencyEntries(value) {
+    return timeframeEntries(value).map((entry) => {
+      const { dates, milestones } = splitTimeframe(entry);
+      return { name: dates, milestones };
+    });
+  }
+
+  // The value written for a list of { name, milestones }.
+  const dependencyText = (list) => list.map(({ name, milestones }) => timeframeText(name.trim(), milestones)).join(", ");
+
   // ---------- milestones ----------
 
   // The "## Milestones" heading, and each milestone's "###" heading under it.
@@ -181,6 +196,8 @@
     timeframeEntries,
     splitTimeframe,
     timeframeText,
+    dependencyEntries,
+    dependencyText,
     MILESTONES_HEADING,
     MILESTONE_HEADING,
     indentOf,

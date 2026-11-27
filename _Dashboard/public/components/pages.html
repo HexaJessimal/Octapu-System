@@ -25,8 +25,9 @@
 
 <template name="home-section"><div class="home-section">{{{heading}}}{{{body}}}</div></template>
 
+<!-- Above the Current plan once its period is over, with the last plan still shown below. -->
 <template name="home-plan-link">
-  <p class="empty">{{last}}<a href="weekly-plan.html">Make a plan for this period</a></p>
+  <p class="home-plan-due">{{last}}<a href="weekly-plan.html">Make a plan for this period</a></p>
 </template>
 
 <template name="home-plan"><div class="home-plan">{{{tentacles}}}</div></template>
@@ -47,6 +48,9 @@
 
 <template name="gantt-head"><div class="gantt-row gantt-head"><div class="gantt-label"></div>{{{cells}}}</div></template>
 
+<!-- A tentacle's heading, above its projects, when the Timeline is grouped, in its level's colour. -->
+<template name="gantt-group"><div class="gantt-row gantt-group"><div class="gantt-label org-level-{{{level}}}">{{name}}</div></div></template>
+
 <template name="gantt-project">
   <div class="gantt-row gantt-project" data-row="{{{index}}}">
     <div class="gantt-label" style="--lanes:{{{lanes}}}">
@@ -61,15 +65,17 @@
 <template name="gantt-now"><div class="gantt-now" style="--column:{{{column}}};--lanes:{{{lanes}}}"></div></template>
 
 <template name="gantt-bar">
-  <a class="gantt-bar" href="{{href}}" title="{{detail}}" aria-label="{{detail}}" data-bar-of="{{folder}}" data-order="{{{order}}}"{{#if isLast}} data-end-of="{{folder}}"{{/if}}{{#if isFirst}} data-start-of="{{folder}}"{{/if}} style="--bar:{{{background}}};--from:{{{from}}};--to:{{{to}}};--lane:{{{lane}}}"><span>{{label}}</span></a>
+  <a class="gantt-bar" href="{{href}}" title="{{detail}}" aria-label="{{detail}}" data-bar-of="{{folder}}" data-order="{{{order}}}"{{#if isLast}} data-end-of="{{folder}}"{{/if}} data-start="{{start}}" data-end="{{end}}" data-milestones="{{milestones}}" style="--bar:{{{background}}};--from:{{{from}}};--to:{{{to}}};--lane:{{{lane}}}"><span>{{label}}</span></a>
 </template>
 
-<template name="gantt-arrow-path"><path d="{{{route}}}" marker-end="url(#gantt-arrowhead)"></path></template>
+<!-- A met dependency's arrow is in the complete colour, with its own arrowhead to match. -->
+<template name="gantt-arrow-path"><path{{#if met}} class="is-met"{{/if}} d="{{{route}}}" marker-end="url(#{{#if met}}gantt-arrowhead-met{{else}}gantt-arrowhead{{/if}})"></path></template>
 
 <template name="gantt-arrows">
   <svg class="gantt-arrows" width="{{{width}}}" height="{{{height}}}" aria-hidden="true">
     <defs>
       <marker id="gantt-arrowhead" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0 0L6 3L0 6z"></path></marker>
+      <marker id="gantt-arrowhead-met" class="is-met" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0 0L6 3L0 6z"></path></marker>
     </defs>
     {{{paths}}}
   </svg>
@@ -95,6 +101,7 @@
       <div class="gantt-marks" aria-hidden="true">{{{marks}}}</div>
     </div>
   </div>
+  <div class="gantt-resizer" data-gantt-resize role="separator" aria-orientation="horizontal" aria-controls="gantt-scroll" aria-label="Resize the Timeline" tabindex="0" title="Drag to make the Timeline taller or shorter, double-click to reset"></div>
   {{{legend}}}
 </template>
 
@@ -103,10 +110,13 @@
 <!-- Tick boxes above the Timeline for which projects it shows. -->
 <template name="gantt-toggles">
   <div class="gantt-toolbar">
-    <div class="gantt-toggles" role="group" aria-label="Show on the Timeline">{{{boxes}}}</div>
+    <div class="gantt-toggles" role="group" aria-label="Show on the Timeline">{{{boxes}}}{{{group}}}</div>
     <div class="chips gantt-zoom" role="group" aria-label="Months across the Timeline">{{{zooms}}}</div>
   </div>
 </template>
+
+<!-- Which level of tentacle the Dashboard's Timeline groups its projects by. -->
+<template name="gantt-group-by"><label class="gantt-group-by">Group by <select data-timeline-group>{{{options}}}</select></label></template>
 
 <template name="gantt-zoom"><button type="button" class="chip" data-timeline-zoom="{{{months}}}" aria-pressed="{{{pressed}}}">{{{months}}} months</button></template>
 
@@ -150,7 +160,7 @@
 
 <template name="archive-field"><div class="entry-field"><dt>{{label}}</dt><dd{{{attrs}}}>{{{value}}}</dd></div></template>
 
-<template name="legend-depends"><span><b class="legend-arrow" aria-hidden="true"></b>Depends on</span></template>
+<template name="legend-depends"><span><b class="legend-arrow" aria-hidden="true"></b>Depends on</span><span><b class="legend-arrow is-met" aria-hidden="true"></b>Dependency met</span></template>
 
 <!-- A flagged milestone, block, event, contact or idea, with where it is and a button to mark it reviewed. -->
 <template name="review-section-entry">
@@ -257,7 +267,7 @@
 <template name="plan-pick">
   <li>
     <button type="button" class="plan-item{{#if last}} is-last-item{{/if}}" data-focus-add="{{{index}}}"{{#if last}} title="The last unfinished item in this milestone"{{/if}}>
-      {{{badge}}}<span>{{text}}</span><small>{{milestone}}</small>
+      {{{badge}}}<span>{{{text}}}</span><small>{{milestone}}</small>
     </button>
   </li>
 </template>
@@ -267,6 +277,7 @@
     <header>
       <button type="button" class="collapse-button" data-collapse aria-expanded="{{{expanded}}}" aria-label="Show or hide this block"></button>
       <h2>{{title}}</h2>
+      {{#if path}}<small class="plan-path" title="{{path}}">{{path}}</small>{{/if}}
       {{#if suggested}}<span class="plan-tag">Suggested</span>{{/if}}
       <span class="ms-count">{{{count}}}</span>
     </header>

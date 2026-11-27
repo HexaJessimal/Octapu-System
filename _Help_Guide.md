@@ -40,10 +40,10 @@ Select **Get started**. The dashboard creates the settings files it needs in the
 
 - **The tiles** along the top show your **Scheduled Projects** (those in a timeframe today), your open and inactive projects, how soon the next Review and Plan are due, and how many tasks are overdue.
 - **Timeline** charts your projects by month, with your events and application deadlines as lines.
-- **Current plan, Due in the next 7 days, Priorities this month and Overdue tasks** sit below it.
+- **Current plan and Priorities this month**, then **Due in the next 7 days and Overdue tasks**, sit below it. The plan names each tentacle and project in their own colours. When it's time for a new plan, an outlined note at the top links to the Plan page, with your last plan still shown below it.
 - **The left menu** takes you everywhere else. Review and Plan get a coloured outline when they're due.
 - **The Todos list** on the right stays on every page.
-- **Both sidebars** can be made wider or narrower by dragging their inner edge, and double-clicking the edge puts it back. The round arrow button on each edge folds that sidebar away to a thin strip, and selecting it again brings it back. Each browser remembers how you left them. A name too long for the menu ends in **…**; point at it to see it in full.
+- **Both sidebars** can be made wider or narrower by dragging their inner edge, and double-clicking the edge puts it back. The round arrow button on each edge folds that sidebar away to a thin strip, and selecting it again brings it back. A folded menu keeps the logo at the bottom. A folded Todos list keeps its count and a small icon for each todo, in the same order and highlight colours; select one to go to it. Each browser remembers how you left them. A name too long for the menu ends in **…**; point at it to see it in full.
 
 Most of this is empty until you've added some work.
 
@@ -83,7 +83,7 @@ Once a task has a status, a second small dropdown appears beside it. Use that to
 
 For something you do again and again, such as paying a bill, choose **R** (recurring), shown in cyan. A small form asks how often: a number from 1 to 10, and **Days**, **Weeks**, **Months** or **Years**. The first time you make a task recurring, it's scheduled that far ahead. After that, selecting its status name or its tick box doesn't change its status or tick it. It moves the scheduled date on by that much instead, so it's ready for next time. To change how often, choose **R** again. To stop it recurring, choose another priority.
 
-In the Todos list on the right, a recurring task due within three days has a yellow border, and one whose date has passed has a red border. They go to the top of the list, the red ones first, whatever **Sort** is set to.
+In the Todos list on the right, a recurring task gets a border when it's due. One that comes round more often than weekly is highlighted only on its day, one that comes round weekly up to monthly from the day before, and one that comes round every 4 weeks, every month or less often from a week before. The border is the **caution** colour when it's due, **pending** once its date has passed, and **alert** when it's more than three days overdue. They go to the top of the list, the most overdue first, whatever **Sort** is set to.
 
 The grey menu at the end of the task's row has **Schedule** and **Deadline** options, above Cancel and Delete. Each asks for a date, which you can type or choose with the calendar button, and shows it under the task. A task with a date appears in **Due in the next 7 days** and **Overdue tasks** on the Dashboard's Overview. To remove a date, choose the option again and clear the box.
 
@@ -258,6 +258,7 @@ There's no screenshot of this step. The Wins box is at the bottom of the Review 
 
 Open **Plan**. The top boxes list everything that hasn't been assigned yet: tasks in your active Milestone projects, tasks and status-tagged lines in your tentacles, and tasks under a contact or event in Networking. The small arrow on any box on this page collapses it.
 
+- Beside each box's title, in small text, is the file its tasks come from, such as `Projects/+LABEL_A_New_Idea/A_Second_Project_File.md`.
 - A project with a timeframe that includes today is outlined and tagged **Suggested**.
 - A task that's the last one unfinished in its milestone is outlined too.
 
@@ -279,7 +280,7 @@ Your plan is saved in `_Time_Management/Plan.md`, and can be read back on the **
 
 ## Keep ideas in the Incubator
 
-The **Incubator**, near the top of the left menu, holds ideas that aren't projects yet. Select the plus button beside **New idea** and enter a title, the tentacle it's for, a project it depends on if any, and some notes. Ideas are kept in `_Incubator.md` in your entity's folder.
+The **Incubator**, near the top of the left menu, holds ideas that aren't projects yet. Select the plus button beside **New idea** and enter a title, the tentacle it's for, any projects it depends on (and which of their milestones), and some notes. Ideas are kept in `_Incubator.md` in your entity's folder.
 
 [[IMAGE#Screenshots/63-Incubator.png]]
 
@@ -296,7 +297,7 @@ Double-click an idea's name, its project dependency or its notes to change them.
 
 ## View the timeline
 
-The Timeline is on the Dashboard's Overview tab. Projects are graded through the colours of their milestones, and a project with no milestones is shown as `N/A` in the key. The tick boxes above it show or hide **Active** and **Inactive** projects, **Archive** ones while `SHOWARCHIVED` is ticked, and the **Deadlines**, **Bookings** and **Releases** lines. Archived projects are green, the complete colour. **3 months**, **6 months** and **12 months** zoom the chart in and out. As you scroll sideways, rows with nothing within two months of the dates on screen are hidden, so the chart stays a sensible height however many years it covers. An event's application deadline is a cyan line until you've applied or it's booked. Its date is purple once it's booked, and grey until then. An event of several days has a line at each end, with a paler band between. Point at a line to see which event it is. Every record in a catalog with a **Release date** is a white line on that day. Point at it to see its cover, title and date. Where one item depends on another, it sits underneath with an arrow joining them. A project with more than one timeframe has an arrow from each of its bars to the next. Select any bar to open it.
+The Timeline is on the Dashboard's Overview tab. Projects are graded through the colours of their milestones, and a project with no milestones is shown as `N/A` in the key. The tick boxes above it show or hide **Active** and **Inactive** projects, **Archive** ones while `SHOWARCHIVED` is ticked, and the **Deadlines**, **Bookings** and **Releases** lines. **Group by** puts the projects under a heading for each tentacle at the level you choose: **Parent** for your top-level tentacles, **Child** for the ones under them, or **Grandchild** for the ones under those. A project belongs to the group of its tentacle's parent, child or grandchild at that level, or to its own tentacle if that's higher up. Groups follow the order of your tentacles in the menu, with any project whose tentacle isn't known under **Other**. **None** shows the projects without groups. Archived projects are green, the complete colour. **3 months**, **6 months** and **12 months** zoom the chart in and out. Drag the small bar under the chart to make it taller or shorter, and double-click the bar to put it back. As you scroll sideways, rows with nothing within two months of the dates on screen are hidden, so the chart stays a sensible height however many years it covers. An event's application deadline is a cyan line until you've applied or it's booked. Its date is purple once it's booked, and grey until then. An event of several days has a line at each end, with a paler band between. Point at a line to see which event it is. Every record in a catalog with a **Release date** is a white line on that day. Point at it to see its cover, title and date. Where one item depends on another, it sits underneath with an arrow joining them. The arrow runs from the end of the first item to the first timeframe of the dependent one that starts on or after that end date, or, if it has none, to the latest one that starts before it. A dependency on certain milestones starts from the timeframe for those milestones, and an arrow is green, the complete colour, once what it waits for is complete. See [Make one project depend on another](#make-one-project-depend-on-another). A project with more than one timeframe has an arrow from each of its bars to the next. Select any bar to open it.
 
 [[IMAGE#Screenshots/38-TimelineView.png]]
 
@@ -377,7 +378,7 @@ A few details:
 - A name also finds a heading that adds something in brackets, so `Scott` finds `Scott (SWOLE)`.
 - A link that doesn't match anything is left as plain text.
 
-**Project Dependency** is written a little differently. It's the name of a project without its status sign or underscores, such as `LABEL Design A New Logo`.
+**Project Dependency** is written a little differently. It's the name of a project without its status sign or underscores, such as `LABEL Design A New Logo`. Several are separated by commas, and any milestones a dependency is limited to go after its name in brackets, separated by semicolons, like a timeframe's: `MUSART First album (Mix; Release), LABEL Merch Store`.
 
 ## View the options page
 
@@ -391,6 +392,8 @@ Open **Options** at the bottom of the left menu. The **General** tab holds:
 - `SYNCCONFLICTS`: tick it to be warned about Syncthing conflicts, as described in [Work together as a team](#work-together-as-a-team).
 - `MULTIUSER`: tick it to log in and keep a Changelog of who changed what, as described in [Work together as a team](#work-together-as-a-team).
 - `ARCHIVEMODE`: what the **Archive** button on a project does, as described in [Archive a finished project](#archive-a-finished-project).
+- `THEME`: the colours of every page. **DARK**, the default, is the usual purple theme on a dark page. **LITE** is the same on a pale page, **MONO** is black on white with a few colours kept for what needs attention, **CYAN** is cyan on black, and **NEON** is neon pink on black, like a retro computer terminal, with its own bright colour for each status and priority. A thin line divides each task from the next in every task list, whatever the theme. **CUSTOM** uses your own colours from the **Colours** tab, described in [Customise your dashboard colours](#customise-your-dashboard-colours).
+- `CORNERS`: **ROUND** gives boxes, buttons and labels rounded corners, and **SQUARE** makes them square. Round icons stay round.
 
 [[IMAGE#Screenshots/45-Options.png]]
 
@@ -416,7 +419,7 @@ Tasks are assigned using statuses, so if you'd like to assign tasks to the new p
 
 ## Customise your dashboard colours
 
-The **Colours** tab lists every colour the dashboard uses and what it's for. Double-click a colour and enter a 6 character hex value, such as `#00ff6a`. The change shows straight away. One colour often has several uses, and changing it changes them all.
+The **Colours** tab lists every colour the dashboard uses and what it's for. They're named after what they mark rather than how they look, such as **complete**, **caution** and **alert**, so a name still makes sense whatever colour you give it. Your colours are used while `THEME` on the **General** tab is **CUSTOM**; pick one of the other themes to use a ready-made set instead. Double-click a colour and enter a 6 character hex value, such as `#00ff6a`. The change shows straight away. One colour often has several uses, and changing it changes them all.
 
 The colours starting `print-` are only used when you print a generated report, described in [Read your report and save it](#read-your-report-and-save-it), so it comes out as dark text on white paper.
 
@@ -489,7 +492,8 @@ Your files are organised like this:
 
 [[IMAGE#Screenshots/51-DirectoryStructure.png]]
 
-- `_Dashboard`: the dashboard's own code, and `entities.csv`, the list of your entities.
+- `entities.csv`: the list of your entities.
+- `_Dashboard`: the dashboard's own code.
 - `_Images`: pictures used in your notes and this guide, shared by all your entities.
 - `Label`, `Freelance` and so on: a folder for each entity, holding everything below.
 - `_Tentacles`: a folder per tentacle, named after its ID, with tentacles inside their parent, and `Reports.md`.
@@ -658,11 +662,11 @@ Ongoing projects have no milestones, timeframe or dependency, so they don't appe
 
 ## Make one project depend on another
 
-When one project can't start until another is finished, select the plus button beside **Project Dependency** on its Overview and choose the project it waits for. The list leaves out the project itself and any project that already depends on it. With `ARCHIVEMODE` set to **HEADERS**, archived projects are listed too, marked (archived).
+When one project can't start until another is finished, select the plus button beside **Project Dependency** on its Overview and choose the project it waits for. To wait for just part of it, tick the milestones it waits for; leave them all unticked to wait for the whole project. **Add a dependency** adds another project, and the minus button beside one removes it. The list leaves out the project itself and any project that already depends on it. With `ARCHIVEMODE` set to **HEADERS**, archived projects are listed too, marked (archived).
 
 [[IMAGE#Screenshots/75-ChooseDependency.png]]
 
-The dependency then shows as a link on the Overview. On the Timeline the project sits under the one it depends on, with an arrow joining them. Use the pencil to change it, or choose **None** to remove it.
+Each dependency then shows as a link on the Overview, with its milestones after it. On the Timeline the project sits under the first one it depends on, with an arrow from each. A dependency on certain milestones has its arrow start from a timeframe that's for one of those milestones, or, if there isn't one, from a timeframe for the whole project. With neither, it has no arrow. Once everything a dependency waits for is complete, its arrow turns the complete colour (green), as it does for an archived project. Use the pencil to change the list, or remove every dependency to clear it.
 
 ## Use the task and milestone menus
 
@@ -679,7 +683,9 @@ A task in a Milestone project's milestone has more choices:
 - **Move to** lists the project's other milestones. The task moves to the end of the one you choose, with any subtasks under it.
 - **Promote to new milestone** turns the task into a milestone of its own, at the end of the list. Its subtasks become the new milestone's tasks.
 
-On project and tentacle pages, **Create linked Scratchpad block** adds a Scratchpad block named after the task, and turns the task's text into a link to it. It isn't offered once that block exists.
+**Add child task**, in the grey menu at the end of a task on its own page, opens a blank row nested just under the task, ready to type into. Press Return to save it, and another blank row opens straight below it for the next one, at the same level. Leave the row empty or press Esc to stop. The same goes for a subtask added with the plus button and Tab: Return opens the next row at that depth.
+
+On project and tentacle pages, **Create linked Scratchpad block** adds a Scratchpad block named after the task, and turns the task's text into a link to it. When a block with exactly the task's name is already there, the menu offers **Link to Scratchpad block** instead, which only turns the task's text into a link to it.
 
 [[IMAGE#Screenshots/82-TaskMenu.png]]
 
@@ -711,7 +717,7 @@ On a projects list, the buttons along the top show **All**, **Active** or **Inac
 
 ## Read your tentacle's tabs
 
-The tabs along the top of a tentacle's page are coloured by how deep each one is: green for your tentacle, yellow for its tentacles, orange for theirs, and grey for anything deeper. The open tab is underlined in its colour.
+The tabs along the top of a tentacle's page are coloured by how deep each one is, in shades of the theme's purple so they're never mistaken for a status: your tentacle in the raised purple, its tentacles in the tentacle purple, theirs in the accent colour, and grey for anything deeper. The open tab is underlined in its colour.
 
 Each level has its own row. Your tentacle is on the first, the tentacles under it on the second, and the tentacles under the open one on the row below that. The tabs above the open one are underlined faintly, so you can see the way back up.
 
@@ -739,7 +745,7 @@ Then open the address it prints, such as `http://127.0.0.1:8080`.
 
 An entity is a separate set of everything: its own projects, tentacles, leaders, statuses, colours, options, catalogs, Contacts, Events, Incubator and Archive. Use one for each organisation you run, such as a record label and your freelance work.
 
-Your entities are listed on the **Entities** tab of the Options page, which is `entities.csv` in the `_Dashboard` folder. Select the plus button and enter a name and a folder name, such as **Freelance Work** and `Freelance`. The folder goes in the main `Octapu-System` folder. If it isn't there yet, the dashboard makes it, switches to the new entity and opens the setup form, as in [Launch the dashboard and create your tentacle](#launch-the-dashboard-and-create-your-tentacle). When you finish the form, it makes all the entity's folders and files.
+Your entities are listed on the **Entities** tab of the Options page, which is `entities.csv` in the main `Octapu-System` folder. Select the plus button and enter a name and a folder name, such as **Freelance Work** and `Freelance`. The folder goes in the main `Octapu-System` folder. If it isn't there yet, the dashboard makes it, switches to the new entity and opens the setup form, as in [Launch the dashboard and create your tentacle](#launch-the-dashboard-and-create-your-tentacle). When you finish the form, it makes all the entity's folders and files.
 
 [[IMAGE#Screenshots/88-EntitiesTab.png]]
 

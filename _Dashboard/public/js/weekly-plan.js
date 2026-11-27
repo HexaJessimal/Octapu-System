@@ -35,14 +35,15 @@
       index: available.length - 1,
       last: row.lastInMilestone,
       badge: row.status ? component('plan-badge', { className: badgeClass(row.type), status: row.status }) : '',
-      text: displayDates(row.editText),
+      // Formatted as in the Focus list, so links show as links rather than markdown.
+      text: md.inline(displayDates(row.editText)),
       milestone: row.milestone,
     });
   }
 
-  function planBox({ key, suggested, title, count, items }) {
+  function planBox({ key, suggested, title, path, count, items }) {
     const isCollapsed = collapsed.has(key);
-    return component('plan-project', { suggested, collapsed: isCollapsed, expanded: !isCollapsed, key, title, count, items });
+    return component('plan-project', { suggested, collapsed: isCollapsed, expanded: !isCollapsed, key, title, path, count, items });
   }
 
   function pickLists() {
@@ -55,6 +56,7 @@
           key: 'pick:' + project.folder,
           suggested: project.suggested,
           title: project.name || parseFolder(project.folder).title,
+          path: project.path,
           count: rows.length,
           items: rows.map(pickableRow).join(''),
         })
@@ -85,15 +87,20 @@
   function focusList() {
     const groups = new Map();
     const titles = new Map();
+    // The files a box's items are from, as a project's items can come from more than one.
+    const paths = new Map();
+    const pathOf = (row) => (projects.find((p) => p.folder === row.folder && p.file === row.file) || {}).path;
     focusEntries().forEach((entry) => {
       const { folder, source } = entry.row;
       if (!groups.has(folder)) groups.set(folder, []);
+      if (!paths.has(folder)) paths.set(folder, new Set());
       titles.set(folder, source || parseFolder(folder).title);
+      if (pathOf(entry.row)) paths.get(folder).add(pathOf(entry.row));
       groups.get(folder).push(focusRow(entry));
     });
     if (!groups.size) return component('empty-card', { message: 'Click an item above to add it to the focus.' });
     const boxes = [...groups].map(([folder, items]) =>
-      planBox({ key: 'focus:' + folder, suggested: false, title: titles.get(folder), count: items.length, items: items.join('') })
+      planBox({ key: 'focus:' + folder, suggested: false, title: titles.get(folder), path: [...paths.get(folder)].join(', '), count: items.length, items: items.join('') })
     );
     return component('card-stack', { items: boxes.join('') });
   }

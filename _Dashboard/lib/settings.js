@@ -6,14 +6,14 @@ const path = require('path');
 const {
   parseStatuses, withDefaultStatuses, parseLeaders, parseColours, editColourCsv, parseOptions,
   newOptionsCsv, newStatusCsv, leaderTag, appendTentacleCsv, STATUS_TYPES, editStatusCsv,
-  editLeaderCsv, editEntityCsv, isUsableDateFormat, updateOptionsCsv, cleanName,
+  editLeaderCsv, editEntityCsv, isUsableDateFormat, updateOptionsCsv, cleanName, themeStylesheet,
 } = require('../todos');
 const { isReservedTitle } = require('../document-edits');
-const { ROOT_DIR, ENTITIES_FILE, readText, disk, currentRoot, at, entityDirError, parseEntityRows, readIfExists } = require('./context');
+const { DASHBOARD_DIR, ROOT_DIR, ENTITIES_FILE, readText, disk, currentRoot, at, entityDirError, parseEntityRows, readIfExists } = require('./context');
 const {
   DEFAULT_ROUNDUP_DAYS, DEFAULT_COLOURS_FILE, SETUP_DATE_FORMATS, setupFiles, FALLBACK_PROJECT_DIRS,
   FALLBACK_TASK_LISTS, projectDirError, splitList, readTentacles, readLeaders, SWITCH_OPTIONS,
-  SWITCH_VALUES, CHOICE_OPTIONS, writeFileSafely, editLabelFile,
+  SWITCH_VALUES, CHOICE_OPTIONS, writeFileSafely, editLabelFile, readChoice,
 } = require('./store');
 const { tentacleError, writeTentacleFile } = require('./documents');
 
@@ -49,9 +49,25 @@ async function readLeaderTable() {
   return { exists: text !== null, rows: text === null ? [] : parseLeaders(text) };
 }
 
+// The Colours tab edits _Options/Colours.csv, which is only used while THEME is CUSTOM, so the
+// tab is told which theme is on.
 async function readColourTable() {
   const text = await readIfExists(at().COLOURS_FILE);
-  return { exists: text !== null, rows: text === null ? [] : parseColours(text) };
+  return { exists: text !== null, rows: text === null ? [] : parseColours(text), theme: await readChoice('THEME') };
+}
+
+// The colour themes that ship with the dashboard, by their THEME value.
+const THEMES_DIR = path.join(DASHBOARD_DIR, 'defaults', 'themes');
+const THEME_FILES = { DARK: 'Dark.csv', LITE: 'Lite.csv', MONO: 'Mono.csv', CYAN: 'Cyan.csv', NEON: 'Neon.csv' };
+
+// api/colours.css: the THEME's colours, or _Options/Colours.csv for CUSTOM (or if the theme's
+// file can't be read), and square corners when CORNERS is SQUARE. Every page loads it after
+// style.css, so its values win.
+async function coloursCss() {
+  const file = THEME_FILES[await readChoice('THEME')];
+  const text = file ? await readIfExists(path.join(THEMES_DIR, file)) : null;
+  const rows = text !== null ? parseColours(text) : (await readColourTable()).rows;
+  return themeStylesheet(rows, { square: (await readChoice('CORNERS')) === 'SQUARE' });
 }
 
 const saveStatusRow = (body) => editLabelFile(at().STATUS_FILE, 'Type,Name,Next', editStatusCsv, body);
@@ -161,6 +177,7 @@ module.exports = {
   readStatusTable,
   readLeaderTable,
   readColourTable,
+  coloursCss,
   saveStatusRow,
   saveLeaderRow,
   saveColourRow,

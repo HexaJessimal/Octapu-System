@@ -789,6 +789,31 @@ function indentRow(markdown, line, text, direction, statuses) {
   return replaceLines(markdown, first, last, raw.slice(first - 1, last).map((l) => (isBlank(l) ? l : dedent(l, width))));
 }
 
+// Adds an unticked row next to a task: as its first subtask ('child', after its own date
+// lines and any notes under it), or straight after it and everything nested under it, at its
+// level ('after'). Returns { markdown, line } with the new row's line, or null if the task has
+// changed.
+function insertRow(markdown, line, text, newText, place, statuses) {
+  if (!rowAtLine(markdown, line, text, statuses)) return null;
+  const visible = stripComments(markdown);
+  const raw = rawLines(markdown);
+  const { last } = rowExtent(visible, line);
+  const indent = raw[line - 1].match(/^\s*/)[0];
+  if (place === 'after') return { markdown: insertLine(markdown, last, indent + '- [ ] ' + newText), line: last + 1 };
+  let at = line;
+  let child = null; // an existing subtask's indent, so the new one matches it
+  for (let n = line + 1; n <= last; n++) {
+    if (isBlank(visible[n - 1])) continue;
+    if (CHECKBOX_ROW.test(visible[n - 1])) {
+      child = raw[n - 1].match(/^\s*/)[0];
+      break;
+    }
+    at = n;
+  }
+  const step = indent.includes('\t') ? '\t' : '  ';
+  return { markdown: insertLine(markdown, at, (child || indent + step) + '- [ ] ' + newText), line: at + 1 };
+}
+
 // Moves a task, with everything under it, to just before or after another task in the same
 // milestone or task list, taking that task's level. Returns null if either row has changed,
 // or { refused } saying why it can't move.
@@ -974,14 +999,15 @@ function promoteRow(markdown, line, status, text, statuses) {
   return insertLine(out, heading, children.map((l) => dedent(l, width === Infinity ? 0 : width)));
 }
 
-// Adds a "## <task text>" Scratchpad block and makes the task's text a link to it. `target`
-// is what the link names: the project's name, or the tentacle's ID.
-function linkRowToBlock(markdown, line, status, text, target, statuses) {
+// Makes the task's text a link to a Scratchpad block, adding a "## <task text>" block unless
+// `existing` names the block already there (as written, as the link has to match it).
+// `target` is what the link names: the project's name, or the tentacle's ID.
+function linkRowToBlock(markdown, line, status, text, target, statuses, existing = null) {
   const item = findRow(markdown, line, status, text, statuses);
   if (!item) return null;
   const title = item.editText.trim();
-  const linked = swapText(markdown, line, item.textAt, item.editText, `[[${target}#${title}|${title}]]`);
-  return addBlock(linked, title);
+  const linked = swapText(markdown, line, item.textAt, item.editText, `[[${target}#${existing || title}|${title}]]`);
+  return existing ? linked : addBlock(linked, title);
 }
 
 // Moves every open task in a milestone to `done`, from the bottom up so each CLOSED line
@@ -1229,6 +1255,7 @@ module.exports = {
   moveRow,
   promoteRow,
   linkRowToBlock,
+  insertRow,
   finishMilestone,
   milestoneBody,
   milestoneRows,

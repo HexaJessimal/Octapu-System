@@ -2,7 +2,8 @@
 'use strict';
 
 // The rules the pages share: priority tokens, checkbox rows, timeframes, cancelled rows.
-const { PRIORITY_TOKEN, RECUR_VALUE, CHECKBOX_ROW, isCancelled, indentOf, timeframeEntries, splitTimeframe, timeframeText } = require('./public/js/rules');
+const { RENAMED_COLOURS } = require('./lib/renames');
+const { PRIORITY_TOKEN, RECUR_VALUE, CHECKBOX_ROW, isCancelled, indentOf, timeframeEntries, splitTimeframe, timeframeText, dependencyEntries, dependencyText } = require('./public/js/rules');
 
 // The status types are fixed. Status names always come from _Options/Status.csv.
 const TYPE_MARKS = { UNASSIGNED: ' ', ASSIGNED: '/', WAITING: '-', DONE: 'x', ARCHIVED: 'x' };
@@ -143,13 +144,55 @@ function parseColours(csvText) {
     .filter((row) => row.name);
 }
 
-// The stylesheet that applies Colours.csv. A row with a bad name or colour is left out, so
-// that colour falls back to the one in style.css.
-function coloursStylesheet(rows) {
-  const lines = rows
-    .filter((row) => /^[a-z][a-z0-9-]*$/.test(row.name) && normaliseHex(row.colour))
-    .map((row) => `  --${row.name}: ${normaliseHex(row.colour)};`);
+// The stylesheet that applies a colours file (Colours.csv or a theme). A row with a bad name or
+// colour, or one of the old hue names, is left out, so that colour falls back to style.css.
+// Form controls, scrollbars and the logo follow the page: light on a light background. With `square`
+// (CORNERS set to SQUARE), every corner size is 0 apart from circles.
+const OLD_COLOUR_NAMES = new Set(RENAMED_COLOURS.map(([from]) => from));
+function themeStylesheet(rows, { square = false } = {}) {
+  const usable = rows.filter((row) => /^[a-z][a-z0-9-]*$/.test(row.name) && !OLD_COLOUR_NAMES.has(row.name) && normaliseHex(row.colour));
+  const bg = usable.find((row) => row.name === 'bg');
+  const lines = usable.map((row) => `  --${row.name}: ${normaliseHex(row.colour)};`);
+  if (bg && isLight(normaliseHex(bg.colour))) lines.unshift('  color-scheme: light;', '  --logo-filter: invert(1) hue-rotate(180deg);');
+  else if (bg) lines.unshift('  color-scheme: dark;');
+  if (square) lines.push(...['radius', 'radius-sm', 'radius-xs', 'radius-hair', 'radius-pill'].map((name) => `  --${name}: 0;`));
   return `:root {\n${lines.join('\n')}\n}\n`;
+}
+
+// True for a colour nearer white than black, by its relative luminance.
+function isLight(hex) {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.18;
+}
+
+// Renames Colours.csv rows that still have an old hue name. A renamed row takes its new
+// description from `defaults` (the shipped Colours.csv's rows), and on-highlight, which used to
+// be the border colour, is added with the border's value if the file hasn't got it. A row
+// whose new name is already there is dropped, as the newer row wins.
+function renameColourRows(csvText, defaults) {
+  return editCsv(csvText, ['name', 'colour', 'used for'], (rows, col) => {
+    const names = () => new Set(rows.map((row) => row[col.name].trim()));
+    const usedFor = (name) => (defaults.find((d) => d.name === name) || {}).usedFor || '';
+    for (const [from, to] of RENAMED_COLOURS) {
+      const at = rows.findIndex((row) => row[col.name].trim() === from);
+      if (at === -1) continue;
+      if (names().has(to)) {
+        rows.splice(at, 1);
+        continue;
+      }
+      rows[at][col.name] = to;
+      rows[at][col['used for']] = usedFor(to);
+    }
+    if (!names().has('on-highlight')) {
+      const border = rows.find((row) => row[col.name].trim() === 'border');
+      const row = rows[0] ? rows[0].map(() => '') : Object.values(col).map(() => '');
+      row[col.name] = 'on-highlight';
+      row[col.colour] = border ? border[col.colour] : '#2a2a2a';
+      row[col['used for']] = usedFor('on-highlight');
+      rows.splice(border ? rows.indexOf(border) + 1 : rows.length, 0, row);
+    }
+    return null;
+  });
 }
 
 // Turns Options.csv text into a { OPTION: value } object.
@@ -1051,7 +1094,7 @@ function editLeaderCsv(csvText, { action, from, name }) {
   });
 }
 
-// Adds, changes or deletes a row of _Dashboard/entities.csv. `from` is the Directory of the row
+// Adds, changes or deletes a row of entities.csv. `from` is the Directory of the row
 // to change. `dirError` says why a Directory can't be used, or null. The last row can't be
 // deleted, as the dashboard would fall back to the main folder, which holds no entity's data.
 function editEntityCsv(csvText, { action, from, name, dir }, dirError) {
@@ -1170,6 +1213,8 @@ module.exports = {
   timeframeEntries,
   splitTimeframe,
   timeframeText,
+  dependencyEntries,
+  dependencyText,
   findField,
   setHeaderField,
   editLine,
@@ -1181,7 +1226,8 @@ module.exports = {
   parseTentacles,
   parseLeaders,
   parseColours,
-  coloursStylesheet,
+  themeStylesheet,
+  renameColourRows,
   parseComponents,
   editColourCsv,
   parseOptions,
