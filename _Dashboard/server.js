@@ -54,7 +54,7 @@ const VERSION = '0.8';
 const HOST = process.env.PMS_HOST || '127.0.0.1';
 const PORT = Number(process.env.PMS_PORT) || 4173;
 
-const IMAGE_TYPES = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp']);
+const IMAGE_TYPES = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg']);
 
 const MAX_BODY_BYTES = 256 * 1024;
 const LOOPBACK_NAMES = new Set(['127.0.0.1', 'localhost', '[::1]', '::1']);
@@ -532,6 +532,11 @@ async function route(req, res) {
       return sendJson(res, 200, project);
     }
     if (url.pathname.startsWith('/images/')) return serveImage(res, url.pathname);
+    // The browser asks every page's site for this, so the menu's logo is the tab icon too.
+    if (url.pathname === '/favicon.ico') {
+      const logo = await findLogo();
+      return logo ? serveImage(res, '/images/' + encodeURIComponent(logo)) : send(res, 404, 'Not found');
+    }
     // Tentacle pages were entity pages, so old links and bookmarks still arrive here.
     if (url.pathname === '/entity.html') {
       res.writeHead(302, { Location: 'tentacle.html' + url.search, 'Cache-Control': 'no-store' });

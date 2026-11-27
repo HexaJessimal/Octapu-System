@@ -44,7 +44,7 @@ The form comes back whenever one of `Status.csv`, `Tentacles.csv`, `Leaders.csv`
 
 Each time it starts, the dashboard creates any of these that are missing in every entity's folder: the `_Catalogs`, `_Tentacles`, `_Options`, `_Networking`, `Projects` and `_Time_Management` folders, starter `_Networking/Contacts.md` and `_Networking/Events.md` files, and a blank `_Tentacles/Reports.md` that each Review adds to. In the main folder it creates `_Images` and copies in `_Help_Guide.md`, the screenshots the guide uses (`_Images/Screenshots`) and a logo (`_Images/Logo.png`) from `_Dashboard/defaults`. The logo is only added if `_Images` has no logo of its own. Anything already there is left alone, so a deleted screenshot comes back but an edited guide is kept. To change what a new install gets, edit the copies in `_Dashboard/defaults`.
 
-A picture named `logo` in `_Images`, such as `_Images/Logo.png`, appears at the bottom of the left menu, with **OCTAPU SYSTEM** beside it in capitals in the Bytesized font, and links to the Dashboard.
+A picture named `logo` in `_Images`, such as `_Images/Logo.png`, appears at the bottom of the left menu, with **OCTAPU SYSTEM** beside it in capitals in the Bytesized font, and links to the Dashboard. It's also the browser tab's icon: the server answers `/favicon.ico` with it. It can be a PNG, JPEG, GIF, WebP or SVG.
 
 ## Running the dashboard
 

@@ -22,7 +22,7 @@ const { collectToReview, waitingTasks, collectFlaggedSections, readLastReview, d
 // The name of the logo in _Images/, whatever capitals it's written with, or null.
 async function findLogo() {
   try {
-    return (await fs.promises.readdir(IMAGES_DIR)).find((name) => /^logo\.(png|jpe?g|gif|webp)$/i.test(name)) || null;
+    return (await fs.promises.readdir(IMAGES_DIR)).find((name) => /^logo\.(png|jpe?g|gif|webp|svg)$/i.test(name)) || null;
   } catch (err) {
     if (err.code === 'ENOENT') return null;
     throw err;
